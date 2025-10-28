@@ -38,8 +38,7 @@ function App() {
             element={<ProtectedRoute><OrderTrackingPage /></ProtectedRoute>}
           />
           {/* --- END UPDATED ROUTE --- */}
-
-          {/* Fallback route for any undefined paths */}
+          {/* Fallback route forr any undefined paths */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Box>
