@@ -308,6 +308,7 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase';
 import { Spinner, Center } from '@chakra-ui/react';
+import axios from 'axios';
 
 const AuthContext = createContext();
 
@@ -355,6 +356,13 @@ export const AuthProvider = ({ children }) => {
       status: 'pending', // IMPORTANT: Starts as pending
       createdAt: serverTimestamp(),
     });
+
+    // Fire and forget. We don't wait for the result.
+    axios.post('http://localhost:3001/api/notify-signup', {
+          userName: details.name,
+          userEmail: details.email
+    }).catch(err => console.error("Background notification error:", err));
+
     // Fetch and update local state immediately
     const newItem = await getDoc(userRef);
     setUserData(newItem.data());
