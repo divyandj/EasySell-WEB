@@ -41,3 +41,6 @@ temp/
 # Misc
 *.swp
 *.swo
+
+easysell-backend/serviceAccountKey.json
+
