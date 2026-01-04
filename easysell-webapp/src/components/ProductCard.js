@@ -21,7 +21,7 @@ const MotionBox = motion(Box);
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const toast = useToast();
 
   // Stock & Price Logic
@@ -34,9 +34,11 @@ const ProductCard = ({ product }) => {
   const isOutOfStock = !effectivelyInStock && !allowBackorder;
   const isPreOrder = !effectivelyInStock && allowBackorder;
 
+  const isApproved = currentUser && userData && (userData.status === 'approved' || userData.status === undefined) && userData.status !== 'pending' && userData.status !== 'rejected';
+
   const handleAddToCart = (e) => {
-    e.preventDefault(); // Prevent navigation if adding to cart
-    if (!currentUser) return; // Optional: specific logic or let the login redirect happen elsewhere. 
+    e.preventDefault();
+    if (!isApproved) return;
     // Actually, usually we allow add to cart, but if price is hidden, maybe we shouldn't? 
     // User requested "Login to view prices". Often this implies "Login to buy" too.
     // But let's stick to hiding price first. The user can click to detail page and will see login prompt there.
@@ -96,9 +98,8 @@ const ProductCard = ({ product }) => {
             </Box>
           )}
 
-          {/* Floating Action Button (Visible on Hover) - only if logged in? Or redirect? */}
-          {/* For now keeping it, assuming click might redirect if auth guarded in context, but let's hide if not logged in to be consistent with "Price Hidden" vibe */}
-          {currentUser && (
+          {/* Floating Action Button - only if approved */}
+          {isApproved && (
             <Box
               position="absolute"
               bottom="4"
@@ -138,7 +139,7 @@ const ProductCard = ({ product }) => {
           </Heading>
 
           <Flex align="baseline" mt={1}>
-            {currentUser ? (
+            {isApproved ? (
               <>
                 <Text fontSize="lg" fontWeight="extrabold" color="gray.900">
                   ₹{price.toFixed(2)}
@@ -152,7 +153,9 @@ const ProductCard = ({ product }) => {
             ) : (
               <Flex align="center" color="brand.500" fontSize="sm" fontWeight="bold">
                 <FiLock style={{ marginRight: '6px' }} />
-                <Text>Login to View Price</Text>
+                <Text>
+                  {currentUser ? (userData ? (userData.status === 'pending' ? "Verification Pending" : "Login to View Price") : "Complete Setup") : "Login to View Price"}
+                </Text>
               </Flex>
             )}
           </Flex>

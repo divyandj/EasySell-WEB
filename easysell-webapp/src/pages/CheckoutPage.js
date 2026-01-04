@@ -15,7 +15,7 @@ import axios from 'axios';
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
 const CheckoutPage = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const { cartItems, cartSubtotal, cartTotalTax, cartGrandTotal, clearCart, itemCount, loadingProductData } = useCart();
   const navigate = useNavigate();
   const toast = useToast();
@@ -89,6 +89,12 @@ const CheckoutPage = () => {
 
     if (!currentUser) {
       toast({ title: "You must be logged in.", status: "error", duration: 3000, isClosable: true });
+      return;
+    }
+
+    const isApproved = currentUser && userData && (userData.status === 'approved' || userData.status === undefined) && userData.status !== 'pending' && userData.status !== 'rejected';
+    if (!isApproved) {
+      toast({ title: "Account Not Approved", description: "Your account is under review or rejected. You cannot place orders.", status: "error", duration: 5000, isClosable: true });
       return;
     }
 

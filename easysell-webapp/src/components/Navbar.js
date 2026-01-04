@@ -77,8 +77,27 @@ const Navbar = () => {
               borderRadius="full"
             />
 
+            {/* Complete Profile Prompt (New) */}
+            {currentUser && !userData && (
+              <Button
+                as={RouterLink}
+                to="/signup"
+                colorScheme="orange"
+                variant="solid"
+                bgGradient="linear(to-r, orange.400, pink.500)"
+                size="sm"
+                px={6}
+                py={5}
+                rounded="full"
+                shadow="md"
+                _hover={{ scale: 1.05, shadow: 'lg' }}
+              >
+                Complete Setup
+              </Button>
+            )}
+
             {/* Cart Icon */}
-            {currentUser && (
+            {currentUser && userData && (
               <Button
                 as={RouterLink}
                 to="/cart"
@@ -140,9 +159,16 @@ const Navbar = () => {
                     <Text fontWeight="bold" color={menuTextColor} fontSize="md">{currentUser.displayName || 'User'}</Text>
                     <Text fontSize="sm" color="gray.400" noOfLines={1}>{currentUser.email}</Text>
                   </Box>
-                  <MenuItem as={RouterLink} to="/orders" _hover={{ bg: menuHoverBg }} icon={<FiShoppingCart color={iconColor} />}>My Orders</MenuItem>
-                  <MenuItem _hover={{ bg: menuHoverBg }} icon={<FiUser color={iconColor} />}>Profile</MenuItem>
-                  <MenuDivider borderColor="whiteAlpha.200" />
+                  {userData && (
+                    <>
+                      <MenuItem as={RouterLink} to="/orders" _hover={{ bg: menuHoverBg }} icon={<FiShoppingCart color={iconColor} />}>My Orders</MenuItem>
+                      <MenuItem _hover={{ bg: menuHoverBg }} icon={<FiUser color={iconColor} />}>Profile</MenuItem>
+                      <MenuDivider borderColor="whiteAlpha.200" />
+                    </>
+                  )}
+                  {!userData && (
+                    <MenuItem as={RouterLink} to="/signup" fontWeight="bold" color="orange.400" icon={<FiUser />}>Complete Setup</MenuItem>
+                  )}
                   <MenuItem icon={<FiLogOut />} onClick={handleLogout} color="red.400" _hover={{ bg: 'red.50' }}>Logout</MenuItem>
                 </MenuList>
               </Menu>

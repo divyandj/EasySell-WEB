@@ -66,7 +66,7 @@ const ProductDetailPage = () => {
   // --- STATE MANAGEMENT ---
   const { productId } = useParams();
   const { addToCart } = useCart();
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -80,6 +80,8 @@ const ProductDetailPage = () => {
   const [selectedVariant, setSelectedVariant] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [activeMedia, setActiveMedia] = useState(null);
+
+  const isApproved = currentUser && userData && (userData.status === 'approved' || userData.status === undefined) && userData.status !== 'pending' && userData.status !== 'rejected';
 
   // --- THEME COLORS ---
   const pageBg = useColorModeValue('gray.50', 'gray.900');
@@ -166,6 +168,7 @@ const ProductDetailPage = () => {
 
   const handleAddToCart = () => {
     if (!currentUser) return navigate('/login', { state: { from: location } });
+    if (!isApproved) return;
 
     const itemToAdd = product;
     const variantInfo = selectedVariant && selectedVariant !== 'unavailable' ? selectedVariant : null;
@@ -371,7 +374,7 @@ const ProductDetailPage = () => {
 
             {/* Price Area - COMPACT & CLEAN */}
             <Box p={6} bg={cardBg} borderRadius="2xl" borderWidth="1px" borderColor={borderColor} shadow="sm">
-              {currentUser ? (
+              {isApproved ? (
                 <VStack align="start" spacing={0}>
                   <Text fontSize="md" color={textMuted} fontWeight="medium">Total Price (Incl. Tax)</Text>
                   <HStack align="baseline" spacing={3}>
@@ -391,7 +394,9 @@ const ProductDetailPage = () => {
               ) : (
                 <HStack spacing={3} color="gray.500">
                   <Icon as={FiLock} boxSize={5} />
-                  <Text fontSize="lg" fontWeight="medium">Login to view pricing</Text>
+                  <Text fontSize="lg" fontWeight="medium">
+                    {currentUser ? (userData?.status === 'pending' ? "Verification Pending" : "Login to view pricing") : "Login to view pricing"}
+                  </Text>
                 </HStack>
               )}
             </Box>
@@ -450,7 +455,7 @@ const ProductDetailPage = () => {
                             gap={1}
                           >
                             <Text lineHeight="1">{value}</Text>
-                            {currentUser && priceDiff !== null && (
+                            {isApproved && priceDiff !== null && (
                               <Text fontSize="xs" color={priceDiff > 0 ? "orange.500" : "green.500"} fontWeight="extrabold">
                                 {priceDiff > 0 ? '+' : ''}{formatCurrency(priceDiff)}
                               </Text>
@@ -498,7 +503,7 @@ const ProductDetailPage = () => {
 
             {/* Action Bar */}
             <Flex gap={3} pt={2}>
-              {currentUser ? (
+              {isApproved ? (
                 <>
                   <NumberInput size="lg" maxW="120px" defaultValue={1} min={displayDetails.minQty} max={displayDetails.maxQty} onChange={(val) => setQuantity(parseInt(val) || 1)} value={quantity}>
                     <NumberInputField borderRadius="2xl" fontWeight="bold" h="14" />
@@ -525,14 +530,27 @@ const ProductDetailPage = () => {
                   </Button>
                 </>
               ) : (
-                <Button w="full" size="lg" colorScheme="brand" borderRadius="2xl" h="14" onClick={() => navigate('/login', { state: { from: location } })}>
-                  Login to Purchase
+                <Button
+                  w="full"
+                  size="lg"
+                  colorScheme={currentUser && !userData ? "brand" : (currentUser ? "gray" : "brand")}
+                  variant="solid"
+                  isDisabled={currentUser && !!userData}
+                  borderRadius="2xl"
+                  h="14"
+                  onClick={currentUser && !userData ? () => navigate('/signup') : (currentUser ? undefined : () => navigate('/login', { state: { from: location } }))}
+                  leftIcon={currentUser && !!userData ? <Icon as={FiLock} /> : undefined}
+                >
+                  {currentUser
+                    ? (userData ? (userData.status === 'pending' ? "Account Under Review" : "Account Rejected") : "Complete Profile Setup")
+                    : "Login to Purchase"
+                  }
                 </Button>
               )}
             </Flex>
 
             {/* Volume Pricing (Compact) */}
-            {product.bulkDiscounts && product.bulkDiscounts.length > 0 && currentUser && (
+            {product.bulkDiscounts && product.bulkDiscounts.length > 0 && isApproved && (
               <Box pt={4}>
                 <Text fontSize="sm" fontWeight="bold" mb={2} color={textMuted} textTransform="uppercase">Volume Discounts</Text>
                 <TableContainer borderWidth="1px" borderColor={borderColor} borderRadius="lg">
