@@ -11,7 +11,7 @@ import {
   VStack,
   Heading
 } from '@chakra-ui/react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { FiShoppingCart, FiClock, FiLock } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +23,7 @@ const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
   const { currentUser, userData } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
 
   // Stock & Price Logic
   const qty = product.availableQuantity;
@@ -118,9 +119,12 @@ const ProductCard = ({ product }) => {
                 p={0}
                 isDisabled={isOutOfStock}
                 onClick={(e) => {
-                  e.preventDefault();
-                  if (product.hasVariants) return; // Link takes over
-                  handleAddToCart(e);
+                  e.preventDefault(); // Always prevent default to stop Link bubble
+                  if (product.hasVariants) {
+                    navigate(`/product/${product.id}`);
+                  } else {
+                    handleAddToCart(e);
+                  }
                 }}
               >
                 {isPreOrder ? <FiClock size={18} /> : <FiShoppingCart size={18} />}
