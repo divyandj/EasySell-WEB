@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Heading, VStack, FormControl, FormLabel, Input, Button,
   Box, Text, useToast, SimpleGrid, Divider, Alert, AlertIcon,
-  AlertTitle, AlertDescription, Spinner, Center, HStack, Radio, RadioGroup, Stack, Badge
+  AlertTitle, AlertDescription, Spinner, Center, HStack, Radio, RadioGroup, Stack, Badge, useColorModeValue, Icon
 } from '@chakra-ui/react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -27,15 +27,31 @@ const CheckoutPage = () => {
   const [error, setError] = useState(null);
   const [billingMode, setBillingMode] = useState('withBill');
 
+  // --- THEME COLORS ---
+  const bgCard = useColorModeValue('white', 'whiteAlpha.50');
+  const textColor = useColorModeValue('gray.800', 'white');
+  const mutedColor = useColorModeValue('gray.600', 'gray.400');
+  const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
+  const inputBg = useColorModeValue('white', 'whiteAlpha.100');
+  const inputBorder = useColorModeValue('gray.300', 'whiteAlpha.200');
+  const radioBg = useColorModeValue('gray.50', 'whiteAlpha.200');
+  const itemTotalColor = useColorModeValue('brand.600', 'brand.200');
+
+  // Premium Gradient Heading
+  const headingGradient = useColorModeValue(
+    "linear(to-r, brand.600, accent.600)",
+    "linear(to-r, brand.200, accent.200)"
+  );
+
   // --- RESTORE SHIPPING INFO ON LOAD ---
   useEffect(() => {
     if (currentUser) {
-        try {
-            const savedInfo = localStorage.getItem(`shipping_${currentUser.uid}`);
-            if (savedInfo) {
-                setShippingInfo(JSON.parse(savedInfo));
-            }
-        } catch (e) { console.error("Error loading saved shipping info", e); }
+      try {
+        const savedInfo = localStorage.getItem(`shipping_${currentUser.uid}`);
+        if (savedInfo) {
+          setShippingInfo(JSON.parse(savedInfo));
+        }
+      } catch (e) { console.error("Error loading saved shipping info", e); }
     }
   }, [currentUser]);
 
@@ -50,20 +66,20 @@ const CheckoutPage = () => {
 
     // **VALIDATION LOGIC FOR PHONE NUMBER**
     if (name === 'phone') {
-        // Remove any non-digit characters
-        newValue = value.replace(/\D/g, '');
-        // Limit to 10 digits
-        if (newValue.length > 10) {
-            newValue = newValue.slice(0, 10);
-        }
+      // Remove any non-digit characters
+      newValue = value.replace(/\D/g, '');
+      // Limit to 10 digits
+      if (newValue.length > 10) {
+        newValue = newValue.slice(0, 10);
+      }
     }
 
     const newInfo = { ...shippingInfo, [name]: newValue };
     setShippingInfo(newInfo);
-    
+
     // SAVE SHIPPING INFO ON CHANGE
     if (currentUser) {
-        localStorage.setItem(`shipping_${currentUser.uid}`, JSON.stringify(newInfo));
+      localStorage.setItem(`shipping_${currentUser.uid}`, JSON.stringify(newInfo));
     }
   };
 
@@ -75,13 +91,13 @@ const CheckoutPage = () => {
       toast({ title: "You must be logged in.", status: "error", duration: 3000, isClosable: true });
       return;
     }
-    
+
     // **VALIDATION CHECK BEFORE SUBMIT**
     if (shippingInfo.phone.length !== 10) {
-        toast({ title: "Invalid Phone Number", description: "Please enter a valid 10-digit phone number.", status: "warning", duration: 3000, isClosable: true });
-        return;
+      toast({ title: "Invalid Phone Number", description: "Please enter a valid 10-digit phone number.", status: "warning", duration: 3000, isClosable: true });
+      return;
     }
-    
+
     if (cartItems.length === 0 || !cartItems[0]?.productData?.catalogueId || !cartItems[0]?.productData?.sellerId) {
       toast({ title: "Invalid Cart", description: "Cart is empty or missing catalogue data.", status: "warning", duration: 3000, isClosable: true });
       return;
@@ -93,9 +109,9 @@ const CheckoutPage = () => {
     const sellerId = cartItems[0].productData.sellerId;
 
     if (!catalogueId || !sellerId) {
-        setError("Critical Error: Catalogue or Seller ID is missing.");
-        setIsSubmitting(false);
-        return;
+      setError("Critical Error: Catalogue or Seller ID is missing.");
+      setIsSubmitting(false);
+      return;
     }
 
     const orderData = {
@@ -106,39 +122,39 @@ const CheckoutPage = () => {
       items: cartItems.map(item => {
         const details = item.priceDetails;
         const adjustedDetails = billingMode === 'withBill' ? details : {
-            ...details,
-            taxAmountUnit: 0,
-            finalUnitPriceWithTax: details.effectiveUnitPricePreTax,
-            lineItemTax: 0,
-            lineItemTotal: details.lineItemSubtotal
+          ...details,
+          taxAmountUnit: 0,
+          finalUnitPriceWithTax: details.effectiveUnitPricePreTax,
+          lineItemTax: 0,
+          lineItemTotal: details.lineItemSubtotal
         };
 
         return {
-            productId: item.productId,
-            title: item.title,
-            quantity: item.quantity,
-            imageUrl: item.imageUrl,
-            variant: item.variant ? {
-              options: item.variant.options,
-              skuOverride: item.variant.skuOverride,
-              imageUrl: item.variant.imageUrl,
-            } : null,
-            priceDetails: {
-                baseUnitPrice: adjustedDetails.baseUnitPrice,
-                discountAmountUnit: adjustedDetails.discountAmountUnit,
-                bulkDiscountAmountUnit: adjustedDetails.bulkDiscountAmountUnit,
-                variantModifierUnit: adjustedDetails.variantModifierUnit,
-                effectiveUnitPricePreTax: adjustedDetails.effectiveUnitPricePreTax,
-                taxAmountUnit: adjustedDetails.taxAmountUnit,
-                finalUnitPriceWithTax: adjustedDetails.finalUnitPriceWithTax,
-                lineItemSubtotal: adjustedDetails.lineItemSubtotal,
-                lineItemTax: adjustedDetails.lineItemTax,
-                lineItemTotal: adjustedDetails.lineItemTotal,
-            },
-            productSnapshot: {
-                priceUnit: item.productData.priceUnit,
-                taxRate: billingMode === 'withBill' ? item.productData.taxRate : 0,
-            }
+          productId: item.productId,
+          title: item.title,
+          quantity: item.quantity,
+          imageUrl: item.imageUrl,
+          variant: item.variant ? {
+            options: item.variant.options,
+            skuOverride: item.variant.skuOverride,
+            imageUrl: item.variant.imageUrl,
+          } : null,
+          priceDetails: {
+            baseUnitPrice: adjustedDetails.baseUnitPrice,
+            discountAmountUnit: adjustedDetails.discountAmountUnit,
+            bulkDiscountAmountUnit: adjustedDetails.bulkDiscountAmountUnit,
+            variantModifierUnit: adjustedDetails.variantModifierUnit,
+            effectiveUnitPricePreTax: adjustedDetails.effectiveUnitPricePreTax,
+            taxAmountUnit: adjustedDetails.taxAmountUnit,
+            finalUnitPriceWithTax: adjustedDetails.finalUnitPriceWithTax,
+            lineItemSubtotal: adjustedDetails.lineItemSubtotal,
+            lineItemTax: adjustedDetails.lineItemTax,
+            lineItemTotal: adjustedDetails.lineItemTotal,
+          },
+          productSnapshot: {
+            priceUnit: item.productData.priceUnit,
+            taxRate: billingMode === 'withBill' ? item.productData.taxRate : 0,
+          }
         };
       }),
       orderSubtotal: cartSubtotal,
@@ -176,21 +192,27 @@ const CheckoutPage = () => {
               currentVariant.inStock !== undefined
                 ? currentVariant.inStock
                 : productData.inStock;
-            const currentQuantity = currentVariant.quantity || 0;
+            const currentQuantity = currentVariant.quantity !== undefined ? currentVariant.quantity : 0;
+            const isInfiniteStock = currentQuantity === -1;
 
-            if (!currentInStock && !allowBackorder)
+            // Stock Check
+            const effectivelyInStock = isInfiniteStock || currentInStock;
+            if (!effectivelyInStock && !allowBackorder)
               throw new Error(`Variant for "${item.title}" is out of stock.`);
-            if (!allowBackorder && currentQuantity < item.quantity)
+
+            if (!isInfiniteStock && !allowBackorder && currentQuantity < item.quantity)
               throw new Error(`Insufficient stock for "${item.title}".`);
 
+            // Quantity Update
             const updatedVariants = [...productData.variants];
-            const newQuantity = currentQuantity - item.quantity;
+            const newQuantity = isInfiniteStock ? -1 : (currentQuantity - item.quantity);
+
             updatedVariants[variantIndex] = {
               ...currentVariant,
               quantity: newQuantity,
               inStock: allowBackorder
                 ? currentVariant.inStock
-                : newQuantity > 0,
+                : (isInfiniteStock ? true : newQuantity > 0),
             };
             productUpdates.push({
               ref: productRef,
@@ -198,19 +220,25 @@ const CheckoutPage = () => {
             });
           } else {
             const currentInStock = productData.inStock;
-            const currentQuantity = productData.availableQuantity || 0;
+            const currentQuantity = productData.availableQuantity !== undefined ? productData.availableQuantity : 0;
+            const isInfiniteStock = currentQuantity === -1;
 
-            if (!currentInStock && !allowBackorder)
+            // Stock Check
+            const effectivelyInStock = isInfiniteStock || currentInStock;
+            if (!effectivelyInStock && !allowBackorder)
               throw new Error(`Product "${item.title}" is out of stock.`);
-            if (!allowBackorder && currentQuantity < item.quantity)
+
+            if (!isInfiniteStock && !allowBackorder && currentQuantity < item.quantity)
               throw new Error(`Insufficient stock for "${item.title}".`);
 
-            const newQuantity = currentQuantity - item.quantity;
+            // Quantity Update
+            const newQuantity = isInfiniteStock ? -1 : (currentQuantity - item.quantity);
+
             productUpdates.push({
               ref: productRef,
               data: {
                 availableQuantity: newQuantity,
-                inStock: allowBackorder ? productData.inStock : newQuantity > 0,
+                inStock: allowBackorder ? productData.inStock : (isInfiniteStock ? true : newQuantity > 0),
               },
             });
           }
@@ -229,7 +257,7 @@ const CheckoutPage = () => {
       // --- 2. NEW: TRIGGER NOTIFICATION ---
       // Remove 'await'. The code will trigger this and immediately move to the next line.
       axios
-        .post("http://localhost:3001/api/notify-order", {
+        .post("https://thoughtless-letizia-easysell-533469dc.koyeb.app/api/notify-order", {
           orderId: newOrderId,
           amount: displayGrandTotal,
           customerName: shippingInfo.name,
@@ -257,17 +285,17 @@ const CheckoutPage = () => {
 
   if (loadingProductData) return <SpinnerComponent />;
   if (cartItems.length === 0 && !isSubmitting) {
-      return (
-          <Container centerContent py={20}>
-              <Heading size="md">Your cart is empty.</Heading>
-              <Button mt={4} colorScheme="teal" onClick={() => navigate('/')}>Continue Shopping</Button>
-          </Container>
-      );
+    return (
+      <Container centerContent py={20}>
+        <Heading size="md" color={textColor}>Your cart is empty.</Heading>
+        <Button mt={4} colorScheme="brand" onClick={() => navigate('/')}>Continue Shopping</Button>
+      </Container>
+    );
   }
 
   return (
-    <Container maxW="container.xl" py={10}>
-      <Heading mb={6}>Checkout</Heading>
+    <Container maxW="container.xl" py={12}>
+      <Heading mb={8} bgGradient={headingGradient} bgClip="text" fontSize="4xl" fontWeight="800">Checkout</Heading>
 
       {error && (
         <Alert status="error" mb={6} borderRadius="md">
@@ -279,47 +307,50 @@ const CheckoutPage = () => {
 
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={10}>
         <Box>
-          <Box mb={8} p={5} borderWidth="1px" borderRadius="lg" borderColor="blue.200" bg="blue.50" shadow="sm">
-            <Heading size="sm" mb={4} color="blue.800">1. Choose Billing Type</Heading>
+          <Box mb={8} p={6} borderWidth="1px" borderRadius="2xl" borderColor={borderColor} bg={bgCard} shadow="xl" backdropFilter="blur(10px)">
+            <Heading size="sm" mb={4} color="brand.500" textTransform="uppercase" letterSpacing="wide">1. Choose Billing Type</Heading>
             <RadioGroup onChange={setBillingMode} value={billingMode}>
-                <Stack direction={{ base: 'column', sm: 'row' }} spacing={5}>
-                    <Radio value='withBill' colorScheme='blue' size="lg" bg="white"><Box><Text fontWeight="bold">With Bill</Text><Text fontSize="xs" color="gray.600">Includes Taxes</Text></Box></Radio>
-                    <Radio value='withoutBill' colorScheme='blue' size="lg" bg="white"><Box><Text fontWeight="bold">Without Bill</Text><Text fontSize="xs" color="gray.600">Tax Excluded</Text></Box></Radio>
-                </Stack>
+              <Stack direction={{ base: 'column', sm: 'row' }} spacing={5}>
+                <Radio value='withBill' colorScheme='brand' size="lg" bg={radioBg}><Box><Text fontWeight="bold" color={textColor}>With Bill</Text><Text fontSize="xs" color={mutedColor}>Includes Taxes</Text></Box></Radio>
+                <Radio value='withoutBill' colorScheme='brand' size="lg" bg={radioBg}><Box><Text fontWeight="bold" color={textColor}>Without Bill</Text><Text fontSize="xs" color={mutedColor}>Tax Excluded</Text></Box></Radio>
+              </Stack>
             </RadioGroup>
           </Box>
 
-          <Heading size="md" mb={4}>2. Shipping Information</Heading>
+          <Heading size="md" mb={4} color={textColor}>2. Shipping Information</Heading>
           <form onSubmit={handlePlaceOrder}>
             <VStack spacing={4}>
-              <FormControl isRequired id="name"><FormLabel>Full Name</FormLabel><Input name="name" bg="white" onChange={handleInputChange} value={shippingInfo.name} /></FormControl>
-              
+              <FormControl isRequired id="name"><FormLabel color={mutedColor}>Full Name</FormLabel><Input name="name" bg={inputBg} borderColor={inputBorder} color={textColor} _hover={{ borderColor: 'brand.400' }} onChange={handleInputChange} value={shippingInfo.name} /></FormControl>
+
               {/* --- UPDATED PHONE INPUT --- */}
               <FormControl isRequired id="phone">
-                  <FormLabel>
-                      Phone Number 
-                      <Text as="span" fontSize="xs" color="gray.500" fontWeight="normal" ml={2}>
-                          (Enter 10 digit phone number)
-                      </Text>
-                  </FormLabel>
-                  <Input 
-                      name="phone" 
-                      type="tel" 
-                      bg="white" 
-                      onChange={handleInputChange} 
-                      value={shippingInfo.phone} 
-                      placeholder="e.g. 9876543210"
-                      maxLength={10} // HTML attribute limit
-                  />
+                <FormLabel color={mutedColor}>
+                  Phone Number
+                  <Text as="span" fontSize="xs" color={mutedColor} fontWeight="normal" ml={2}>
+                    (Enter 10 digit phone number)
+                  </Text>
+                </FormLabel>
+                <Input
+                  name="phone"
+                  type="tel"
+                  bg={inputBg}
+                  borderColor={inputBorder}
+                  color={textColor}
+                  _hover={{ borderColor: 'brand.400' }}
+                  onChange={handleInputChange}
+                  value={shippingInfo.phone}
+                  placeholder="e.g. 9876543210"
+                  maxLength={10} // HTML attribute limit
+                />
               </FormControl>
               {/* --- END UPDATE --- */}
 
-              <FormControl isRequired id="address"><FormLabel>Address</FormLabel><Input name="address" bg="white" onChange={handleInputChange} value={shippingInfo.address} /></FormControl>
+              <FormControl isRequired id="address"><FormLabel color={mutedColor}>Address</FormLabel><Input name="address" bg={inputBg} borderColor={inputBorder} color={textColor} _hover={{ borderColor: 'brand.400' }} onChange={handleInputChange} value={shippingInfo.address} /></FormControl>
               <HStack w="full">
-                <FormControl isRequired id="city"><FormLabel>City</FormLabel><Input name="city" bg="white" onChange={handleInputChange} value={shippingInfo.city} /></FormControl>
-                <FormControl isRequired id="pincode"><FormLabel>Pincode</FormLabel><Input name="pincode" bg="white" onChange={handleInputChange} value={shippingInfo.pincode} /></FormControl>
+                <FormControl isRequired id="city"><FormLabel color={mutedColor}>City</FormLabel><Input name="city" bg={inputBg} borderColor={inputBorder} color={textColor} _hover={{ borderColor: 'brand.400' }} onChange={handleInputChange} value={shippingInfo.city} /></FormControl>
+                <FormControl isRequired id="pincode"><FormLabel color={mutedColor}>Pincode</FormLabel><Input name="pincode" bg={inputBg} borderColor={inputBorder} color={textColor} _hover={{ borderColor: 'brand.400' }} onChange={handleInputChange} value={shippingInfo.pincode} /></FormControl>
               </HStack>
-              <Button type="submit" colorScheme="teal" size="lg" w="full" mt={6} isLoading={isSubmitting} loadingText="Processing Order" disabled={isSubmitting || cartItems.length === 0 || loadingProductData}>
+              <Button type="submit" colorScheme="brand" size="lg" w="full" mt={6} isLoading={isSubmitting} loadingText="Processing Order" disabled={isSubmitting || cartItems.length === 0 || loadingProductData} shadow="lg" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }}>
                 Place Order - {formatCurrency(displayGrandTotal)}
               </Button>
             </VStack>
@@ -327,31 +358,31 @@ const CheckoutPage = () => {
         </Box>
 
         <Box>
-          <Heading size="md" mb={4}>Order Summary</Heading>
-          <VStack spacing={4} align="stretch" p={6} borderWidth="1px" borderColor="gray.200" borderRadius="lg" bg="gray.50" shadow="sm">
-            <VStack spacing={3} align="stretch" divider={<Divider />}>
-                {cartItems.map(item => {
-                    const lineTotal = billingMode === 'withBill' ? item.priceDetails.lineItemTotal : item.priceDetails.lineItemSubtotal;
-                    return (
-                        <HStack key={item.cartId} justifyContent="space-between" fontSize="sm" align="start">
-                            <Box flex={1}>
-                                <Text fontWeight="semibold" noOfLines={2}>{item.title}</Text>
-                                <Text fontSize="xs" color="gray.500">{item.variant ? `${Object.values(item.variant.options).join('/')}` : ''} {item.variant ? ' • ' : ''} Qty: {item.quantity}</Text>
-                            </Box>
-                            <Text fontWeight="bold" whiteSpace="nowrap">{formatCurrency(lineTotal)}</Text>
-                        </HStack>
-                    );
-                })}
+          <Heading size="md" mb={4} color={textColor}>Order Summary</Heading>
+          <VStack spacing={4} align="stretch" p={6} borderWidth="1px" borderColor={borderColor} borderRadius="2xl" bg={bgCard} shadow="xl" backdropFilter="blur(16px)">
+            <VStack spacing={3} align="stretch" divider={<Divider borderColor={borderColor} />}>
+              {cartItems.map(item => {
+                const lineTotal = billingMode === 'withBill' ? item.priceDetails.lineItemTotal : item.priceDetails.lineItemSubtotal;
+                return (
+                  <HStack key={item.cartId} justifyContent="space-between" fontSize="sm" align="start">
+                    <Box flex={1}>
+                      <Text fontWeight="semibold" noOfLines={2} color={textColor}>{item.title}</Text>
+                      <Text fontSize="xs" color={mutedColor}>{item.variant ? `${Object.values(item.variant.options).join('/')}` : ''} {item.variant ? ' • ' : ''} Qty: {item.quantity}</Text>
+                    </Box>
+                    <Text fontWeight="bold" whiteSpace="nowrap" color={itemTotalColor}>{formatCurrency(lineTotal)}</Text>
+                  </HStack>
+                );
+              })}
             </VStack>
-            <Divider borderColor="gray.300" />
+            <Divider borderColor={borderColor} />
             <VStack spacing={2} align="stretch">
-                 <HStack justifyContent="space-between"><Text color="gray.600">Subtotal (excl. tax)</Text><Text fontWeight="medium">{formatCurrency(cartSubtotal)}</Text></HStack>
-                 <HStack justifyContent="space-between">
-                     <Text color={billingMode === 'withBill' ? "gray.600" : "gray.400"}>Taxes {billingMode === 'withoutBill' && <Badge ml={2}>Excluded</Badge>}</Text>
-                     <Text fontWeight="medium" color={billingMode === 'withBill' ? "black" : "gray.400"} textDecoration={billingMode === 'withoutBill' ? 'line-through' : 'none'}>{formatCurrency(cartTotalTax)}</Text>
-                 </HStack>
-                 <Divider borderColor="gray.300" />
-                 <HStack justifyContent="space-between" pt={1}><Text fontWeight="bold" fontSize="xl">Grand Total</Text><Text fontWeight="bold" fontSize="xl" color="teal.600">{formatCurrency(displayGrandTotal)}</Text></HStack>
+              <HStack justifyContent="space-between"><Text color={mutedColor}>Subtotal (excl. tax)</Text><Text fontWeight="medium" color={textColor}>{formatCurrency(cartSubtotal)}</Text></HStack>
+              <HStack justifyContent="space-between">
+                <Text color={billingMode === 'withBill' ? mutedColor : "gray.600"}>Taxes {billingMode === 'withoutBill' && <Badge ml={2} colorScheme="red">Excluded</Badge>}</Text>
+                <Text fontWeight="medium" color={billingMode === 'withBill' ? textColor : "gray.600"} textDecoration={billingMode === 'withoutBill' ? 'line-through' : 'none'}>{formatCurrency(cartTotalTax)}</Text>
+              </HStack>
+              <Divider borderColor={borderColor} />
+              <HStack justifyContent="space-between" pt={1}><Text fontWeight="bold" fontSize="xl" color={textColor}>Grand Total</Text><Text fontWeight="bold" fontSize="2xl" bgGradient={headingGradient} bgClip="text">{formatCurrency(displayGrandTotal)}</Text></HStack>
             </VStack>
           </VStack>
         </Box>

@@ -1,460 +1,3 @@
-// import React, { useState, useEffect, useMemo } from 'react';
-// import { useParams, useNavigate, useLocation } from 'react-router-dom';
-// import { doc, getDoc } from 'firebase/firestore';
-// import { db } from '../firebase';
-// import {
-//   Box,
-//   Container,
-//   Flex,
-//   Image,
-//   Heading,
-//   Text,
-//   Button,
-//   Tag,
-//   VStack,
-//   HStack,
-//   ButtonGroup,
-//   useToast,
-//   SimpleGrid,
-//   AspectRatio,
-//   NumberInput,
-//   NumberInputField,
-//   NumberInputStepper,
-//   NumberIncrementStepper,
-//   NumberDecrementStepper,
-//   Divider,
-//   Center,
-//   Icon,
-//   Table,
-//   Thead,
-//   Tbody,
-//   Tr,
-//   Th,
-//   Td,
-//   TableContainer,
-//   Badge,
-//   Alert,
-//   AlertIcon
-// } from '@chakra-ui/react';
-// import { FiPlayCircle, FiShoppingCart, FiCheckCircle, FiXCircle, FiClock, FiLock } from 'react-icons/fi';
-// import { useCart } from '../context/CartContext';
-// import { useAuth } from '../context/AuthContext';
-// import { getProxiedUrl } from '../config';
-// import SpinnerComponent from '../components/Spinner';
-
-// // Helper to format currency
-// const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
-
-// const ProductDetailPage = () => {
-//   // --- STATE MANAGEMENT ---
-//   const { productId } = useParams();
-//   const { addToCart } = useCart();
-//   const { currentUser } = useAuth();
-//   const navigate = useNavigate();
-//   const location = useLocation(); // <--- 1. Get location
-//   const toast = useToast();
-
-//   const [product, setProduct] = useState(null);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState(null);
-
-//   const [quantity, setQuantity] = useState(1);
-//   const [selectedOptions, setSelectedOptions] = useState({});
-//   const [selectedVariant, setSelectedVariant] = useState(null);
-//   const [activeMedia, setActiveMedia] = useState(null);
-
-//   // --- DATA FETCHING & INITIAL STATE ---
-//   useEffect(() => {
-//     const fetchProduct = async () => {
-//       setLoading(true);
-//       setError(null);
-//       try {
-//         const productRef = doc(db, 'products', productId);
-//         const productSnap = await getDoc(productRef);
-//         if (productSnap.exists()) {
-//           const productData = { id: productSnap.id, ...productSnap.data() };
-//           setProduct(productData);
-//           if (productData.minOrderQty > 1) {
-//             setQuantity(productData.minOrderQty);
-//           } else {
-//             setQuantity(1);
-//           }
-//         } else {
-//           setError('Product not found.');
-//         }
-//       } catch (err) {
-//         setError('Failed to fetch product details.');
-//         console.error("Fetch Error:", err);
-//       } finally {
-//         setLoading(false);
-//       }
-//     };
-//     if (productId) {
-//       fetchProduct();
-//     } else {
-//        setError('Product ID is missing.');
-//        setLoading(false);
-//     }
-//   }, [productId]);
-
-//   // --- VARIANT SELECTION LOGIC ---
-//   useEffect(() => {
-//     if (product?.hasVariants && product.variantOptions && Object.keys(selectedOptions).length === Object.keys(product.variantOptions).length) {
-//       const foundVariant = product.variants?.find(variant =>
-//         Object.entries(selectedOptions).every(([key, value]) => variant?.options?.[key] === value)
-//       );
-//       setSelectedVariant(foundVariant || 'unavailable');
-//     } else {
-//       setSelectedVariant(null);
-//     }
-//   }, [selectedOptions, product]);
-
-//   // --- MEDIA GALLERY LOGIC ---
-//   const displayMedia = useMemo(() => {
-//     if (!product) return [];
-//     let allMedia = [...(product.media || [])].filter(item => item && item.url);
-
-//     if (selectedVariant && selectedVariant !== 'unavailable' && selectedVariant.imageUrl) {
-//       const variantMedia = { url: selectedVariant.imageUrl, type: 'image' };
-//       if (variantMedia.url && (!allMedia.length || allMedia[0]?.url !== variantMedia.url)) {
-//           allMedia = allMedia.filter(item => item.url !== variantMedia.url);
-//           allMedia.unshift(variantMedia);
-//       }
-//     }
-//     return allMedia;
-//   }, [product, selectedVariant]);
-
-//   useEffect(() => {
-//     if (selectedVariant && selectedVariant !== 'unavailable' && selectedVariant.imageUrl) {
-//         setActiveMedia({ url: selectedVariant.imageUrl, type: 'image' });
-//     } else if (displayMedia.length > 0) {
-//         setActiveMedia(displayMedia[0]);
-//     } else {
-//         setActiveMedia(null);
-//     }
-//   }, [selectedVariant, displayMedia]);
-
-
-//   // --- EVENT HANDLERS ---
-//   const handleOptionSelect = (optionName, value) => {
-//     setSelectedOptions(prev => ({ ...prev, [optionName]: value }));
-//   };
-
-//   const handleAddToCart = () => {
-//     if (!currentUser) {
-//         // Redirect to login but remember to come back here
-//         return navigate('/login', { state: { from: location } });
-//     }
-    
-//     const itemToAdd = product;
-//     const variantInfo = selectedVariant && selectedVariant !== 'unavailable' ? selectedVariant : null;
-//     addToCart(itemToAdd, quantity, variantInfo);
-//     toast({
-//       title: `Added to cart!`,
-//       description: `${quantity} x ${product.title} has been added.`,
-//       status: "success",
-//       duration: 3000,
-//       isClosable: true,
-//       position: 'top'
-//     });
-//   };
-
-//   // --- DERIVED STATE & CALCULATIONS ---
-//   const displayDetails = useMemo(() => {
-//     if (!product) return {};
-
-//     const isVariantSelected = product.hasVariants && selectedVariant && selectedVariant !== 'unavailable';
-//     const allowBackorder = product.allowBackorders === true;
-//     const taxRatePercent = product.taxRate > 0 ? product.taxRate : 0;
-//     const taxRateDecimal = taxRatePercent / 100;
-
-//     // Stock Logic
-//     const variantInStock = isVariantSelected ? selectedVariant.inStock : undefined;
-//     const inStock = variantInStock !== undefined ? variantInStock : (product.inStock === true);
-//     const availableQty = isVariantSelected ? (selectedVariant.quantity || 0) : (product.availableQuantity || 0);
-
-//     let stockStatus, stockColor, stockIcon;
-//     if (inStock) {
-//       stockStatus = `In Stock`;
-//       stockColor = 'green';
-//       stockIcon = FiCheckCircle;
-//     } else if (allowBackorder) {
-//       stockStatus = 'Available on Backorder';
-//       stockColor = 'blue';
-//       stockIcon = FiClock;
-//     } else {
-//       stockStatus = 'Out of Stock';
-//       stockColor = 'red';
-//       stockIcon = FiXCircle;
-//     }
-
-//     // Price Logic
-//     const basePrice = product.price > 0 ? product.price : 0;
-//     const discountedPriceValue = product.discountedPrice > 0 && product.discountedPrice < basePrice ? product.discountedPrice : null;
-//     const priceBeforeVariant = discountedPriceValue ?? basePrice;
-//     const priceModifier = isVariantSelected ? selectedVariant.priceModifier || 0 : 0;
-//     const effectivePricePreTax = priceBeforeVariant + priceModifier;
-//     const taxAmount = effectivePricePreTax * taxRateDecimal;
-//     const finalPriceWithTax = effectivePricePreTax + taxAmount;
-
-//     // Strikethrough Logic
-//     const originalPriceWithTax = basePrice * (1 + taxRateDecimal);
-//     const showStrikeThrough = discountedPriceValue !== null || priceModifier !== 0;
-//     const discountAmount = discountedPriceValue ? basePrice - discountedPriceValue : 0;
-//     const discountPercent = discountAmount > 0 && basePrice > 0 ? Math.round((discountAmount / basePrice) * 100) : 0;
-
-//     const isAddToCartDisabled = (product.hasVariants && (!isVariantSelected || (!inStock && !allowBackorder))) || (!product.hasVariants && !inStock && !allowBackorder);
-
-//     const minQty = product.minOrderQty > 0 ? product.minOrderQty : 1;
-//     const maxQty = allowBackorder ? undefined : (availableQty < minQty ? minQty : availableQty);
-
-//     return {
-//       basePrice,
-//       discountedPriceValue,
-//       priceModifier,
-//       effectivePricePreTax,
-//       finalPriceWithTax,
-//       taxAmount,
-//       taxRatePercent,
-//       originalPriceWithTax,
-//       showStrikeThrough,
-//       discountPercent,
-//       stockStatus, stockColor, stockIcon,
-//       isAddToCartDisabled,
-//       minQty, maxQty, availableQty
-//     };
-//   }, [product, selectedVariant]);
-
-//   useEffect(() => {
-//       if (displayDetails.minQty && quantity < displayDetails.minQty) {
-//           setQuantity(displayDetails.minQty);
-//       }
-//   }, [displayDetails.minQty, quantity]);
-
-
-//   // --- RENDERING ---
-//   if (loading) return <SpinnerComponent />;
-//   if (error) return <Center h="80vh" flexDirection="column"><Heading size="md" color="red.500">Error</Heading><Text mt={2}>{error}</Text></Center>;
-//   if (!product) return <Center h="80vh"><Text>Product data could not be loaded.</Text></Center>;
-
-//   return (
-//     <Container maxW="container.xl" py={{ base: 6, md: 12 }}>
-//       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={{ base: 8, lg: 16 }}>
-
-//         {/* --- MEDIA GALLERY COLUMN --- */}
-//         <VStack spacing={4} align="stretch" position={{ base: 'relative', lg: 'sticky' }} top={{ lg: '80px' }} h="max-content">
-//           <AspectRatio ratio={1} w="100%">
-//             <Box bg="gray.100" borderWidth="1px" borderColor="gray.200" borderRadius="xl" overflow="hidden">
-//               {!activeMedia ? (
-//                  <Center h="100%" bg="gray.200"><Text color="gray.500">No Image Available</Text></Center>
-//               ) : activeMedia.type === 'video' ? (
-//                 <Box as="video" src={getProxiedUrl(activeMedia.url)} controls autoPlay muted loop playsInline width="100%" height="100%" objectFit="contain" />
-//               ) : (
-//                 <Image src={getProxiedUrl(activeMedia.url)} alt={`${product.title} - view`} objectFit="contain" w="100%" h="100%" fallbackSrc="https://via.placeholder.com/600?text=Image+Not+Found" />
-//               )}
-//             </Box>
-//           </AspectRatio>
-//           {displayMedia.length > 1 && (
-//             <HStack spacing={3} overflowX="auto" py={2} css={{ '&::-webkit-scrollbar': { height: '8px' }, '&::-webkit-scrollbar-track': { background: '#f1f1f1' }, '&::-webkit-scrollbar-thumb': { background: '#cccccc', borderRadius: '4px' }, '&::-webkit-scrollbar-thumb:hover': { background: '#aaaaaa' } }}>
-//               {displayMedia.map((mediaItem) => (
-//                 <Box key={mediaItem.url} as="button" w="80px" h="80px" minW="80px" borderWidth="2px" borderRadius="md" overflow="hidden" position="relative" bg="gray.100" borderColor={activeMedia?.url === mediaItem.url ? 'teal.500' : 'transparent'} onClick={() => setActiveMedia(mediaItem)} _focus={{ outline: 'none', shadow: 'outline' }}>
-//                   {mediaItem.type === 'video' ? (
-//                     <Flex align="center" justify="center" w="100%" h="100%" bg="gray.300" color="gray.600">
-//                       <Icon as={FiPlayCircle} boxSize={8} />
-//                     </Flex>
-//                   ) : (
-//                     <Image src={getProxiedUrl(mediaItem.url)} alt={`${product.title} - thumbnail`} objectFit="cover" w="100%" h="100%" fallbackSrc="https://via.placeholder.com/80?text=!" />
-//                   )}
-//                 </Box>
-//               ))}
-//             </HStack>
-//           )}
-//         </VStack>
-
-//         {/* --- PRODUCT INFO COLUMN --- */}
-//         <VStack align="flex-start" spacing={5}>
-//           <Heading as="h1" size="xl" fontWeight="800" color="gray.800">{product.title}</Heading>
-
-//           <VStack align="stretch" w="full" spacing={5}>
-//             {/* --- ENHANCED PRICE DISPLAY --- */}
-//             <Box p={4} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.200">
-//                 {currentUser ? (
-//                     // LOGGED IN VIEW
-//                     <>
-//                         <HStack align="baseline" spacing={3} wrap="wrap">
-//                             <Text fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" color="teal.600">
-//                               {formatCurrency(displayDetails.finalPriceWithTax)}
-//                             </Text>
-//                             {displayDetails.showStrikeThrough && (
-//                                <Text as="s" color="gray.400" fontSize="xl" fontWeight="normal">
-//                                  {formatCurrency(displayDetails.originalPriceWithTax)}
-//                                </Text>
-//                              )}
-//                              {displayDetails.discountPercent > 0 && (
-//                                 <Badge colorScheme='green' variant="subtle" fontSize="sm" px={2} py={0.5} borderRadius="md">
-//                                     {displayDetails.discountPercent}% OFF
-//                                 </Badge>
-//                              )}
-//                         </HStack>
-//                        <Text fontSize="sm" color="gray.600" mt={1}>
-//                          (Price before tax: {formatCurrency(displayDetails.effectivePricePreTax)} + {formatCurrency(displayDetails.taxAmount)} tax ({displayDetails.taxRatePercent}%))
-//                          {product.priceUnit && ` ${product.priceUnit}`}
-//                        </Text>
-//                    </>
-//                 ) : (
-//                     // GUEST VIEW
-//                     <HStack spacing={3}>
-//                         <Icon as={FiLock} color="gray.500" boxSize={6} />
-//                         <VStack align="start" spacing={0}>
-//                             <Text fontWeight="bold" color="gray.600">Price hidden</Text>
-//                             <Text fontSize="sm" color="gray.500">Please log in to view pricing.</Text>
-//                         </VStack>
-//                     </HStack>
-//                 )}
-//             </Box>
-
-//             {/* Stock Status */}
-//             <Flex align="center">
-//                 <Tag size="md" variant="subtle" colorScheme={displayDetails.stockColor} mr={3}>
-//                     <Icon as={displayDetails.stockIcon} mr={2} />
-//                     {displayDetails.stockStatus}
-//                 </Tag>
-//                 {displayDetails.stockColor === 'green' && <Text fontSize="sm" color="gray.600">{displayDetails.availableQty} units available</Text>}
-//             </Flex>
-
-//             {/* Description */}
-//             {product.description && <Text color="gray.700" fontSize="md" lineHeight="tall">{product.description}</Text>}
-//           </VStack>
-
-//           {/* Variants Selection */}
-//           {product.hasVariants && product.variantOptions && (
-//             <VStack align="flex-start" w="full" spacing={4} pt={4}>
-//               {Object.entries(product.variantOptions).map(([optionName, values]) => (
-//                 values && values.length > 0 && (
-//                     <Box key={optionName} w="full">
-//                       <Text fontWeight="semibold" mb={2} fontSize="md" color="gray.700">{optionName}</Text>
-//                       <ButtonGroup flexWrap="wrap" gap={2} isAttached={false} variant="outline">
-//                         {values.map(value => (
-//                           <Button key={value} onClick={() => handleOptionSelect(optionName, value)} isActive={selectedOptions[optionName] === value} _active={{ bg: 'teal.500', color: 'white', borderColor: 'teal.500' }} px={4} size="sm">
-//                             {value}
-//                           </Button>
-//                         ))}
-//                       </ButtonGroup>
-//                     </Box>
-//                 )
-//               ))}
-//               {selectedVariant === 'unavailable' && <Text color="red.500" mt={2}>This combination is not available.</Text>}
-//             </VStack>
-//           )}
-
-//           {/* Add to Cart Section */}
-//           <VStack w="full" spacing={4} pt={6}>
-//             {currentUser ? (
-//                 // LOGGED IN USER
-//                 <HStack w="full">
-//                   <NumberInput size="lg" w="120px" value={quantity} min={displayDetails.minQty} max={displayDetails.maxQty} onChange={(valStr, valNum) => setQuantity(isNaN(valNum) ? displayDetails.minQty : valNum)} isDisabled={displayDetails.isAddToCartDisabled || !displayDetails.maxQty || displayDetails.maxQty < displayDetails.minQty} allowMouseWheel>
-//                     <NumberInputField />
-//                     <NumberInputStepper><NumberIncrementStepper /><NumberDecrementStepper /></NumberInputStepper>
-//                   </NumberInput>
-//                   <Button colorScheme="teal" size="lg" onClick={handleAddToCart} isDisabled={displayDetails.isAddToCartDisabled} flex="1" leftIcon={<FiShoppingCart />} _hover={!displayDetails.isAddToCartDisabled ? { transform: 'translateY(-2px)', boxShadow: 'lg' } : {}} transition="all 0.2s">
-//                     Add to Cart
-//                   </Button>
-//                 </HStack>
-//             ) : (
-//                 // GUEST USER
-//                 <Box w="full">
-//                      <Alert status="info" borderRadius="md" mb={4}>
-//                           <AlertIcon />
-//                           You must be logged in to add items to your cart.
-//                       </Alert>
-//                       <Button colorScheme="teal" size="lg" w="full" onClick={() => navigate('/login', { state: { from: location } })}>
-//                           Login to Buy
-//                       </Button>
-//                 </Box>
-//             )}
-
-//             {displayDetails.minQty > 1 && <Text fontSize="sm" color="gray.500" w="full">Minimum order quantity: {displayDetails.minQty}.</Text>}
-//              {/* Show max quantity if relevant */}
-//             {!product.allowBackorders && displayDetails.availableQty > 0 && displayDetails.availableQty < Infinity && displayDetails.stockColor === 'green' && (
-//                 <Text fontSize="sm" color="gray.500" w="full">Maximum order quantity: {displayDetails.maxQty}.</Text>
-//             )}
-//           </VStack>
-
-//           {/* --- FULL DETAILS SECTION --- */}
-//           <Box w="full" pt={6}>
-//             <Divider />
-//             <Box mt={6} >
-//               <Heading size="md" mb={4}>Product Details</Heading>
-//               <VStack align="stretch" spacing={3} fontSize="sm" color="gray.700" w="full" p={5} bg="gray.50" borderRadius="lg" borderWidth="1px" borderColor="gray.200">
-//                 {product.sku && <HStack justifyContent="space-between"><Text color="gray.500">SKU:</Text> <Text fontWeight="medium">{product.sku}</Text></HStack>}
-//                 {product.weight > 0 && <HStack justifyContent="space-between"><Text color="gray.500">Weight:</Text> <Text fontWeight="medium">{product.weight} {product.weightUnit || ''}</Text></HStack>}
-//                 {product.dimensions && <HStack justifyContent="space-between"><Text color="gray.500">Dimensions (LxWxH):</Text> <Text fontWeight="medium">{typeof product.dimensions === 'object' ? `${product.dimensions.length || '?'} x ${product.dimensions.width || '?'} x ${product.dimensions.height || '?'} ${product.dimensions.unit || ''}` : product.dimensions}</Text></HStack>}
-//                 {displayDetails.minQty > 1 && <HStack justifyContent="space-between"><Text color="gray.500">Min. Order Qty:</Text> <Text fontWeight="medium">{displayDetails.minQty}</Text></HStack>}
-//                 {product.tags?.length > 0 && (
-//                   <HStack align="start" justifyContent="space-between"><Text color="gray.500" mt="5px">Tags:</Text>
-//                     <Flex flexWrap="wrap" justifyContent="flex-end" gap={2}>
-//                       {product.tags.map(tag => <Tag key={tag} size="sm" variant="subtle" colorScheme="blue">{tag}</Tag>)}
-//                     </Flex>
-//                   </HStack>
-//                 )}
-//                 <HStack justifyContent="space-between"><Text color="gray.500">Taxable:</Text> <Text fontWeight="medium">{displayDetails.taxRatePercent > 0 ? `Yes (${displayDetails.taxRatePercent}%)` : 'No'}</Text></HStack>
-//                 <HStack justifyContent="space-between"><Text color="gray.500">Allow Backorders:</Text> <Text fontWeight="medium">{product.allowBackorders ? 'Yes' : 'No'}</Text></HStack>
-//                 <HStack justifyContent="space-between"><Text color="gray.500">Hide if OOS:</Text> <Text fontWeight="medium">{product.hideWhenOutOfStock ? 'Yes' : 'No'}</Text></HStack>
-
-//                 {/* Custom Fields */}
-//                 {product.customFields && Object.keys(product.customFields).length > 0 && <Divider pt={2}/>}
-//                 {product.customFields && Object.entries(product.customFields).map(([key, value]) => (
-//                   value && <HStack justifyContent="space-between" key={key}><Text color="gray.500">{key}:</Text> <Text fontWeight="medium" textAlign="right">{String(value)}</Text></HStack>
-//                 ))}
-//               </VStack>
-//             </Box>
-
-//             {/* Bulk Discounts Section */}
-//             {product.bulkDiscounts && product.bulkDiscounts.length > 0 && currentUser && (
-//               <Box w="full" pt={6}>
-//                 <Divider />
-//                 <Box mt={6}>
-//                   <Heading size="md" mb={4}>Volume Pricing (per unit, excl. tax)</Heading>
-//                   <TableContainer borderWidth="1px" borderColor="gray.200" borderRadius="lg">
-//                     <Table variant='simple' size='sm'>
-//                       <Thead bg="gray.50">
-//                         <Tr>
-//                           <Th>Quantity</Th>
-//                           <Th isNumeric>Price per Unit</Th>
-//                         </Tr>
-//                       </Thead>
-//                       <Tbody>
-//                         {/* Add base price tier if applicable */}
-//                         {product.bulkDiscounts.length > 0 && product.bulkDiscounts[0].startQty > 1 && (
-//                             <Tr>
-//                                 <Td>1 - {product.bulkDiscounts[0].startQty - 1}</Td>
-//                                 <Td isNumeric>{formatCurrency(product.price)}</Td>
-//                             </Tr>
-//                         )}
-//                         {/* Map through sorted bulk discounts */}
-//                         {product.bulkDiscounts.sort((a, b) => a.startQty - b.startQty).map((discount, index) => (
-//                           <Tr key={index}>
-//                             <Td>{discount.startQty}{discount.endQty ? ` - ${discount.endQty}` : '+'}</Td>
-//                             <Td isNumeric>{formatCurrency(discount.pricePerUnit)}</Td>
-//                           </Tr>
-//                         ))}
-//                       </Tbody>
-//                     </Table>
-//                   </TableContainer>
-//                 </Box>
-//               </Box>
-//             )}
-//           </Box>
-//         </VStack>
-//       </SimpleGrid>
-//     </Container>
-//   );
-// };
-
-// export default ProductDetailPage;
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
@@ -491,12 +34,30 @@ import {
   TableContainer,
   Badge,
   Alert,
-  AlertIcon
+  AlertIcon,
+  useColorModeValue,
+  Tooltip,
+  Skeleton,
+  keyframes,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalBody,
+  ModalCloseButton,
+  useDisclosure,
+  IconButton
 } from '@chakra-ui/react';
-import { FiPlayCircle, FiShoppingCart, FiCheckCircle, FiXCircle, FiClock, FiLock } from 'react-icons/fi';
+import { FiPlayCircle, FiShoppingCart, FiCheckCircle, FiXCircle, FiClock, FiLock, FiStar, FiInfo, FiArrowUp, FiMaximize2 } from 'react-icons/fi';
+
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import SpinnerComponent from '../components/Spinner';
+
+const bounce = keyframes`
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+`;
+const bounceAnimation = `${bounce} 1.5s infinite`;
 
 // Helper to format currency
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
@@ -507,7 +68,7 @@ const ProductDetailPage = () => {
   const { addToCart } = useCart();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // <--- 1. Get location
+  const location = useLocation();
   const toast = useToast();
 
   const [product, setProduct] = useState(null);
@@ -517,9 +78,25 @@ const ProductDetailPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState({});
   const [selectedVariant, setSelectedVariant] = useState(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const [activeMedia, setActiveMedia] = useState(null);
 
-  // --- DATA FETCHING & INITIAL STATE ---
+  // --- THEME COLORS ---
+  const pageBg = useColorModeValue('gray.50', 'gray.900');
+  const cardBg = useColorModeValue('white', 'whiteAlpha.100');
+  const borderColor = useColorModeValue('gray.200', 'whiteAlpha.200');
+  const textPrimary = useColorModeValue('gray.800', 'white');
+  const textSecondary = useColorModeValue('gray.600', 'gray.300');
+  const textMuted = useColorModeValue('gray.500', 'gray.400');
+
+  const headingGradient = useColorModeValue(
+    "linear(to-r, gray.700, gray.900)",
+    "linear(to-r, white, gray.200)"
+  );
+  const alternateRowBg = useColorModeValue('gray.50', 'whiteAlpha.50');
+  const promptBg = useColorModeValue('gray.50', 'whiteAlpha.50');
+
+  // --- DATA FETCHING ---
   useEffect(() => {
     const fetchProduct = async () => {
       setLoading(true);
@@ -530,11 +107,8 @@ const ProductDetailPage = () => {
         if (productSnap.exists()) {
           const productData = { id: productSnap.id, ...productSnap.data() };
           setProduct(productData);
-          if (productData.minOrderQty > 1) {
-            setQuantity(productData.minOrderQty);
-          } else {
-            setQuantity(1);
-          }
+          if (productData.minOrderQty > 1) setQuantity(productData.minOrderQty);
+          else setQuantity(1);
         } else {
           setError('Product not found.');
         }
@@ -545,15 +119,11 @@ const ProductDetailPage = () => {
         setLoading(false);
       }
     };
-    if (productId) {
-      fetchProduct();
-    } else {
-       setError('Product ID is missing.');
-       setLoading(false);
-    }
+    if (productId) fetchProduct();
+    else { setError('Product ID is missing.'); setLoading(false); }
   }, [productId]);
 
-  // --- VARIANT SELECTION LOGIC ---
+  // --- VARIANT SELECTION ---
   useEffect(() => {
     if (product?.hasVariants && product.variantOptions && Object.keys(selectedOptions).length === Object.keys(product.variantOptions).length) {
       const foundVariant = product.variants?.find(variant =>
@@ -565,16 +135,15 @@ const ProductDetailPage = () => {
     }
   }, [selectedOptions, product]);
 
-  // --- MEDIA GALLERY LOGIC ---
+  // --- MEDIA GALLERY ---
   const displayMedia = useMemo(() => {
     if (!product) return [];
     let allMedia = [...(product.media || [])].filter(item => item && item.url);
-
     if (selectedVariant && selectedVariant !== 'unavailable' && selectedVariant.imageUrl) {
       const variantMedia = { url: selectedVariant.imageUrl, type: 'image' };
       if (variantMedia.url && (!allMedia.length || allMedia[0]?.url !== variantMedia.url)) {
-          allMedia = allMedia.filter(item => item.url !== variantMedia.url);
-          allMedia.unshift(variantMedia);
+        allMedia = allMedia.filter(item => item.url !== variantMedia.url);
+        allMedia.unshift(variantMedia);
       }
     }
     return allMedia;
@@ -582,14 +151,13 @@ const ProductDetailPage = () => {
 
   useEffect(() => {
     if (selectedVariant && selectedVariant !== 'unavailable' && selectedVariant.imageUrl) {
-        setActiveMedia({ url: selectedVariant.imageUrl, type: 'image' });
+      setActiveMedia({ url: selectedVariant.imageUrl, type: 'image' });
     } else if (displayMedia.length > 0) {
-        setActiveMedia(displayMedia[0]);
+      setActiveMedia(displayMedia[0]);
     } else {
-        setActiveMedia(null);
+      setActiveMedia(null);
     }
   }, [selectedVariant, displayMedia]);
-
 
   // --- EVENT HANDLERS ---
   const handleOptionSelect = (optionName, value) => {
@@ -597,11 +165,8 @@ const ProductDetailPage = () => {
   };
 
   const handleAddToCart = () => {
-    if (!currentUser) {
-        // Redirect to login but remember to come back here
-        return navigate('/login', { state: { from: location } });
-    }
-    
+    if (!currentUser) return navigate('/login', { state: { from: location } });
+
     const itemToAdd = product;
     const variantInfo = selectedVariant && selectedVariant !== 'unavailable' ? selectedVariant : null;
     addToCart(itemToAdd, quantity, variantInfo);
@@ -615,295 +180,452 @@ const ProductDetailPage = () => {
     });
   };
 
-  // --- DERIVED STATE & CALCULATIONS ---
+  const getVariantPriceDiff = (optionName, value) => {
+    if (!product?.variants) return null;
+
+    // Create a temporary selection with the current option value
+    const tempOptions = { ...selectedOptions, [optionName]: value };
+
+    // We can only definitely show a price if we have enough info to resolve a variant, 
+    // OR if this option consistently adds price regardless of others (hard to verify without resolving).
+    // Strategy: Try to find the variant assuming current selections for other fields are kept.
+
+    // Check if we have all keys required for a variant
+    const requiredKeys = Object.keys(product.variantOptions || {});
+    // If we rely on valid check: 
+    // If the user hasn't selected other keys, we can't be sure of the combination.
+    // So we only show diff if we have a resolved variant for this specific potential state.
+
+    const potentialVariant = product.variants.find(v =>
+      requiredKeys.every(key => v.options[key] === tempOptions[key])
+    );
+
+    if (potentialVariant && potentialVariant.priceModifier !== 0) {
+      return potentialVariant.priceModifier;
+    }
+    return null;
+  };
+
+  // --- DERIVED STATE / LOGIC ---
   const displayDetails = useMemo(() => {
     if (!product) return {};
 
     const isVariantSelected = product.hasVariants && selectedVariant && selectedVariant !== 'unavailable';
     const allowBackorder = product.allowBackorders === true;
-    const taxRatePercent = product.taxRate > 0 ? product.taxRate : 0;
-    const taxRateDecimal = taxRatePercent / 100;
 
     // Stock Logic
-    const variantInStock = isVariantSelected ? selectedVariant.inStock : undefined;
-    const inStock = variantInStock !== undefined ? variantInStock : (product.inStock === true);
-    const availableQty = isVariantSelected ? (selectedVariant.quantity || 0) : (product.availableQuantity || 0);
+    const variantQty = isVariantSelected ? (selectedVariant.quantity) : undefined;
+    const productQty = product.availableQuantity;
+    const relevantQty = isVariantSelected ? variantQty : productQty;
+    const isUnlimitedStock = relevantQty === -1;
 
-    let stockStatus, stockColor, stockIcon;
-    if (inStock) {
-      stockStatus = `In Stock`;
+    let effectiveInStock = false;
+    if (isUnlimitedStock) effectiveInStock = true;
+    else {
+      const variantFlag = isVariantSelected ? selectedVariant.inStock : undefined;
+      if (variantFlag !== undefined) effectiveInStock = variantFlag;
+      else effectiveInStock = product.inStock === true;
+    }
+
+    const availableQty = isUnlimitedStock ? Infinity : (relevantQty || 0);
+
+    let stockStatus, stockColor, stockIcon, buttonText, buttonColorScheme;
+
+    if (effectiveInStock) {
+      stockStatus = 'In Stock';
       stockColor = 'green';
       stockIcon = FiCheckCircle;
-    } else if (allowBackorder) {
-      stockStatus = 'Available on Backorder';
-      stockColor = 'blue';
+      buttonText = 'Add to Cart';
+      buttonColorScheme = 'brand';
+    }
+    else if (allowBackorder) {
+      stockStatus = 'Available for Pre-Order';
+      stockColor = 'orange';
       stockIcon = FiClock;
-    } else {
+      buttonText = 'Pre-Order Now';
+      buttonColorScheme = 'orange';
+    }
+    else {
       stockStatus = 'Out of Stock';
       stockColor = 'red';
       stockIcon = FiXCircle;
+      buttonText = 'Sold Out';
+      buttonColorScheme = 'gray';
     }
 
-    // Price Logic
     const basePrice = product.price > 0 ? product.price : 0;
     const discountedPriceValue = product.discountedPrice > 0 && product.discountedPrice < basePrice ? product.discountedPrice : null;
     const priceBeforeVariant = discountedPriceValue ?? basePrice;
     const priceModifier = isVariantSelected ? selectedVariant.priceModifier || 0 : 0;
+
     const effectivePricePreTax = priceBeforeVariant + priceModifier;
+    const taxRatePercent = (product.taxRate || 0);
+    const taxRateDecimal = taxRatePercent / 100;
     const taxAmount = effectivePricePreTax * taxRateDecimal;
     const finalPriceWithTax = effectivePricePreTax + taxAmount;
 
-    // Strikethrough Logic
-    const originalPriceWithTax = basePrice * (1 + taxRateDecimal);
-    const showStrikeThrough = discountedPriceValue !== null || priceModifier !== 0;
-    const discountAmount = discountedPriceValue ? basePrice - discountedPriceValue : 0;
-    const discountPercent = discountAmount > 0 && basePrice > 0 ? Math.round((discountAmount / basePrice) * 100) : 0;
+    const originalPriceWithTax = (basePrice + priceModifier) * (1 + taxRateDecimal);
+    const showStrikeThrough = discountedPriceValue !== null;
 
-    const isAddToCartDisabled = (product.hasVariants && (!isVariantSelected || (!inStock && !allowBackorder))) || (!product.hasVariants && !inStock && !allowBackorder);
+    const isAddToCartDisabled = (product.hasVariants && !isVariantSelected) || (!effectiveInStock && !allowBackorder);
 
     const minQty = product.minOrderQty > 0 ? product.minOrderQty : 1;
-    const maxQty = allowBackorder ? undefined : (availableQty < minQty ? minQty : availableQty);
+    const maxQty = (isUnlimitedStock || allowBackorder) ? undefined : (availableQty < minQty ? minQty : availableQty);
 
     return {
-      basePrice,
-      discountedPriceValue,
-      priceModifier,
-      effectivePricePreTax,
       finalPriceWithTax,
+      effectivePricePreTax,
       taxAmount,
       taxRatePercent,
       originalPriceWithTax,
       showStrikeThrough,
-      discountPercent,
       stockStatus, stockColor, stockIcon,
+      buttonText, buttonColorScheme,
       isAddToCartDisabled,
-      minQty, maxQty, availableQty
+      minQty, maxQty, availableQty, isUnlimitedStock,
+      isBackorder: !effectiveInStock && allowBackorder
     };
   }, [product, selectedVariant]);
 
   useEffect(() => {
-      if (displayDetails.minQty && quantity < displayDetails.minQty) {
-          setQuantity(displayDetails.minQty);
-      }
+    if (displayDetails.minQty && quantity < displayDetails.minQty) {
+      setQuantity(displayDetails.minQty);
+    }
   }, [displayDetails.minQty, quantity]);
 
-
-  // --- RENDERING ---
   if (loading) return <SpinnerComponent />;
-  if (error) return <Center h="80vh" flexDirection="column"><Heading size="md" color="red.500">Error</Heading><Text mt={2}>{error}</Text></Center>;
-  if (!product) return <Center h="80vh"><Text>Product data could not be loaded.</Text></Center>;
+  if (error) return <Center h="80vh"><Text color="red.500">{error}</Text></Center>;
+  if (!product) return <Center h="80vh"><Text>Product not found.</Text></Center>;
 
   return (
-    <Container maxW="container.xl" py={{ base: 6, md: 12 }}>
-      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={{ base: 8, lg: 16 }}>
+    <Box minH="100vh" bg={pageBg} py={{ base: 6, md: 12 }}>
+      <Container maxW="container.xl">
+        <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={{ base: 8, lg: 16 }}>
 
-        {/* --- MEDIA GALLERY COLUMN --- */}
-        <VStack spacing={4} align="stretch" position={{ base: 'relative', lg: 'sticky' }} top={{ lg: '80px' }} h="max-content">
-          <AspectRatio ratio={1} w="100%">
-            <Box bg="gray.100" borderWidth="1px" borderColor="gray.200" borderRadius="xl" overflow="hidden">
-              {!activeMedia ? (
-                 <Center h="100%" bg="gray.200"><Text color="gray.500">No Image Available</Text></Center>
-              ) : activeMedia.type === 'video' ? (
-                <Box as="video" src={activeMedia.url} controls autoPlay muted loop playsInline width="100%" height="100%" objectFit="contain" />
+          {/* --- LEFT COLUMN: MEDIA GALLERY --- */}
+          <VStack spacing={4} align="stretch" position={{ base: 'relative', lg: 'sticky' }} top={{ lg: '80px' }} h="max-content">
+            <AspectRatio ratio={1} w="100%">
+              <Box bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="2xl" overflow="hidden" shadow="sm" position="relative" role="group">
+                {!activeMedia ? (
+                  <Skeleton height="100%" />
+                ) : activeMedia.type === 'video' ? (
+                  <Box as="video" src={activeMedia.url} controls autoPlay muted loop playsInline width="100%" height="100%" objectFit="contain" />
+                ) : (
+                  <Image src={activeMedia.url} alt={product.title} objectFit="contain" w="100%" h="100%" fallbackSrc="https://via.placeholder.com/600" cursor="zoom-in" onClick={onOpen} />
+                )}
+                {activeMedia && activeMedia.type !== 'video' && (
+                  <IconButton
+                    aria-label="View Fullscreen"
+                    icon={<FiMaximize2 />}
+                    position="absolute"
+                    top="4"
+                    right="4"
+                    onClick={(e) => { e.stopPropagation(); onOpen(); }}
+                    opacity="0"
+                    _groupHover={{ opacity: 1 }}
+                    transition="opacity 0.2s"
+                    bg="blackAlpha.600"
+                    color="white"
+                    _hover={{ bg: "blackAlpha.800" }}
+                    rounded="full"
+                    size="sm"
+                  />
+                )}
+              </Box>
+            </AspectRatio>
+            {/* Thumbnails */}
+            {displayMedia.length > 1 && (
+              <HStack spacing={3} overflowX="auto" py={2} css={{ '&::-webkit-scrollbar': { display: 'none' } }}>
+                {displayMedia.map((mediaItem) => (
+                  <Box key={mediaItem.url} as="button" w="80px" h="80px" minW="80px" borderWidth="2px" borderRadius="xl" overflow="hidden" position="relative" borderColor={activeMedia?.url === mediaItem.url ? 'brand.500' : 'transparent'} onClick={() => setActiveMedia(mediaItem)}>
+                    {mediaItem.type === 'video' ? (
+                      <Center w="full" h="full" bg="gray.100"><Icon as={FiPlayCircle} /></Center>
+                    ) : (
+                      <Image src={mediaItem.url} objectFit="cover" w="100%" h="100%" />
+                    )}
+                  </Box>
+                ))}
+              </HStack>
+            )}
+          </VStack>
+
+          {/* --- RIGHT COLUMN: BUYING CONTEXT --- */}
+          <VStack align="stretch" spacing={6}>
+            {/* Header Area */}
+            <Box>
+              {product.category && (
+                <Badge colorScheme="brand" variant="solid" rounded="full" px={3} py={1} mb={3} fontSize="xs" letterSpacing="wide">
+                  {product.category}
+                </Badge>
+              )}
+              <Heading as="h1" size="2xl" fontWeight="900" lineHeight="tight" letterSpacing="tight" bgGradient={headingGradient} bgClip="text" mb={2}>
+                {product.title}
+              </Heading>
+
+              {/* Stock Row */}
+              <HStack color={displayDetails.stockColor + '.500'} mb={2}>
+                <Icon as={displayDetails.stockIcon} />
+                <Text fontWeight="bold" fontSize="sm">{displayDetails.stockStatus}</Text>
+              </HStack>
+            </Box>
+
+            {/* Price Area - COMPACT & CLEAN */}
+            <Box p={6} bg={cardBg} borderRadius="2xl" borderWidth="1px" borderColor={borderColor} shadow="sm">
+              {currentUser ? (
+                <VStack align="start" spacing={0}>
+                  <Text fontSize="md" color={textMuted} fontWeight="medium">Total Price (Incl. Tax)</Text>
+                  <HStack align="baseline" spacing={3}>
+                    <Text fontSize="4xl" fontWeight="800" color={textPrimary} lineHeight="tight">
+                      {formatCurrency(displayDetails.finalPriceWithTax)}
+                    </Text>
+                    {displayDetails.showStrikeThrough && (
+                      <Text as="s" color="gray.400" fontSize="xl">
+                        {formatCurrency(displayDetails.originalPriceWithTax)}
+                      </Text>
+                    )}
+                  </HStack>
+                  <Text fontSize="sm" color={textSecondary} mt={1}>
+                    {formatCurrency(displayDetails.effectivePricePreTax)} + {formatCurrency(displayDetails.taxAmount)} Tax ({displayDetails.taxRatePercent}%)
+                  </Text>
+                </VStack>
               ) : (
-                <Image src={activeMedia.url} alt={`${product.title} - view`} objectFit="contain" w="100%" h="100%" fallbackSrc="https://via.placeholder.com/600?text=Image+Not+Found" />
+                <HStack spacing={3} color="gray.500">
+                  <Icon as={FiLock} boxSize={5} />
+                  <Text fontSize="lg" fontWeight="medium">Login to view pricing</Text>
+                </HStack>
               )}
             </Box>
-          </AspectRatio>
-          {displayMedia.length > 1 && (
-            <HStack spacing={3} overflowX="auto" py={2} css={{ '&::-webkit-scrollbar': { height: '8px' }, '&::-webkit-scrollbar-track': { background: '#f1f1f1' }, '&::-webkit-scrollbar-thumb': { background: '#cccccc', borderRadius: '4px' }, '&::-webkit-scrollbar-thumb:hover': { background: '#aaaaaa' } }}>
-              {displayMedia.map((mediaItem) => (
-                <Box key={mediaItem.url} as="button" w="80px" h="80px" minW="80px" borderWidth="2px" borderRadius="md" overflow="hidden" position="relative" bg="gray.100" borderColor={activeMedia?.url === mediaItem.url ? 'teal.500' : 'transparent'} onClick={() => setActiveMedia(mediaItem)} _focus={{ outline: 'none', shadow: 'outline' }}>
-                  {mediaItem.type === 'video' ? (
-                    <Flex align="center" justify="center" w="100%" h="100%" bg="gray.300" color="gray.600">
-                      <Icon as={FiPlayCircle} boxSize={8} />
-                    </Flex>
-                  ) : (
-                    <Image src={mediaItem.url} alt={`${product.title} - thumbnail`} objectFit="cover" w="100%" h="100%" fallbackSrc="https://via.placeholder.com/80?text=!" />
-                  )}
-                </Box>
-              ))}
-            </HStack>
-          )}
-        </VStack>
 
-        {/* --- PRODUCT INFO COLUMN --- */}
-        <VStack align="flex-start" spacing={5}>
-          <Heading as="h1" size="xl" fontWeight="800" color="gray.800">{product.title}</Heading>
-
-          <VStack align="stretch" w="full" spacing={5}>
-            {/* --- ENHANCED PRICE DISPLAY --- */}
-            <Box p={4} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.200">
-                {currentUser ? (
-                    // LOGGED IN VIEW
-                    <>
-                        <HStack align="baseline" spacing={3} wrap="wrap">
-                            <Text fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" color="teal.600">
-                              {formatCurrency(displayDetails.finalPriceWithTax)}
-                            </Text>
-                            {displayDetails.showStrikeThrough && (
-                               <Text as="s" color="gray.400" fontSize="xl" fontWeight="normal">
-                                 {formatCurrency(displayDetails.originalPriceWithTax)}
-                               </Text>
-                             )}
-                             {displayDetails.discountPercent > 0 && (
-                                <Badge colorScheme='green' variant="subtle" fontSize="sm" px={2} py={0.5} borderRadius="md">
-                                    {displayDetails.discountPercent}% OFF
-                                </Badge>
-                             )}
-                        </HStack>
-                       <Text fontSize="sm" color="gray.600" mt={1}>
-                         (Price before tax: {formatCurrency(displayDetails.effectivePricePreTax)} + {formatCurrency(displayDetails.taxAmount)} tax ({displayDetails.taxRatePercent}%))
-                         {product.priceUnit && ` ${product.priceUnit}`}
-                       </Text>
-                   </>
-                ) : (
-                    // GUEST VIEW
-                    <HStack spacing={3}>
-                        <Icon as={FiLock} color="gray.500" boxSize={6} />
-                        <VStack align="start" spacing={0}>
-                            <Text fontWeight="bold" color="gray.600">Price hidden</Text>
-                            <Text fontSize="sm" color="gray.500">Please log in to view pricing.</Text>
-                        </VStack>
+            {/* PROFESSIONAL VARIANT SELECTOR */}
+            {product.hasVariants && product.variantOptions && (
+              <VStack align="start" spacing={4}>
+                {Object.entries(product.variantOptions).map(([optionName, values]) => (
+                  <Box key={optionName} w="full">
+                    <HStack mb={3} justify="space-between">
+                      <Text fontWeight="bold" fontSize="xs" textTransform="uppercase" letterSpacing="widest" color={textMuted}>
+                        {optionName}
+                      </Text>
+                      {/* Optional: Show selected value nicely */}
+                      {selectedOptions[optionName] && (
+                        <Text fontSize="xs" fontWeight="semibold" color="brand.500">{selectedOptions[optionName]}</Text>
+                      )}
                     </HStack>
-                )}
-            </Box>
 
-            {/* Stock Status */}
-            <Flex align="center">
-                <Tag size="md" variant="subtle" colorScheme={displayDetails.stockColor} mr={3}>
-                    <Icon as={displayDetails.stockIcon} mr={2} />
-                    {displayDetails.stockStatus}
-                </Tag>
-                {displayDetails.stockColor === 'green' && <Text fontSize="sm" color="gray.600">{displayDetails.availableQty} units available</Text>}
+                    <Flex wrap="wrap" gap={3}>
+                      {values.map(value => {
+                        const isSelected = selectedOptions[optionName] === value;
+                        const priceDiff = getVariantPriceDiff(optionName, value);
+
+                        return (
+                          <Box
+                            as="button"
+                            key={value}
+                            onClick={() => handleOptionSelect(optionName, value)}
+                            borderRadius="lg"
+                            px={6}
+                            py={3}
+                            minW="80px"
+                            fontSize="sm"
+                            fontWeight="bold"
+                            transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+                            borderWidth="2px"
+                            // STATES
+                            bg={isSelected ? 'brand.50' : 'transparent'} // Light background when selected
+                            borderColor={isSelected ? 'brand.500' : borderColor} // Active Border
+                            color={isSelected ? 'brand.600' : textPrimary} // Active Text
+                            _hover={{
+                              borderColor: isSelected ? 'brand.600' : 'gray.400',
+                              bg: isSelected ? 'brand.100' : 'gray.50'
+                            }}
+                            _active={{
+                              transform: 'scale(0.96)'
+                            }}
+                            position="relative"
+                            overflow="hidden"
+                            textAlign="center"
+                            display="flex"
+                            flexDirection="column"
+                            alignItems="center"
+                            justifyContent="center"
+                            gap={1}
+                          >
+                            <Text lineHeight="1">{value}</Text>
+                            {priceDiff !== null && (
+                              <Text fontSize="xs" color={priceDiff > 0 ? "orange.500" : "green.500"} fontWeight="extrabold">
+                                {priceDiff > 0 ? '+' : ''}{formatCurrency(priceDiff)}
+                              </Text>
+                            )}
+
+                            {isSelected && (
+                              <Box position="absolute" bottom="0" right="0" w="0" h="0"
+                                borderStyle="solid"
+                                borderWidth="0 0 12px 12px"
+                                borderColor={`transparent transparent currentcolor transparent`}
+                                color="brand.500"
+                                opacity={0.6}
+                              />
+                            )}
+                          </Box>
+                        )
+                      })}
+                    </Flex>
+                  </Box>
+                ))}
+
+                {selectedVariant === 'unavailable' && <Text color="red.500" fontSize="sm" fontWeight="medium">This combination is unavailable.</Text>}
+
+                {product.hasVariants && !selectedVariant && (
+                  <Center p={4} borderRadius="xl" borderWidth="1px" borderColor="brand.400" bg={promptBg} position="relative" overflow="hidden">
+                    <Box position="absolute" top="0" left="0" w="4px" h="full" bg="brand.400" />
+                    <HStack spacing={3}>
+                      <Icon as={FiArrowUp} color="brand.500" boxSize={5} animation={bounceAnimation} />
+                      <Text fontSize="sm" fontWeight="bold" color="brand.600">
+                        Please select {Object.entries(product.variantOptions).filter(([k]) => !selectedOptions[k]).map(([k]) => k).join(' & ')} above
+                      </Text>
+                    </HStack>
+                  </Center>
+                )}
+              </VStack>
+            )}
+
+            {/* Backorder Alert */}
+            {displayDetails.isBackorder && (
+              <Alert status="warning" variant="left-accent" borderRadius="md" py={2}>
+                <AlertIcon />
+                <Text fontSize="sm">Pre-order item. Shipping may be delayed.</Text>
+              </Alert>
+            )}
+
+            {/* Action Bar */}
+            <Flex gap={3} pt={2}>
+              {currentUser ? (
+                <>
+                  <NumberInput size="lg" maxW="120px" defaultValue={1} min={displayDetails.minQty} max={displayDetails.maxQty} onChange={(val) => setQuantity(parseInt(val) || 1)} value={quantity}>
+                    <NumberInputField borderRadius="2xl" fontWeight="bold" h="14" />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                    </NumberInputStepper>
+                  </NumberInput>
+                  <Button
+                    size="lg"
+                    flex="1"
+                    colorScheme={displayDetails.buttonColorScheme}
+                    borderRadius="2xl"
+                    h="14"
+                    fontSize="lg"
+                    onClick={handleAddToCart}
+                    isDisabled={displayDetails.isAddToCartDisabled}
+                    leftIcon={<Icon as={displayDetails.isBackorder ? FiClock : FiShoppingCart} />}
+                    shadow="xl"
+                    _hover={{ transform: 'translateY(-2px)', shadow: '2xl' }}
+                    _disabled={{ opacity: 0.6, cursor: 'not-allowed', bg: 'gray.200', color: 'gray.500', boxShadow: 'none' }}
+                  >
+                    {displayDetails.buttonText}
+                  </Button>
+                </>
+              ) : (
+                <Button w="full" size="lg" colorScheme="brand" borderRadius="2xl" h="14" onClick={() => navigate('/login', { state: { from: location } })}>
+                  Login to Purchase
+                </Button>
+              )}
             </Flex>
 
+            {/* Volume Pricing (Compact) */}
+            {product.bulkDiscounts && product.bulkDiscounts.length > 0 && currentUser && (
+              <Box pt={4}>
+                <Text fontSize="sm" fontWeight="bold" mb={2} color={textMuted} textTransform="uppercase">Volume Discounts</Text>
+                <TableContainer borderWidth="1px" borderColor={borderColor} borderRadius="lg">
+                  <Table variant='simple' size="sm">
+                    <Thead bg="gray.50">
+                      <Tr>
+                        <Th py={2}>Qty</Th>
+                        <Th py={2} isNumeric>Unit Price</Th>
+                        <Th py={2} isNumeric width="80px"></Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {product.bulkDiscounts.sort((a, b) => a.startQty - b.startQty).map((discount, index) => (
+                        <Tr key={index}>
+                          <Td fontSize="sm" py={2}>{discount.startQty}+</Td>
+                          <Td isNumeric fontSize="sm" fontWeight="bold" py={2}>{formatCurrency(discount.pricePerUnit)}</Td>
+                          <Td isNumeric py={2}>
+                            <Badge colorScheme="green" fontSize="xs">-{Math.round(((product.price - discount.pricePerUnit) / product.price) * 100)}%</Badge>
+                          </Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+
+          </VStack>
+        </SimpleGrid>
+
+        {/* --- BOTTOM SECTION: DETAILS --- */}
+        <Box mt={16}>
+          <Divider mb={10} borderColor={borderColor} />
+
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={10}>
             {/* Description */}
-            {product.description && <Text color="gray.700" fontSize="md" lineHeight="tall">{product.description}</Text>}
-          </VStack>
+            <Box gridColumn={{ md: "span 2" }}>
+              <Heading size="lg" mb={6} color={textPrimary} letterSpacing="tight">Product Description</Heading>
+              <Text color={textSecondary} fontSize="lg" lineHeight="1.8" whiteSpace="pre-wrap">
+                {product.description || "No description available."}
+              </Text>
+            </Box>
 
-          {/* Variants Selection */}
-          {product.hasVariants && product.variantOptions && (
-            <VStack align="flex-start" w="full" spacing={4} pt={4}>
-              {Object.entries(product.variantOptions).map(([optionName, values]) => (
-                values && values.length > 0 && (
-                    <Box key={optionName} w="full">
-                      <Text fontWeight="semibold" mb={2} fontSize="md" color="gray.700">{optionName}</Text>
-                      <ButtonGroup flexWrap="wrap" gap={2} isAttached={false} variant="outline">
-                        {values.map(value => (
-                          <Button key={value} onClick={() => handleOptionSelect(optionName, value)} isActive={selectedOptions[optionName] === value} _active={{ bg: 'teal.500', color: 'white', borderColor: 'teal.500' }} px={4} size="sm">
-                            {value}
-                          </Button>
-                        ))}
-                      </ButtonGroup>
-                    </Box>
-                )
-              ))}
-              {selectedVariant === 'unavailable' && <Text color="red.500" mt={2}>This combination is not available.</Text>}
-            </VStack>
-          )}
-
-          {/* Add to Cart Section */}
-          <VStack w="full" spacing={4} pt={6}>
-            {currentUser ? (
-                // LOGGED IN USER
-                <HStack w="full">
-                  <NumberInput size="lg" w="120px" value={quantity} min={displayDetails.minQty} max={displayDetails.maxQty} onChange={(valStr, valNum) => setQuantity(isNaN(valNum) ? displayDetails.minQty : valNum)} isDisabled={displayDetails.isAddToCartDisabled || !displayDetails.maxQty || displayDetails.maxQty < displayDetails.minQty} allowMouseWheel>
-                    <NumberInputField />
-                    <NumberInputStepper><NumberIncrementStepper /><NumberDecrementStepper /></NumberInputStepper>
-                  </NumberInput>
-                  <Button colorScheme="teal" size="lg" onClick={handleAddToCart} isDisabled={displayDetails.isAddToCartDisabled} flex="1" leftIcon={<FiShoppingCart />} _hover={!displayDetails.isAddToCartDisabled ? { transform: 'translateY(-2px)', boxShadow: 'lg' } : {}} transition="all 0.2s">
-                    Add to Cart
-                  </Button>
-                </HStack>
-            ) : (
-                // GUEST USER
-                <Box w="full">
-                     <Alert status="info" borderRadius="md" mb={4}>
-                          <AlertIcon />
-                          You must be logged in to add items to your cart.
-                      </Alert>
-                      <Button colorScheme="teal" size="lg" w="full" onClick={() => navigate('/login', { state: { from: location } })}>
-                          Login to Buy
-                      </Button>
-                </Box>
-            )}
-
-            {displayDetails.minQty > 1 && <Text fontSize="sm" color="gray.500" w="full">Minimum order quantity: {displayDetails.minQty}.</Text>}
-             {/* Show max quantity if relevant */}
-            {!product.allowBackorders && displayDetails.availableQty > 0 && displayDetails.availableQty < Infinity && displayDetails.stockColor === 'green' && (
-                <Text fontSize="sm" color="gray.500" w="full">Maximum order quantity: {displayDetails.maxQty}.</Text>
-            )}
-          </VStack>
-
-          {/* --- FULL DETAILS SECTION --- */}
-          <Box w="full" pt={6}>
-            <Divider />
-            <Box mt={6} >
-              <Heading size="md" mb={4}>Product Details</Heading>
-              <VStack align="stretch" spacing={3} fontSize="sm" color="gray.700" w="full" p={5} bg="gray.50" borderRadius="lg" borderWidth="1px" borderColor="gray.200">
-                {product.sku && <HStack justifyContent="space-between"><Text color="gray.500">SKU:</Text> <Text fontWeight="medium">{product.sku}</Text></HStack>}
-                {product.weight > 0 && <HStack justifyContent="space-between"><Text color="gray.500">Weight:</Text> <Text fontWeight="medium">{product.weight} {product.weightUnit || ''}</Text></HStack>}
-                {product.dimensions && <HStack justifyContent="space-between"><Text color="gray.500">Dimensions (LxWxH):</Text> <Text fontWeight="medium">{typeof product.dimensions === 'object' ? `${product.dimensions.length || '?'} x ${product.dimensions.width || '?'} x ${product.dimensions.height || '?'} ${product.dimensions.unit || ''}` : product.dimensions}</Text></HStack>}
-                {displayDetails.minQty > 1 && <HStack justifyContent="space-between"><Text color="gray.500">Min. Order Qty:</Text> <Text fontWeight="medium">{displayDetails.minQty}</Text></HStack>}
-                {product.tags?.length > 0 && (
-                  <HStack align="start" justifyContent="space-between"><Text color="gray.500" mt="5px">Tags:</Text>
-                    <Flex flexWrap="wrap" justifyContent="flex-end" gap={2}>
-                      {product.tags.map(tag => <Tag key={tag} size="sm" variant="subtle" colorScheme="blue">{tag}</Tag>)}
-                    </Flex>
-                  </HStack>
+            {/* Specifications */}
+            <Box>
+              <Heading size="lg" mb={6} color={textPrimary} letterSpacing="tight">Specifications</Heading>
+              <VStack align="stretch" spacing={0} borderWidth="1px" borderColor={borderColor} borderRadius="xl" overflow="hidden">
+                {product.sku && (
+                  <Flex p={4} bg={alternateRowBg} justify="space-between" borderBottomWidth="1px" borderColor={borderColor}>
+                    <Text color={textMuted} fontWeight="medium">SKU</Text>
+                    <Text fontWeight="bold" color={textPrimary}>{product.sku}</Text>
+                  </Flex>
                 )}
-                <HStack justifyContent="space-between"><Text color="gray.500">Taxable:</Text> <Text fontWeight="medium">{displayDetails.taxRatePercent > 0 ? `Yes (${displayDetails.taxRatePercent}%)` : 'No'}</Text></HStack>
-                <HStack justifyContent="space-between"><Text color="gray.500">Allow Backorders:</Text> <Text fontWeight="medium">{product.allowBackorders ? 'Yes' : 'No'}</Text></HStack>
-                <HStack justifyContent="space-between"><Text color="gray.500">Hide if OOS:</Text> <Text fontWeight="medium">{product.hideWhenOutOfStock ? 'Yes' : 'No'}</Text></HStack>
-
-                {/* Custom Fields */}
-                {product.customFields && Object.keys(product.customFields).length > 0 && <Divider pt={2}/>}
-                {product.customFields && Object.entries(product.customFields).map(([key, value]) => (
-                  value && <HStack justifyContent="space-between" key={key}><Text color="gray.500">{key}:</Text> <Text fontWeight="medium" textAlign="right">{String(value)}</Text></HStack>
+                {product.weight > 0 && (
+                  <Flex p={4} justify="space-between" borderBottomWidth="1px" borderColor={borderColor}>
+                    <Text color={textMuted} fontWeight="medium">Weight</Text>
+                    <Text fontWeight="bold" color={textPrimary}>{product.weight} {product.weightUnit}</Text>
+                  </Flex>
+                )}
+                <Flex p={4} bg={alternateRowBg} justify="space-between" borderBottomWidth="1px" borderColor={borderColor}>
+                  <Text color={textMuted} fontWeight="medium">Backorders</Text>
+                  <Badge colorScheme={product.allowBackorders ? 'green' : 'red'}>{product.allowBackorders ? 'Allowed' : 'No'}</Badge>
+                </Flex>
+                {product.customFields && Object.entries(product.customFields).map(([k, v], i) => (
+                  <Flex key={k} p={4} bg={i % 2 !== 0 ? alternateRowBg : 'transparent'} justify="space-between" borderBottomWidth="1px" borderColor={borderColor}>
+                    <Text color={textMuted} fontWeight="medium">{k}</Text>
+                    <Text fontWeight="bold" color={textPrimary}>{String(v)}</Text>
+                  </Flex>
                 ))}
               </VStack>
             </Box>
+          </SimpleGrid>
+        </Box>
 
-            {/* Bulk Discounts Section */}
-            {product.bulkDiscounts && product.bulkDiscounts.length > 0 && currentUser && (
-              <Box w="full" pt={6}>
-                <Divider />
-                <Box mt={6}>
-                  <Heading size="md" mb={4}>Volume Pricing (per unit, excl. tax)</Heading>
-                  <TableContainer borderWidth="1px" borderColor="gray.200" borderRadius="lg">
-                    <Table variant='simple' size='sm'>
-                      <Thead bg="gray.50">
-                        <Tr>
-                          <Th>Quantity</Th>
-                          <Th isNumeric>Price per Unit</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {/* Add base price tier if applicable */}
-                        {product.bulkDiscounts.length > 0 && product.bulkDiscounts[0].startQty > 1 && (
-                            <Tr>
-                                <Td>1 - {product.bulkDiscounts[0].startQty - 1}</Td>
-                                <Td isNumeric>{formatCurrency(product.price)}</Td>
-                            </Tr>
-                        )}
-                        {/* Map through sorted bulk discounts */}
-                        {product.bulkDiscounts.sort((a, b) => a.startQty - b.startQty).map((discount, index) => (
-                          <Tr key={index}>
-                            <Td>{discount.startQty}{discount.endQty ? ` - ${discount.endQty}` : '+'}</Td>
-                            <Td isNumeric>{formatCurrency(discount.pricePerUnit)}</Td>
-                          </Tr>
-                        ))}
-                      </Tbody>
-                    </Table>
-                  </TableContainer>
-                </Box>
-              </Box>
+      </Container>
+
+      {/* Full Screen Lightbox */}
+      <Modal isOpen={isOpen} onClose={onClose} size="full" isCentered motionPreset="scale">
+        <ModalOverlay bg="blackAlpha.900" backdropFilter="blur(10px)" />
+        <ModalContent bg="transparent" boxShadow="none">
+          <ModalCloseButton color="white" size="lg" position="absolute" top={4} right={4} zIndex={9999} bg="blackAlpha.400" rounded="full" />
+          <ModalBody p={0} display="flex" alignItems="center" justifyContent="center" height="100vh" onClick={onClose}>
+            {activeMedia && (
+              activeMedia.type === 'video' ? (
+                <Box as="video" src={activeMedia.url} controls autoPlay width="90%" height="90%" objectFit="contain" onClick={(e) => e.stopPropagation()} />
+              ) : (
+                <Image src={activeMedia.url} maxH="95vh" maxW="95vw" objectFit="contain" onClick={(e) => e.stopPropagation()} shadow="2xl" borderRadius="md" />
+              )
             )}
-          </Box>
-        </VStack>
-      </SimpleGrid>
-    </Container>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+    </Box>
   );
 };
 

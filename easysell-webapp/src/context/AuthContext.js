@@ -358,7 +358,7 @@ export const AuthProvider = ({ children }) => {
     });
 
     // Fire and forget. We don't wait for the result.
-    axios.post('http://localhost:3001/api/notify-signup', {
+    axios.post('https://thoughtless-letizia-easysell-533469dc.koyeb.app/api/notify-signup', {
           userName: details.name,
           userEmail: details.email
     }).catch(err => console.error("Background notification error:", err));

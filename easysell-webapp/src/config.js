@@ -11,8 +11,8 @@ export const IMAGE_PROXY_URL = "https://easysell-backend.onrender.com/proxy";
 export const getProxiedUrl = (originalUrl) => {
   if (!originalUrl) {
     // Return an empty string or a placeholder image URL if no original URL is provided
-    return ''; 
+    return '';
   }
-  // We URI-encode the original URL to ensure it's passed correctly as a query parameter.
-  return `${IMAGE_PROXY_URL}?url=${encodeURIComponent(originalUrl)}`;
+  // Bypass the proxy and return the original URL directly as per user request
+  return originalUrl;
 };

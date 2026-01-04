@@ -364,8 +364,8 @@ const getEffectivePricePerUnit = (baseOrDiscountedPrice, bulkDiscounts, quantity
   let effectivePrice = priceInput;
   if (Array.isArray(bulkDiscounts) && bulkDiscounts.length > 0) {
     const sortedDiscounts = [...bulkDiscounts]
-        .filter(d => typeof d.startQty === 'number' && typeof d.pricePerUnit === 'number')
-        .sort((a, b) => b.startQty - a.startQty);
+      .filter(d => typeof d.startQty === 'number' && typeof d.pricePerUnit === 'number')
+      .sort((a, b) => b.startQty - a.startQty);
     for (const discount of sortedDiscounts) {
       if (qtyInput >= discount.startQty) {
         if (discount.endQty && qtyInput > discount.endQty) continue;
@@ -379,7 +379,7 @@ const getEffectivePricePerUnit = (baseOrDiscountedPrice, bulkDiscounts, quantity
 
 const calculateItemPriceDetails = (item) => {
   if (!item || !item.productData || typeof item.quantity !== 'number') {
-      return { baseUnitPrice: 0, discountAmountUnit: 0, bulkDiscountAmountUnit: 0, variantModifierUnit: 0, effectiveUnitPricePreTax: 0, taxAmountUnit: 0, finalUnitPriceWithTax: 0, lineItemSubtotal: 0, lineItemTax: 0, lineItemTotal: 0 };
+    return { baseUnitPrice: 0, discountAmountUnit: 0, bulkDiscountAmountUnit: 0, variantModifierUnit: 0, effectiveUnitPricePreTax: 0, taxAmountUnit: 0, finalUnitPriceWithTax: 0, lineItemSubtotal: 0, lineItemTax: 0, lineItemTotal: 0 };
   }
   const { productData, quantity, variant } = item;
   const taxRateDecimal = (Number(productData.taxRate) || 0) / 100;
@@ -405,6 +405,7 @@ export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [loadingProductData, setLoadingProductData] = useState(false);
   const [catalogueSellerCache, setCatalogueSellerCache] = useState({});
+  const [isInitialized, setIsInitialized] = useState(false); // Flag to prevent saving before loading
 
   // --- 1. LOAD CART ON LOGIN ---
   useEffect(() => {
@@ -419,15 +420,21 @@ export const CartProvider = ({ children }) => {
       } catch (error) {
         console.error("Error loading user cart:", error);
         setCartItems([]);
+      } finally {
+        setIsInitialized(true); // Mark as initialized after attempting load
       }
     } else {
-      // User logged out: Clear the ACTIVE state (visuals), but do NOT delete from localStorage
+      // User logged out
       setCartItems([]);
+      setIsInitialized(true); // Also mark initialized for guest/logged-out state
     }
   }, [currentUser]);
 
   // --- 2. SAVE CART ON CHANGE ---
   useEffect(() => {
+    // Only save if we have finished the initial load sequence
+    if (!isInitialized) return;
+
     if (currentUser) {
       const userCartKey = `cart_${currentUser.uid}`;
       try {
@@ -438,38 +445,38 @@ export const CartProvider = ({ children }) => {
         console.error("Error saving user cart:", error);
       }
     }
-  }, [cartItems, currentUser]);
+  }, [cartItems, currentUser, isInitialized]);
 
 
   // Memoized calculations
   const cartWithPriceDetails = useMemo(() => {
-      return cartItems.map(item => ({
-          ...item,
-          priceDetails: calculateItemPriceDetails(item),
-      }));
+    return cartItems.map(item => ({
+      ...item,
+      priceDetails: calculateItemPriceDetails(item),
+    }));
   }, [cartItems]);
 
   const cartTotals = useMemo(() => {
-      let subtotal = 0;
-      let totalTax = 0;
-      let grandTotal = 0;
-      let totalItems = 0;
+    let subtotal = 0;
+    let totalTax = 0;
+    let grandTotal = 0;
+    let totalItems = 0;
 
-      cartWithPriceDetails.forEach(item => {
-          subtotal += item.priceDetails.lineItemSubtotal;
-          totalTax += item.priceDetails.lineItemTax;
-          grandTotal += item.priceDetails.lineItemTotal;
-          totalItems += item.quantity;
-      });
+    cartWithPriceDetails.forEach(item => {
+      subtotal += item.priceDetails.lineItemSubtotal;
+      totalTax += item.priceDetails.lineItemTax;
+      grandTotal += item.priceDetails.lineItemTotal;
+      totalItems += item.quantity;
+    });
 
-      return { subtotal, totalTax, grandTotal, itemCount: totalItems };
+    return { subtotal, totalTax, grandTotal, itemCount: totalItems };
   }, [cartWithPriceDetails]);
 
 
   const addToCart = async (product, quantity, selectedVariant = null) => {
     // If not logged in, we can't save to user-specific cart. 
     // But since routes are protected, this usually won't happen.
-    if (!currentUser) return; 
+    if (!currentUser) return;
 
     const validQuantity = Math.max(1, Number(quantity) || 1);
     setLoadingProductData(true);
@@ -478,27 +485,27 @@ export const CartProvider = ({ children }) => {
     try {
       let productData = product;
       if (typeof productData.price !== 'number' || typeof productData.taxRate !== 'number' || !productData.catalogueId) {
-         const productRef = doc(db, 'products', product.id);
-         const productSnap = await getDoc(productRef);
-         if (productSnap.exists()) {
-             productData = { id: productSnap.id, ...productSnap.data() };
-         } else {
-             throw new Error(`Product data not found: ${product.id}`);
-         }
+        const productRef = doc(db, 'products', product.id);
+        const productSnap = await getDoc(productRef);
+        if (productSnap.exists()) {
+          productData = { id: productSnap.id, ...productSnap.data() };
+        } else {
+          throw new Error(`Product data not found: ${product.id}`);
+        }
       }
 
       const currentCatalogueId = productData.catalogueId;
       if (currentCatalogueId && !catalogueSellerCache[currentCatalogueId]) {
-          const catalogueRef = doc(db, 'catalogues', currentCatalogueId);
-          const catalogueSnap = await getDoc(catalogueRef);
-          if (catalogueSnap.exists()) {
-              fetchedSellerId = catalogueSnap.data()?.userId;
-              if (fetchedSellerId) {
-                  setCatalogueSellerCache(prev => ({ ...prev, [currentCatalogueId]: fetchedSellerId }));
-              }
+        const catalogueRef = doc(db, 'catalogues', currentCatalogueId);
+        const catalogueSnap = await getDoc(catalogueRef);
+        if (catalogueSnap.exists()) {
+          fetchedSellerId = catalogueSnap.data()?.userId;
+          if (fetchedSellerId) {
+            setCatalogueSellerCache(prev => ({ ...prev, [currentCatalogueId]: fetchedSellerId }));
           }
+        }
       } else if (currentCatalogueId) {
-          fetchedSellerId = catalogueSellerCache[currentCatalogueId];
+        fetchedSellerId = catalogueSellerCache[currentCatalogueId];
       }
 
       setCartItems(prevItems => {
@@ -510,14 +517,14 @@ export const CartProvider = ({ children }) => {
         const existingItemIndex = currentItems.findIndex(item => item.cartId === cartId);
 
         const essentialProductData = {
-            price: productData.price,
-            discountedPrice: productData.discountedPrice,
-            bulkDiscounts: productData.bulkDiscounts || null,
-            taxRate: productData.taxRate || 0,
-            priceUnit: productData.priceUnit || null,
-            minOrderQty: productData.minOrderQty || 1,
-            catalogueId: currentCatalogueId,
-            sellerId: fetchedSellerId || catalogueSellerCache[currentCatalogueId] || null
+          price: productData.price,
+          discountedPrice: productData.discountedPrice,
+          bulkDiscounts: productData.bulkDiscounts || null,
+          taxRate: productData.taxRate || 0,
+          priceUnit: productData.priceUnit || null,
+          minOrderQty: productData.minOrderQty || 1,
+          catalogueId: currentCatalogueId,
+          sellerId: fetchedSellerId || catalogueSellerCache[currentCatalogueId] || null
         };
 
         if (existingItemIndex > -1) {
@@ -537,19 +544,19 @@ export const CartProvider = ({ children }) => {
             productData: essentialProductData,
             imageUrl: selectedVariant?.imageUrl || productData.media?.find(m => m.type === 'image')?.url || null,
             variant: selectedVariant ? {
-                options: selectedVariant.options,
-                priceModifier: selectedVariant.priceModifier,
-                skuOverride: selectedVariant.skuOverride,
-                imageUrl: selectedVariant.imageUrl,
+              options: selectedVariant.options,
+              priceModifier: selectedVariant.priceModifier,
+              skuOverride: selectedVariant.skuOverride,
+              imageUrl: selectedVariant.imageUrl,
             } : null,
           };
           return [...currentItems, newItem];
         }
       });
     } catch (error) {
-        console.error("Error adding item to cart:", error);
+      console.error("Error adding item to cart:", error);
     } finally {
-        setLoadingProductData(false);
+      setLoadingProductData(false);
     }
   };
 
@@ -558,34 +565,34 @@ export const CartProvider = ({ children }) => {
   };
 
   const updateQuantity = (cartId, quantity) => {
-      const newQuantityRaw = Number(quantity);
-      if (isNaN(newQuantityRaw)) return;
+    const newQuantityRaw = Number(quantity);
+    if (isNaN(newQuantityRaw)) return;
 
-      setCartItems(prevItems => {
-          const currentItems = Array.isArray(prevItems) ? prevItems : [];
-          const itemIndex = currentItems.findIndex(item => item.cartId === cartId);
-          if (itemIndex === -1) return currentItems;
+    setCartItems(prevItems => {
+      const currentItems = Array.isArray(prevItems) ? prevItems : [];
+      const itemIndex = currentItems.findIndex(item => item.cartId === cartId);
+      if (itemIndex === -1) return currentItems;
 
-          const currentItem = currentItems[itemIndex];
-          const minQty = currentItem.productData?.minOrderQty || 1;
-          let newQuantity = Math.max(minQty, newQuantityRaw);
+      const currentItem = currentItems[itemIndex];
+      const minQty = currentItem.productData?.minOrderQty || 1;
+      let newQuantity = Math.max(minQty, newQuantityRaw);
 
-          if (newQuantityRaw <= 0 && minQty <= 1) {
-              return currentItems.filter(item => item.cartId !== cartId);
-          }
-          if (currentItem.quantity === newQuantity) return currentItems;
+      if (newQuantityRaw <= 0 && minQty <= 1) {
+        return currentItems.filter(item => item.cartId !== cartId);
+      }
+      if (currentItem.quantity === newQuantity) return currentItems;
 
-          const updatedItems = [...currentItems];
-          updatedItems[itemIndex] = { ...currentItem, quantity: newQuantity };
-          return updatedItems;
-      });
+      const updatedItems = [...currentItems];
+      updatedItems[itemIndex] = { ...currentItem, quantity: newQuantity };
+      return updatedItems;
+    });
   };
 
   // Clear Cart now explicitly wipes the user's specific storage
   const clearCart = () => {
     setCartItems([]);
     if (currentUser) {
-        localStorage.removeItem(`cart_${currentUser.uid}`);
+      localStorage.removeItem(`cart_${currentUser.uid}`);
     }
   };
 

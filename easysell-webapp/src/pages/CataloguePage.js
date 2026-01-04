@@ -1,223 +1,6 @@
-// import React, { useState, useEffect } from 'react';
-// import { useParams, Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
-// import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
-// import { db } from '../firebase';
-// import {
-//   Container,
-//   Heading,
-//   SimpleGrid,
-//   Box,
-//   Image,
-//   Text,
-//   Button,
-//   VStack,
-//   HStack,
-//   Badge,
-//   Input,
-//   Select,
-//   useToast,
-//   Flex,
-//   Icon
-// } from '@chakra-ui/react';
-// import { FiShoppingCart, FiLock } from 'react-icons/fi';
-// import { useAuth } from '../context/AuthContext';
-// import { getProxiedUrl } from '../config';
-// import SpinnerComponent from '../components/Spinner';
-
-// // Helper to format currency
-// const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
-
-// const CataloguePage = () => {
-//   const { catalogueId } = useParams();
-//   const { currentUser } = useAuth();
-//   const navigate = useNavigate();
-//   const location = useLocation(); // <--- 1. Get current location
-//   const toast = useToast();
-
-//   const [catalogue, setCatalogue] = useState(null);
-//   const [products, setProducts] = useState([]);
-//   const [loading, setLoading] = useState(true);
-//   const [searchQuery, setSearchQuery] = useState('');
-//   const [categoryFilter, setCategoryFilter] = useState('All');
-
-//   // --- FETCH DATA ---
-//   useEffect(() => {
-//     const fetchData = async () => {
-//       setLoading(true);
-//       try {
-//         const catalogueRef = doc(db, 'catalogues', catalogueId);
-//         const catalogueSnap = await getDoc(catalogueRef);
-
-//         if (catalogueSnap.exists()) {
-//           setCatalogue({ id: catalogueSnap.id, ...catalogueSnap.data() });
-//         } else {
-//           toast({ title: "Catalogue not found", status: "error" });
-//           setLoading(false);
-//           return;
-//         }
-
-//         const productsRef = collection(db, 'products');
-//         const productsSnap = await getDocs(productsRef);
-
-//         const fetchedProducts = productsSnap.docs
-//           .map(doc => ({ id: doc.id, ...doc.data() }))
-//           .filter(p => p.catalogueId === catalogueId);
-
-//         setProducts(fetchedProducts);
-
-//       } catch (error) {
-//         console.error("Error fetching catalogue:", error);
-//         toast({ title: "Error loading data", status: "error" });
-//       } finally {
-//         setLoading(false);
-//       }
-//     };
-
-//     fetchData();
-//   }, [catalogueId, toast]);
-
-//   // --- FILTER LOGIC ---
-//   const filteredProducts = products.filter(product => {
-//     const matchesSearch = product.title?.toLowerCase().includes(searchQuery.toLowerCase());
-//     const matchesCategory = categoryFilter === 'All' || product.category === categoryFilter;
-//     return matchesSearch && matchesCategory;
-//   });
-
-//   const categories = ['All', ...new Set(products.map(p => p.category).filter(Boolean))];
-
-//   if (loading) return <SpinnerComponent />;
-//   if (!catalogue) return <Container py={20}><Heading>Catalogue Not Found</Heading></Container>;
-
-//   return (
-//     <Container maxW="container.xl" py={10}>
-//       {/* --- HEADER --- */}
-//       <VStack spacing={4} mb={8} align="center" textAlign="center">
-//         <Heading size="2xl">{catalogue.name}</Heading>
-//         {catalogue.description && <Text color="gray.600">{catalogue.description}</Text>}
-//       </VStack>
-
-//       {/* --- FILTERS --- */}
-//       <Flex mb={8} gap={4} direction={{ base: 'column', md: 'row' }}>
-//         <Input
-//           placeholder="Search products..."
-//           value={searchQuery}
-//           onChange={(e) => setSearchQuery(e.target.value)}
-//         />
-//         <Select
-//           w={{ base: 'full', md: '200px' }}
-//           value={categoryFilter}
-//           onChange={(e) => setCategoryFilter(e.target.value)}
-//         >
-//           {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-//         </Select>
-//       </Flex>
-
-//       {/* --- PRODUCT GRID --- */}
-//       <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={6}>
-//         {filteredProducts.map(product => {
-//              const displayPrice = product.discountedPrice > 0 ? product.discountedPrice : product.price;
-
-//              return (
-//               <Box
-//                 key={product.id}
-//                 borderWidth="1px"
-//                 borderRadius="lg"
-//                 overflow="hidden"
-//                 _hover={{ shadow: 'md' }}
-//                 transition="all 0.2s"
-//                 as={RouterLink}
-//                 to={`/product/${product.id}`} // Clicking card goes to details
-//                 position="relative"
-//               >
-//                 <Image
-//                   src={getProxiedUrl(product.media?.[0]?.url)}
-//                   alt={product.title}
-//                   h="200px"
-//                   w="full"
-//                   objectFit="cover"
-//                   fallbackSrc="https://via.placeholder.com/300"
-//                 />
-
-//                 <Box p={4}>
-//                   <Badge borderRadius="full" px="2" colorScheme="teal" mb={2}>
-//                     {product.category || 'General'}
-//                   </Badge>
-
-//                   <Heading size="md" mb={2} noOfLines={2}>
-//                     {product.title}
-//                   </Heading>
-
-//                   {/* PRICE LOGIC */}
-//                   <HStack justify="space-between" align="center" mt={4}>
-//                     {currentUser ? (
-//                         <Box>
-//                             {product.discountedPrice > 0 && (
-//                                 <Text fontSize="sm" textDecoration="line-through" color="gray.500">
-//                                     {formatCurrency(product.price)}
-//                                 </Text>
-//                             )}
-//                             <Text fontWeight="bold" fontSize="xl" color="teal.600">
-//                                 {formatCurrency(displayPrice)}
-//                             </Text>
-//                         </Box>
-//                     ) : (
-//                         <HStack color="gray.500" fontSize="sm">
-//                             <Icon as={FiLock} />
-//                             <Text fontStyle="italic">Login to view price</Text>
-//                         </HStack>
-//                     )}
-//                   </HStack>
-
-//                   <Box mt={4}>
-//                     {currentUser ? (
-//                         <Button
-//                             w="full"
-//                             colorScheme="teal"
-//                             // If user is logged in, Button goes to Product Details
-//                             onClick={(e) => {
-//                                 e.preventDefault();
-//                                 navigate(`/product/${product.id}`);
-//                             }}
-//                             isDisabled={product.inStock === false && !product.allowBackorders}
-//                         >
-//                             {(product.inStock === false && !product.allowBackorders)
-//                                 ? 'Out of Stock'
-//                                 : (product.hasVariants ? 'Select Options' : 'View Details')}
-//                         </Button>
-//                     ) : (
-//                         <Button
-//                             w="full"
-//                             variant="outline"
-//                             colorScheme="teal"
-//                             onClick={(e) => {
-//                                 e.preventDefault();
-//                                 // <--- 2. Redirect to Login with state to return here
-//                                 navigate('/login', { state: { from: location } });
-//                             }}
-//                         >
-//                             Login to Buy
-//                         </Button>
-//                     )}
-//                   </Box>
-//                 </Box>
-//               </Box>
-//              );
-//         })}
-//       </SimpleGrid>
-
-//       {filteredProducts.length === 0 && (
-//           <Text textAlign="center" color="gray.500" py={10}>No products found.</Text>
-//       )}
-//     </Container>
-//   );
-// };
-
-// export default CataloguePage;
-
 import React, { useState, useEffect } from "react";
 import {
   useParams,
-  Link as RouterLink,
   useNavigate,
   useLocation,
 } from "react-router-dom";
@@ -228,30 +11,40 @@ import {
   Heading,
   SimpleGrid,
   Box,
-  Image,
   Text,
   Button,
   VStack,
-  HStack,
   Badge,
   Input,
-  Select,
   useToast,
   Flex,
   Icon,
+  InputGroup,
+  InputLeftElement,
+  useColorModeValue,
+  Spinner,
 } from "@chakra-ui/react";
-import { FiShoppingCart, FiLock } from "react-icons/fi";
+import { FiSearch } from "react-icons/fi";
 import { useAuth } from "../context/AuthContext";
-import SpinnerComponent from "../components/Spinner";
+import { motion } from "framer-motion";
+import ProductCard from '../components/ProductCard';
 
-// Helper to format currency
-const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
+// Animation Variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const MotionSimpleGrid = motion(SimpleGrid);
 
 const CataloguePage = () => {
   const { catalogueId } = useParams();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // <--- 1. Get current location
+  const location = useLocation();
   const toast = useToast();
 
   const [catalogue, setCatalogue] = useState(null);
@@ -259,6 +52,14 @@ const CataloguePage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
+
+  // Theme Hooks
+  const searchBg = useColorModeValue("white", "gray.800");
+  const chipActiveBg = useColorModeValue("brand.600", "brand.500");
+  const chipInactiveBg = useColorModeValue("gray.100", "whiteAlpha.100");
+  const chipInactiveColor = useColorModeValue("gray.600", "gray.400");
+  const chipHoverBg = useColorModeValue("gray.200", "whiteAlpha.200");
+  const pageBg = useColorModeValue("gray.50", "gray.900");
 
   // --- FETCH DATA ---
   useEffect(() => {
@@ -310,7 +111,12 @@ const CataloguePage = () => {
     ...new Set(products.map((p) => p.category).filter(Boolean)),
   ];
 
-  if (loading) return <SpinnerComponent />;
+  if (loading) return (
+    <Flex h="100vh" align="center" justify="center" bg={pageBg}>
+      <Spinner size="xl" color="brand.500" thickness="4px" />
+    </Flex>
+  );
+
   if (!catalogue)
     return (
       <Container py={20}>
@@ -319,145 +125,166 @@ const CataloguePage = () => {
     );
 
   return (
-    <Container maxW="container.xl" py={10}>
-      {/* --- HEADER --- */}
-      <VStack spacing={4} mb={8} align="center" textAlign="center">
-        <Heading size="2xl">{catalogue.name}</Heading>
-        {catalogue.description && (
-          <Text color="gray.600">{catalogue.description}</Text>
-        )}
-      </VStack>
-
-      {/* --- FILTERS --- */}
-      <Flex mb={8} gap={4} direction={{ base: "column", md: "row" }}>
-        <Input
-          placeholder="Search products..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+    <Box minH="100vh" pb={20} bg={pageBg}>
+      {/* 1. PROFESSIONAL BANNER SECTION */}
+      <Box
+        bg="brand.600"
+        backgroundImage={catalogue.imageUrl ? `url(${catalogue.imageUrl})` : undefined}
+        backgroundSize="cover"
+        backgroundPosition="center"
+        backgroundRepeat="no-repeat"
+        pt={{ base: 24, md: 32 }}
+        pb={{ base: 32, md: 40 }}
+        px={{ base: 4, md: 8 }}
+        textAlign="left"
+        position="relative"
+        overflow="hidden"
+      >
+        {/* Dark Overlay for Text Readability */}
+        <Box
+          position="absolute"
+          top="0"
+          left="0"
+          w="full"
+          h="full"
+          bgGradient="linear(to-t, blackAlpha.800, blackAlpha.500)"
+          opacity={0.9}
         />
-        <Select
-          w={{ base: "full", md: "200px" }}
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-        >
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </Select>
-      </Flex>
 
-      {/* --- PRODUCT GRID --- */}
-      <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={6}>
-        {filteredProducts.map((product) => {
-          const displayPrice =
-            product.discountedPrice > 0
-              ? product.discountedPrice
-              : product.price;
+        {/* Decorative Circles */}
+        <Box position="absolute" top="-10%" right="-5%" w={{ base: "200px", md: "400px" }} h={{ base: "200px", md: "400px" }} bg="brand.500" rounded="full" filter="blur(80px)" opacity={0.3} mixBlendMode="overlay" />
 
-          return (
-            <Box
-              key={product.id}
-              borderWidth="1px"
-              borderRadius="lg"
-              overflow="hidden"
-              _hover={{ shadow: "md" }}
-              transition="all 0.2s"
-              as={RouterLink}
-              to={`/product/${product.id}`} // Clicking card goes to details
-              position="relative"
+        <Container maxW="container.xl" position="relative" zIndex="1">
+          <VStack align="flex-start" spacing={{ base: 3, md: 4 }}>
+            <Badge
+              colorScheme="whiteAlpha"
+              variant="solid"
+              bg="whiteAlpha.200"
+              color="white"
+              backdropFilter="blur(10px)"
+              px={4} py={1.5}
+              rounded="full"
+              fontSize={{ base: "xx-small", md: "xs" }}
+              letterSpacing="widest"
+              fontWeight="bold"
+              boxShadow="sm"
             >
-              <Image
-                src={product.media?.[0]?.url}
-                alt={product.title}
-                h="200px"
-                w="full"
-                objectFit="cover"
-                fallbackSrc="https://via.placeholder.com/300"
-              />
+              CATALOGUE
+            </Badge>
+            <Heading
+              fontSize={{ base: "3xl", md: "5xl", lg: "6xl" }}
+              color="white"
+              fontWeight="900"
+              letterSpacing="tight"
+              lineHeight="1.1"
+              textShadow="0 4px 12px rgba(0,0,0,0.3)"
+            >
+              {catalogue.name}
+            </Heading>
+            {catalogue.description && (
+              <Text
+                color="whiteAlpha.900"
+                fontSize={{ base: "md", md: "xl" }}
+                maxW="3xl"
+                fontWeight="medium"
+                textShadow="0 2px 4px rgba(0,0,0,0.3)"
+              >
+                {catalogue.description}
+              </Text>
+            )}
+          </VStack>
+        </Container>
+      </Box>
 
-              <Box p={4}>
-                <Badge borderRadius="full" px="2" colorScheme="teal" mb={2}>
-                  {product.category || "General"}
-                </Badge>
+      {/* 2. OVERLAPPING SEARCH SECTION */}
+      <Container maxW="container.xl" mt={{ base: "-40px", md: "-50px" }} position="relative" zIndex="2">
+        <Box
+          bg={searchBg}
+          shadow="2xl"
+          rounded="3xl"
+          p={2}
+          maxW="2xl"
+          mx={{ base: 0, md: 0 }}
+        >
+          <InputGroup size="lg">
+            <InputLeftElement pointerEvents="none" h="full">
+              <FiSearch color="#cbd5e0" fontSize="1.2em" />
+            </InputLeftElement>
+            <Input
+              placeholder="What are you looking for?"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              border="none"
+              _focus={{ boxShadow: "none" }}
+              fontSize="lg"
+              h="60px"
+            />
+          </InputGroup>
+        </Box>
+      </Container>
 
-                <Heading size="md" mb={2} noOfLines={2}>
-                  {product.title}
-                </Heading>
 
-                {/* PRICE LOGIC */}
-                <HStack justify="space-between" align="center" mt={4}>
-                  {currentUser ? (
-                    <Box>
-                      {product.discountedPrice > 0 && (
-                        <Text
-                          fontSize="sm"
-                          textDecoration="line-through"
-                          color="gray.500"
-                        >
-                          {formatCurrency(product.price)}
-                        </Text>
-                      )}
-                      <Text fontWeight="bold" fontSize="xl" color="teal.600">
-                        {formatCurrency(displayPrice)}
-                      </Text>
-                    </Box>
-                  ) : (
-                    <HStack color="gray.500" fontSize="sm">
-                      <Icon as={FiLock} />
-                      <Text fontStyle="italic">Login to view price</Text>
-                    </HStack>
-                  )}
-                </HStack>
+      {/* 3. APP-STORE STYLE CATEGORY SCROLL */}
+      <Container maxW="container.xl" mt={10}>
+        <Flex
+          overflowX="auto"
+          pb={4}
+          css={{
+            '&::-webkit-scrollbar': { display: 'none' },
+            'msOverflowStyle': 'none',
+            'scrollbarWidth': 'none',
+          }}
+          gap={3}
+          align="center"
+        >
+          <Text fontWeight="bold" fontSize="sm" color="gray.400" mr={2} whiteSpace="nowrap" textTransform="uppercase" letterSpacing="widest">
+            Filters:
+          </Text>
+          {categories.map((cat) => (
+            <Button
+              key={cat}
+              onClick={() => setCategoryFilter(cat)}
+              rounded="full"
+              size="md"
+              px={6}
+              bg={categoryFilter === cat ? chipActiveBg : chipInactiveBg}
+              color={categoryFilter === cat ? "white" : chipInactiveColor}
+              _hover={{ bg: categoryFilter === cat ? chipActiveBg : chipHoverBg }}
+              _active={{ transform: "scale(0.95)" }}
+              shadow={categoryFilter === cat ? "lg" : "none"}
+              transition="all 0.2s"
+              whiteSpace="nowrap"
+            >
+              {cat}
+            </Button>
+          ))}
+        </Flex>
 
-                <Box mt={4}>
-                  {currentUser ? (
-                    <Button
-                      w="full"
-                      colorScheme="teal"
-                      // If user is logged in, Button goes to Product Details
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigate(`/product/${product.id}`);
-                      }}
-                      isDisabled={
-                        product.inStock === false && !product.allowBackorders
-                      }
-                    >
-                      {product.inStock === false && !product.allowBackorders
-                        ? "Out of Stock"
-                        : product.hasVariants
-                        ? "Select Options"
-                        : "View Details"}
-                    </Button>
-                  ) : (
-                    <Button
-                      w="full"
-                      variant="outline"
-                      colorScheme="teal"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        // <--- 2. Redirect to Login with state to return here
-                        navigate("/login", { state: { from: location } });
-                      }}
-                    >
-                      Login to Buy
-                    </Button>
-                  )}
-                </Box>
-              </Box>
-            </Box>
-          );
-        })}
-      </SimpleGrid>
+        {/* 4. PRODUCT GRID */}
+        <MotionSimpleGrid
+          columns={{ base: 1, sm: 2, md: 3, lg: 4 }}
+          spacing={8}
+          mt={8}
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          {filteredProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </MotionSimpleGrid>
 
-      {filteredProducts.length === 0 && (
-        <Text textAlign="center" color="gray.500" py={10}>
-          No products found.
-        </Text>
-      )}
-    </Container>
+        {filteredProducts.length === 0 && (
+          <VStack py={20} spacing={4}>
+            <Icon as={FiSearch} w={12} h={12} color="gray.300" />
+            <Text color="gray.500" fontSize="lg">No products found matching your search.</Text>
+            <Button variant="link" colorScheme="brand" onClick={() => { setSearchQuery(''); setCategoryFilter('All'); }}>
+              Clear Filters
+            </Button>
+          </VStack>
+        )}
+      </Container>
+    </Box>
   );
 };
 
