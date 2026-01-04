@@ -178,7 +178,7 @@ const LoginPage = () => {
       const profile = await getUserProfile(user.uid);
 
       if (profile) {
-        toast({ title: "Signed In", status: "success", duration: 2000 });
+        toast({ title: "Welcome Back", description: "You have signed in successfully.", status: "success", duration: 3000, isClosable: true });
       } else {
         // 3. NEW USER -> Switch to Details Form
         setFormData(prev => ({ ...prev, name: user.displayName || '', email: user.email }));
@@ -186,7 +186,7 @@ const LoginPage = () => {
         setViewState('details');
       }
     } catch (error) {
-      toast({ title: "Login Failed", description: error.message, status: "error" });
+      toast({ title: "Login Failed", description: error.message, status: "error", duration: 5000, isClosable: true });
     } finally {
       setIsSubmitting(false);
     }
@@ -196,7 +196,7 @@ const LoginPage = () => {
   const handleDetailsSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) {
-      toast({ title: "Validation Error", description: "Please fix the errors in the form.", status: "warning" });
+      toast({ title: "Validation Error", description: "Please correct the errors in the form before submitting.", status: "warning", duration: 4000, isClosable: true });
       return;
     }
 
@@ -211,9 +211,9 @@ const LoginPage = () => {
         email: targetUser.email
       });
       setViewState('pending');
-      toast({ title: "Registration Successful", status: "success" });
+      toast({ title: "Registration Successful", description: "Your account is under review.", status: "success", duration: 5000, isClosable: true });
     } catch (error) {
-      toast({ title: "Error", description: error.message, status: "error" });
+      toast({ title: "Registration Failed", description: error.message, status: "error", duration: 5000, isClosable: true });
     } finally {
       setIsSubmitting(false);
     }

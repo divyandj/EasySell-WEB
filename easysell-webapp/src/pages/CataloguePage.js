@@ -72,7 +72,7 @@ const CataloguePage = () => {
         if (catalogueSnap.exists()) {
           setCatalogue({ id: catalogueSnap.id, ...catalogueSnap.data() });
         } else {
-          toast({ title: "Catalogue not found", status: "error" });
+          toast({ title: "Catalogue not found", description: "The requested catalogue does not exist.", status: "error", duration: 5000, isClosable: true });
           setLoading(false);
           return;
         }
@@ -87,7 +87,7 @@ const CataloguePage = () => {
         setProducts(fetchedProducts);
       } catch (error) {
         console.error("Error fetching catalogue:", error);
-        toast({ title: "Error loading data", status: "error" });
+        toast({ title: "Error loading data", description: "Could not load catalogue data. Please try again.", status: "error", duration: 5000, isClosable: true });
       } finally {
         setLoading(false);
       }

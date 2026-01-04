@@ -277,7 +277,7 @@ const CheckoutPage = () => {
     } catch (error) {
       console.error("Transaction failed: ", error);
       setError(`Order failed: ${error.message}`);
-      toast({ title: "Error", description: error.message, status: "error", position: "top" });
+      toast({ title: "Error", description: error.message, status: "error", position: "top", duration: 5000, isClosable: true });
     } finally {
       setIsSubmitting(false);
     }

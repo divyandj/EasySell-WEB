@@ -450,7 +450,7 @@ const ProductDetailPage = () => {
                             gap={1}
                           >
                             <Text lineHeight="1">{value}</Text>
-                            {priceDiff !== null && (
+                            {currentUser && priceDiff !== null && (
                               <Text fontSize="xs" color={priceDiff > 0 ? "orange.500" : "green.500"} fontWeight="extrabold">
                                 {priceDiff > 0 ? '+' : ''}{formatCurrency(priceDiff)}
                               </Text>

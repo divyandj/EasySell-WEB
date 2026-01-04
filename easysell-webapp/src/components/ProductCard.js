@@ -12,14 +12,16 @@ import {
   Heading
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
-import { FiShoppingCart, FiClock } from 'react-icons/fi';
+import { FiShoppingCart, FiClock, FiLock } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 
 const MotionBox = motion(Box);
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
+  const { currentUser } = useAuth();
   const toast = useToast();
 
   // Stock & Price Logic
@@ -34,6 +36,11 @@ const ProductCard = ({ product }) => {
 
   const handleAddToCart = (e) => {
     e.preventDefault(); // Prevent navigation if adding to cart
+    if (!currentUser) return; // Optional: specific logic or let the login redirect happen elsewhere. 
+    // Actually, usually we allow add to cart, but if price is hidden, maybe we shouldn't? 
+    // User requested "Login to view prices". Often this implies "Login to buy" too.
+    // But let's stick to hiding price first. The user can click to detail page and will see login prompt there.
+
     if (product.hasVariants || isOutOfStock) return;
     addToCart(product, 1);
     toast({
@@ -89,29 +96,36 @@ const ProductCard = ({ product }) => {
             </Box>
           )}
 
-          {/* Floating Action Button (Visible on Hover) */}
-          <Box
-            position="absolute"
-            bottom="4"
-            right="4"
-            opacity={{ base: 1, md: 0 }}
-            _groupHover={{ opacity: 1 }}
-            transition="opacity 0.2s"
-          >
-            <Button
-              colorScheme={isPreOrder ? "orange" : "brand"}
-              size="md"
-              rounded="full"
-              shadow="xl"
-              w="12"
-              h="12"
-              p={0}
-              isDisabled={isOutOfStock}
-              onClick={product.hasVariants ? undefined : handleAddToCart}
+          {/* Floating Action Button (Visible on Hover) - only if logged in? Or redirect? */}
+          {/* For now keeping it, assuming click might redirect if auth guarded in context, but let's hide if not logged in to be consistent with "Price Hidden" vibe */}
+          {currentUser && (
+            <Box
+              position="absolute"
+              bottom="4"
+              right="4"
+              opacity={{ base: 1, md: 0 }}
+              _groupHover={{ opacity: 1 }}
+              transition="opacity 0.2s"
             >
-              {isPreOrder ? <FiClock size={18} /> : <FiShoppingCart size={18} />}
-            </Button>
-          </Box>
+              <Button
+                colorScheme={isPreOrder ? "orange" : "brand"}
+                size="md"
+                rounded="full"
+                shadow="xl"
+                w="12"
+                h="12"
+                p={0}
+                isDisabled={isOutOfStock}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (product.hasVariants) return; // Link takes over
+                  handleAddToCart(e);
+                }}
+              >
+                {isPreOrder ? <FiClock size={18} /> : <FiShoppingCart size={18} />}
+              </Button>
+            </Box>
+          )}
         </Box>
 
         <VStack p="5" align="start" spacing={1}>
@@ -124,13 +138,22 @@ const ProductCard = ({ product }) => {
           </Heading>
 
           <Flex align="baseline" mt={1}>
-            <Text fontSize="lg" fontWeight="extrabold" color="gray.900">
-              ₹{price.toFixed(2)}
-            </Text>
-            {product.discountedPrice > 0 && (
-              <Text as="s" ml="2" fontSize="sm" color="gray.400">
-                ₹{product.price.toFixed(2)}
-              </Text>
+            {currentUser ? (
+              <>
+                <Text fontSize="lg" fontWeight="extrabold" color="gray.900">
+                  ₹{price.toFixed(2)}
+                </Text>
+                {product.discountedPrice > 0 && (
+                  <Text as="s" ml="2" fontSize="sm" color="gray.400">
+                    ₹{product.price.toFixed(2)}
+                  </Text>
+                )}
+              </>
+            ) : (
+              <Flex align="center" color="brand.500" fontSize="sm" fontWeight="bold">
+                <FiLock style={{ marginRight: '6px' }} />
+                <Text>Login to View Price</Text>
+              </Flex>
             )}
           </Flex>
         </VStack>
