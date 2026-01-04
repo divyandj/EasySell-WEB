@@ -8,6 +8,7 @@ import CheckoutPage from './pages/CheckoutPage';
 import LoginPage from './pages/LoginPage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
 import OrderTrackingPage from './pages/OrderTrackingPage';
+import ProfilePage from './pages/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
 import HomePage from './pages/HomePage';
 import Navbar from './components/Navbar';
@@ -66,6 +67,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <OrderTrackingPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />

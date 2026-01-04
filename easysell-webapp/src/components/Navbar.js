@@ -162,7 +162,7 @@ const Navbar = () => {
                   {userData && (
                     <>
                       <MenuItem as={RouterLink} to="/orders" _hover={{ bg: menuHoverBg }} icon={<FiShoppingCart color={iconColor} />}>My Orders</MenuItem>
-                      <MenuItem _hover={{ bg: menuHoverBg }} icon={<FiUser color={iconColor} />}>Profile</MenuItem>
+                      <MenuItem as={RouterLink} to="/profile" _hover={{ bg: menuHoverBg }} icon={<FiUser color={iconColor} />}>Profile</MenuItem>
                       <MenuDivider borderColor="whiteAlpha.200" />
                     </>
                   )}

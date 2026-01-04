@@ -169,7 +169,7 @@
 //   const loginWithEmail = async (email, password) => {
 //     const userCredential = await signInWithEmailAndPassword(auth, email, password);
 //     const user = userCredential.user;
-    
+
 //     // Check Firestore Profile
 //     const userRef = doc(db, 'users', user.uid);
 //     const userSnap = await getDoc(userRef);
@@ -211,7 +211,7 @@
 //       }
 
 //       const data = userSnap.data();
-      
+
 //       if (data.status === 'pending') {
 //         await firebaseSignOut(auth);
 //         throw new Error("Account is awaiting admin approval.");
@@ -247,7 +247,7 @@
 //         try {
 //           const userRef = doc(db, 'users', userAuth.uid);
 //           const userSnap = await getDoc(userRef);
-          
+
 //           if (userSnap.exists()) {
 //             const data = userSnap.data();
 //             setUserData(data);
@@ -300,10 +300,10 @@
 
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  onAuthStateChanged, 
-  signInWithPopup, 
-  signOut as firebaseSignOut 
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut as firebaseSignOut
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase';
@@ -359,13 +359,25 @@ export const AuthProvider = ({ children }) => {
 
     // Fire and forget. We don't wait for the result.
     axios.post('https://thoughtless-letizia-easysell-533469dc.koyeb.app/api/notify-signup', {
-          userName: details.name,
-          userEmail: details.email
+      userName: details.name,
+      userEmail: details.email
     }).catch(err => console.error("Background notification error:", err));
 
-    // Fetch and update local state immediately
     const newItem = await getDoc(userRef);
     setUserData(newItem.data());
+  };
+
+  // --- 3.5. UPDATE PROFILE (Merge) ---
+  const updateUserProfile = async (uid, updates) => {
+    const userRef = doc(db, 'users', uid);
+    // updates typically { displayName, phoneNumber, gstPan }
+    // If critical fields change, we MIGHT want to reset status to pending.
+    // For now, let's keep it simple: just update fields.
+    await setDoc(userRef, updates, { merge: true });
+
+    // Refresh local
+    const snap = await getDoc(userRef);
+    setUserData(snap.data());
   };
 
   // --- 4. SIGN OUT ---
@@ -403,6 +415,7 @@ export const AuthProvider = ({ children }) => {
     googleLogin,
     getUserProfile,
     saveUserProfile,
+    updateUserProfile,
     signOut,
   };
 
