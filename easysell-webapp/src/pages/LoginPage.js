@@ -19,110 +19,54 @@ import {
   AlertTitle,
   AlertDescription,
   useColorModeValue,
-  Flex
+  Flex,
+  InputGroup,
+  InputLeftElement,
+  FormErrorMessage
 } from '@chakra-ui/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
+import { FiUser, FiSmartphone, FiFileText, FiAlertCircle } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 
 const MotionBox = motion(Box);
 
-const LoginPage = () => {
-  const { googleLogin, getUserProfile, saveUserProfile, currentUser, userData, signOut } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const toast = useToast();
-
-  // State to manage the view: 'login', 'details', 'pending'
-  const [viewState, setViewState] = useState('login');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Form Data for new users
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    gstPan: ''
-  });
-
-  // --- THEME COLORS ---
+// --- SHARED WRAPPER COMPONENT (Moved Outside to Fix Re-render Bug) ---
+const PageWrapper = ({ children }) => {
   const bgGradient = useColorModeValue('linear(to-br, brand.600, purple.700)', 'linear(to-br, brand.900, gray.900)');
   const cardBg = useColorModeValue('whiteAlpha.900', 'blackAlpha.600');
   const cardBorder = useColorModeValue('white', 'whiteAlpha.200');
-  const textColor = useColorModeValue('gray.800', 'white');
-  const mutedColor = useColorModeValue('gray.500', 'gray.400');
 
-  // --- REDIRECT LOGIC ---
-  useEffect(() => {
-    if (currentUser && userData) {
-      if (userData.status === 'approved' || userData.status === undefined) {
-        const from = location.state?.from?.pathname || '/';
-        navigate(from, { replace: true });
-      } else if (userData.status === 'pending') {
-        setViewState('pending');
-      } else if (userData.status === 'rejected') {
-        setViewState('rejected');
-      }
-    }
-  }, [currentUser, userData, navigate, location]);
-
-  // --- HANDLER: Google Sign In ---
-  const handleGoogleClick = async () => {
-    setIsSubmitting(true);
-    try {
-      const user = await googleLogin(); // 1. Auth with Google
-      // 2. Check if profile exists
-      const profile = await getUserProfile(user.uid);
-
-      if (profile) {
-        toast({ title: "Signed In", status: "success", duration: 2000 });
-      } else {
-        // 3. NEW USER -> Switch to Details Form
-        setFormData(prev => ({ ...prev, name: user.displayName, email: user.email }));
-        setViewState('details');
-      }
-    } catch (error) {
-      toast({ title: "Login Failed", description: error.message, status: "error" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // --- HANDLER: Submit Additional Details ---
-  const handleDetailsSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.phone || !formData.gstPan) {
-      toast({ title: "Missing Fields", description: "Please fill in all details.", status: "warning" });
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await saveUserProfile(currentUser.uid, {
-        ...formData,
-        photoURL: currentUser.photoURL,
-        email: currentUser.email
-      });
-      setViewState('pending');
-      toast({ title: "Registration Successful", status: "success" });
-    } catch (error) {
-      toast({ title: "Error", description: error.message, status: "error" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // --- ANIMATION VARIANTS ---
   const cardVariants = {
     hidden: { opacity: 0, y: 20, scale: 0.95 },
     visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, ease: "easeOut" } }
   };
 
-  // --- SHARED WRAPPER ---
-  const PageWrapper = ({ children }) => (
+  return (
     <Flex minH="100vh" align="center" justify="center" bgGradient={bgGradient} p={4} position="relative" overflow="hidden">
-      {/* Decorative BG Elements */}
-      <Box position="absolute" top="-10%" left="-5%" w="300px" h="300px" bg="whiteAlpha.200" rounded="full" filter="blur(80px)" animation="float 10s infinite alternate" />
-      <Box position="absolute" bottom="-10%" right="-5%" w="400px" h="400px" bg="brand.500" rounded="full" filter="blur(100px)" opacity={0.3} />
+      {/* Decorative BG Elements (Animated) */}
+      <Box
+        position="absolute"
+        top="-10%"
+        left="-5%"
+        w="500px"
+        h="500px"
+        bg="whiteAlpha.100"
+        rounded="full"
+        filter="blur(80px)"
+        animation="float 10s infinite alternate"
+      />
+      <Box
+        position="absolute"
+        bottom="-10%"
+        right="-5%"
+        w="400px"
+        h="400px"
+        bg="brand.500"
+        rounded="full"
+        filter="blur(100px)"
+        opacity={0.2}
+      />
 
       <MotionBox
         variants={cardVariants}
@@ -144,16 +88,146 @@ const LoginPage = () => {
       </MotionBox>
     </Flex>
   );
+};
 
-  // --- VIEW 1: PENDING ---
+const LoginPage = () => {
+  const { googleLogin, getUserProfile, saveUserProfile, currentUser, userData, signOut } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const toast = useToast();
+
+  // State to manage the view: 'login', 'details', 'pending', 'rejected'
+  const [viewState, setViewState] = useState('login');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // State for authenticated but unregistered user
+  const [authUser, setAuthUser] = useState(null);
+
+  // Form Data
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    gstPan: ''
+  });
+
+  // Validation Errors
+  const [errors, setErrors] = useState({});
+
+  const textColor = useColorModeValue('gray.800', 'white');
+  const mutedColor = useColorModeValue('gray.500', 'gray.400');
+
+  // --- REDIRECT LOGIC ---
+  useEffect(() => {
+    // Only redirect if fully authenticated AND has a profile
+    if (currentUser && userData) {
+      if (userData.status === 'approved' || userData.status === undefined) {
+        const from = location.state?.from?.pathname || '/';
+        navigate(from, { replace: true });
+      } else if (userData.status === 'pending') {
+        setViewState('pending');
+      } else if (userData.status === 'rejected') {
+        setViewState('rejected');
+      }
+    }
+  }, [currentUser, userData, navigate, location]);
+
+  // --- VALIDATION HELPER ---
+  const validate = () => {
+    const newErrors = {};
+
+    // Name
+    if (!formData.name.trim()) newErrors.name = "Full name is required";
+
+    // Phone (10 digits)
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!formData.phone) {
+      newErrors.phone = "Phone number is required";
+    } else if (!phoneRegex.test(formData.phone)) {
+      newErrors.phone = "Please enter a valid 10-digit number";
+    }
+
+    // GST or PAN validation
+    // Simple alphanumeric check for now, can be stricter if needed
+    // GST: 15 chars, PAN: 10 chars
+    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+
+    if (!formData.gstPan) {
+      newErrors.gstPan = "GST or PAN number is required";
+    } else {
+      const val = formData.gstPan.trim().toUpperCase();
+      if (val.length === 10) {
+        if (!panRegex.test(val)) newErrors.gstPan = "Invalid PAN number format";
+      } else if (val.length === 15) {
+        if (!gstRegex.test(val)) newErrors.gstPan = "Invalid GSTIN format";
+      } else {
+        newErrors.gstPan = "Enter valid PAN (10 chars) or GSTIN (15 chars)";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // --- HANDLER: Google Sign In ---
+  const handleGoogleClick = async () => {
+    setIsSubmitting(true);
+    try {
+      const user = await googleLogin(); // 1. Auth with Google
+      // 2. Check if profile exists
+      const profile = await getUserProfile(user.uid);
+
+      if (profile) {
+        toast({ title: "Signed In", status: "success", duration: 2000 });
+      } else {
+        // 3. NEW USER -> Switch to Details Form
+        setFormData(prev => ({ ...prev, name: user.displayName || '', email: user.email }));
+        setAuthUser(user);
+        setViewState('details');
+      }
+    } catch (error) {
+      toast({ title: "Login Failed", description: error.message, status: "error" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- HANDLER: Submit Additional Details ---
+  const handleDetailsSubmit = async (e) => {
+    e.preventDefault();
+    if (!validate()) {
+      toast({ title: "Validation Error", description: "Please fix the errors in the form.", status: "warning" });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const targetUser = authUser || currentUser;
+      if (!targetUser) throw new Error("Session expired. Please sign in again.");
+
+      await saveUserProfile(targetUser.uid, {
+        ...formData,
+        photoURL: targetUser.photoURL,
+        email: targetUser.email
+      });
+      setViewState('pending');
+      toast({ title: "Registration Successful", status: "success" });
+    } catch (error) {
+      toast({ title: "Error", description: error.message, status: "error" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- VIEW: PENDING ---
   if (viewState === 'pending') {
     return (
       <PageWrapper>
-        <Alert status="warning" variant="subtle" flexDirection="column" alignItems="center" justifyContent="center" textAlign="center" borderRadius="xl" mb={6} bg="orange.50">
+        <Alert status="warning" variant="subtle" flexDirection="column" alignItems="center" justify="center" textAlign="center" borderRadius="xl" mb={6} bg="orange.50" py={6}>
           <AlertIcon boxSize="40px" mr={0} color="orange.500" />
-          <AlertTitle mt={4} mb={1} fontSize="xl" color="orange.700">Awaiting Approval</AlertTitle>
-          <AlertDescription maxWidth="sm" color="orange.600">
-            Account created! We are verifying your business details. You'll get access soon.
+          <AlertTitle mt={4} mb={1} fontSize="xl" color="orange.700">Verification Pending</AlertTitle>
+          <AlertDescription maxWidth="sm" color="orange.600" fontSize="sm">
+            Thanks for searching us! We are currently verifying your business details. You will receive access once approved.
           </AlertDescription>
         </Alert>
         <Button size="lg" w="full" onClick={() => { signOut(); setViewState('login'); }}>Sign Out</Button>
@@ -161,33 +235,101 @@ const LoginPage = () => {
     );
   }
 
-  // --- VIEW 2: DETAILS FORM ---
+  // --- VIEW: REJECTED ---
+  if (viewState === 'rejected') {
+    return (
+      <PageWrapper>
+        <Box bg="red.50" p={6} borderRadius="xl" mb={6}>
+          <Icon as={FiAlertCircle} color="red.500" w={10} h={10} mb={3} />
+          <Heading size="md" color="red.600" mb={2}>Access Denied</Heading>
+          <Text color="red.800" fontSize="sm">Your account request was declined by the administrator. Please contact support.</Text>
+        </Box>
+        <Button colorScheme="red" variant="outline" w="full" size="lg" onClick={() => { signOut(); setViewState('login'); }}>Sign Out</Button>
+      </PageWrapper>
+    );
+  }
+
+  // --- VIEW: DETAILS FORM ---
   if (viewState === 'details') {
     return (
       <PageWrapper>
-        <Heading size="lg" mb={2} color={textColor}>Complete Profile</Heading>
-        <Text fontSize="md" color={mutedColor} mb={6}>One last step to set up your business account.</Text>
+        <VStack spacing={2} mb={8}>
+          <Heading size="lg" color={textColor}>Complete Profile</Heading>
+          <Text fontSize="sm" color={mutedColor}>Few more details to setup your business account.</Text>
+        </VStack>
 
-        <form onSubmit={handleDetailsSubmit}>
-          <VStack spacing={4}>
-            <FormControl isRequired>
-              <FormLabel color={textColor}>Full Name</FormLabel>
-              <Input variant="filled" size="lg" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+        <form onSubmit={handleDetailsSubmit} style={{ width: '100%' }}>
+          <VStack spacing={5}>
+            {/* Full Name */}
+            <FormControl isRequired isInvalid={!!errors.name}>
+              <FormLabel fontSize="sm" color={mutedColor}>Full Name</FormLabel>
+              <InputGroup>
+                <InputLeftElement pointerEvents="none" children={<FiUser color="gray.300" />} />
+                <Input
+                  variant="filled"
+                  size="lg"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="John Doe"
+                />
+              </InputGroup>
+              <FormErrorMessage>{errors.name}</FormErrorMessage>
             </FormControl>
+
+            {/* Email (Read Only) */}
             <FormControl isReadOnly>
-              <FormLabel color={textColor}>Email</FormLabel>
-              <Input variant="filled" size="lg" value={currentUser?.email} isDisabled bg="blackAlpha.50" />
-            </FormControl>
-            <FormControl isRequired>
-              <FormLabel color={textColor}>Phone Number</FormLabel>
-              <Input variant="filled" size="lg" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+91" />
-            </FormControl>
-            <FormControl isRequired>
-              <FormLabel color={textColor}>GST / PAN Number</FormLabel>
-              <Input variant="filled" size="lg" value={formData.gstPan} onChange={(e) => setFormData({ ...formData, gstPan: e.target.value })} />
+              <FormLabel fontSize="sm" color={mutedColor}>Email Address</FormLabel>
+              <Input variant="filled" size="lg" value={authUser?.email || currentUser?.email || ''} isDisabled bg="blackAlpha.50" opacity={0.7} />
             </FormControl>
 
-            <Button type="submit" colorScheme="brand" w="full" size="lg" mt={4} isLoading={isSubmitting} shadow="lg">
+            {/* Phone */}
+            <FormControl isRequired isInvalid={!!errors.phone}>
+              <FormLabel fontSize="sm" color={mutedColor}>Phone Number</FormLabel>
+              <InputGroup>
+                <InputLeftElement pointerEvents="none" children={<FiSmartphone color="gray.300" />} />
+                <Input
+                  variant="filled"
+                  size="lg"
+                  type="tel"
+                  maxLength={10}
+                  value={formData.phone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, ''); // Only numbers
+                    setFormData({ ...formData, phone: val });
+                  }}
+                  placeholder="9876543210"
+                />
+              </InputGroup>
+              <FormErrorMessage>{errors.phone}</FormErrorMessage>
+            </FormControl>
+
+            {/* GST / PAN */}
+            <FormControl isRequired isInvalid={!!errors.gstPan}>
+              <FormLabel fontSize="sm" color={mutedColor}>GST or PAN Number</FormLabel>
+              <InputGroup>
+                <InputLeftElement pointerEvents="none" children={<FiFileText color="gray.300" />} />
+                <Input
+                  variant="filled"
+                  size="lg"
+                  value={formData.gstPan}
+                  onChange={(e) => setFormData({ ...formData, gstPan: e.target.value.toUpperCase() })}
+                  placeholder="GSTIN or PAN"
+                />
+              </InputGroup>
+              <FormErrorMessage>{errors.gstPan}</FormErrorMessage>
+            </FormControl>
+
+            <Button
+              type="submit"
+              colorScheme="brand"
+              w="full"
+              size="lg"
+              mt={4}
+              h="56px"
+              isLoading={isSubmitting}
+              loadingText="Creating Account..."
+              shadow="lg"
+            >
               Complete Registration
             </Button>
           </VStack>
@@ -196,53 +338,50 @@ const LoginPage = () => {
     );
   }
 
-  // --- VIEW 3: REJECTED ---
-  if (viewState === 'rejected') {
-    return (
-      <PageWrapper>
-        <Box bg="red.50" p={6} borderRadius="xl" mb={6}>
-          <Heading size="md" color="red.600" mb={2}>Access Denied</Heading>
-          <Text color="red.800">Your account request was declined by the administrator.</Text>
-        </Box>
-        <Button colorScheme="red" variant="outline" w="full" size="lg" onClick={() => { signOut(); setViewState('login'); }}>Sign Out</Button>
-      </PageWrapper>
-    );
-  }
-
-  // --- VIEW 4: DEFAULT LOGIN ---
+  // --- VIEW: DEFAULT LOGIN ---
   return (
     <PageWrapper>
-      <VStack spacing={6}>
+      <VStack spacing={8}>
         <Box>
-          <Heading size="2xl" mb={2} fontWeight="900" bgGradient="linear(to-r, brand.500, accent.500)" bgClip="text">easySell</Heading>
-          <Text fontSize="lg" color={mutedColor}>B2B Wholesale Portal</Text>
+          <Heading size="2xl" mb={3} fontWeight="900" bgGradient="linear(to-r, brand.500, accent.500)" bgClip="text" letterSpacing="tight">
+            easySell
+          </Heading>
+          <Text fontSize="lg" color={mutedColor} fontWeight="medium">B2B Wholesale Portal</Text>
         </Box>
 
-        <Button
-          w="full"
-          h="60px"
-          size="lg"
-          variant="outline"
-          leftIcon={<Icon as={FcGoogle} boxSize={6} />}
-          onClick={handleGoogleClick}
-          isLoading={isSubmitting}
-          borderWidth="2px"
-          borderColor="brand.200"
-          _hover={{ bg: 'brand.50', borderColor: 'brand.500', transform: 'translateY(-2px)', shadow: 'md' }}
-          transition="all 0.2s"
-          fontSize="lg"
-        >
-          Sign in with Google
-        </Button>
+        <VStack w="full" spacing={4}>
+          <Button
+            w="full"
+            h="60px"
+            size="lg"
+            variant="outline"
+            leftIcon={<Icon as={FcGoogle} boxSize={7} mr={2} />}
+            onClick={handleGoogleClick}
+            isLoading={isSubmitting}
+            loadingText="Connecting..."
+            borderWidth="2px"
+            borderColor="gray.200"
+            _hover={{ bg: 'gray.50', borderColor: 'brand.500', transform: 'translateY(-2px)', shadow: 'md' }}
+            transition="all 0.2s"
+            fontSize="lg"
+            fontWeight="bold"
+            color="gray.700"
+            bg="white"
+          >
+            Sign in with Google
+          </Button>
 
-        <HStack w="full">
-          <Divider borderColor={mutedColor} />
-          <Text fontSize="xs" color={mutedColor} whiteSpace="nowrap" textTransform="uppercase" letterSpacing="widest">Secure Login</Text>
-          <Divider borderColor={mutedColor} />
-        </HStack>
+          <HStack w="full" pt={2}>
+            <Divider borderColor="gray.300" />
+            <Text fontSize="xs" color="gray.400" whiteSpace="nowrap" textTransform="uppercase" letterSpacing="widest" fontWeight="semibold">
+              Secure Access
+            </Text>
+            <Divider borderColor="gray.300" />
+          </HStack>
+        </VStack>
 
-        <Text fontSize="sm" color={mutedColor}>
-          By signing in, you agree to our Terms of Service. New accounts require admin approval.
+        <Text fontSize="xs" color={mutedColor} textAlign="center" px={4} lineHeight="tall">
+          By continuing, you acknowledge that this is a restricted B2B platform. New accounts require administrative approval.
         </Text>
       </VStack>
     </PageWrapper>
