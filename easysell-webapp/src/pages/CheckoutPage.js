@@ -11,6 +11,7 @@ import { collection, Timestamp, runTransaction, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import SpinnerComponent from '../components/Spinner';
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
 
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
@@ -263,7 +264,7 @@ const CheckoutPage = () => {
       // --- 2. NEW: TRIGGER NOTIFICATION ---
       // Remove 'await'. The code will trigger this and immediately move to the next line.
       axios
-        .post("https://thoughtless-letizia-easysell-533469dc.koyeb.app/api/notify-order", {
+        .post(`${API_BASE_URL}/api/notify-order`, {
           orderId: newOrderId,
           amount: displayGrandTotal,
           customerName: shippingInfo.name,

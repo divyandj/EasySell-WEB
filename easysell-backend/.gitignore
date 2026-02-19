@@ -1,0 +1,7 @@
+node_modules/
+.env
+serviceAccountKey.json
+npm-debug.log
+*.log
+image_cache/
+easysell-hashu-firebase-adminsdk-*.json

@@ -309,6 +309,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase';
 import { Spinner, Center } from '@chakra-ui/react';
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
 
 const AuthContext = createContext();
 
@@ -358,7 +359,7 @@ export const AuthProvider = ({ children }) => {
     });
 
     // Fire and forget. We don't wait for the result.
-    axios.post('https://thoughtless-letizia-easysell-533469dc.koyeb.app/api/notify-signup', {
+    axios.post(`${API_BASE_URL}/api/notify-signup`, {
       userName: details.name,
       userEmail: details.email
     }).catch(err => console.error("Background notification error:", err));
