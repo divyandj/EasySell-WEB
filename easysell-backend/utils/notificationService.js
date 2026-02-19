@@ -2,12 +2,19 @@ const admin = require("firebase-admin");
 const path = require("path");
 
 // 1. Load the Service Account Key
-// We use a try-catch block so the server doesn't crash if the key is missing during development
+// Priority:
+// 1. Environment Variable (FIREBASE_SERVICE_ACCOUNT) - for Production (Render)
+// 2. Local File (serviceAccountKey.json) - for Development
 let serviceAccount;
+
 try {
-  serviceAccount = require(path.join(__dirname, "../serviceAccountKey.json"));
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  } else {
+    serviceAccount = require(path.join(__dirname, "../serviceAccountKey.json"));
+  }
 } catch (error) {
-  console.error("⚠️ WARNING: serviceAccountKey.json not found in root folder.");
+  console.error("⚠️ WARNING: Firebase Credentials not found (Enable FIREBASE_SERVICE_ACCOUNT env var or add serviceAccountKey.json).");
 }
 
 // 2. Initialize Firebase Admin
