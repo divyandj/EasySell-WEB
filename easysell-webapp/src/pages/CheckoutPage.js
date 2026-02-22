@@ -15,6 +15,18 @@ import { API_BASE_URL } from '../config';
 
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
+// Helper to extract subdomain
+const getSubdomain = () => {
+  const host = window.location.hostname;
+  const parts = host.split('.');
+  if (host.includes('localhost') && parts.length >= 2) {
+    if (parts[0] !== 'www') return parts[0];
+  } else if (parts.length >= 3) {
+    if (parts[0] !== 'www') return parts[0];
+  }
+  return null;
+};
+
 const CheckoutPage = () => {
   const { currentUser, userData } = useAuth();
   const { cartItems, cartSubtotal, cartTotalTax, cartGrandTotal, clearCart, itemCount, loadingProductData } = useCart();
@@ -93,7 +105,7 @@ const CheckoutPage = () => {
       return;
     }
 
-    const isApproved = currentUser && userData && (userData.status === 'approved' || userData.status === undefined) && userData.status !== 'pending' && userData.status !== 'rejected';
+    const isApproved = currentUser && userData && userData.status === 'approved';
     if (!isApproved) {
       toast({ title: "Account Not Approved", description: "Your account is under review or rejected. You cannot place orders.", status: "error", duration: 5000, isClosable: true });
       return;
@@ -261,13 +273,13 @@ const CheckoutPage = () => {
         return newOrderRef.id;
       });
 
-      // --- 2. NEW: TRIGGER NOTIFICATION ---
-      // Remove 'await'. The code will trigger this and immediately move to the next line.
       axios
         .post(`${API_BASE_URL}/api/notify-order`, {
           orderId: newOrderId,
+          catalogueId: catalogueId,
           amount: displayGrandTotal,
           customerName: shippingInfo.name,
+          storeHandle: getSubdomain() || ''
         })
         .catch((err) => console.error("Notification Failed:", err));
 

@@ -106,13 +106,27 @@ const LoginPage = () => {
     if (currentUser) {
       if (userData) {
         // Profile Exists - Check Status
-        if (userData.status === 'approved' || userData.status === undefined) {
+        // Explicitly check for 'approved'. If undefined, it means they haven't requested access to THIS store yet.
+        if (userData.status === 'approved') {
           const from = location.state?.from?.pathname || '/';
           navigate(from, { replace: true });
         } else if (userData.status === 'pending') {
           setViewState('pending');
         } else if (userData.status === 'rejected') {
           setViewState('rejected');
+        } else if (userData.status === undefined) {
+          // Profile exists but no access request for this store -> Show Details Form to request access
+          if (viewState !== 'details') {
+            setAuthUser(currentUser);
+            setFormData(prev => ({
+              ...prev,
+              name: userData.displayName || currentUser.displayName || '',
+              phone: userData.phoneNumber || '',
+              gstPan: userData.gstPan || '',
+              email: userData.email || currentUser.email || ''
+            }));
+            setViewState('details');
+          }
         }
       } else {
         // NEW: Profile Missing -> Auto-show Details Form
@@ -310,7 +324,7 @@ const LoginPage = () => {
       <PageWrapper>
         <VStack spacing={2} mb={6} align="start" w="full">
           <Heading size="lg" color={textColor}>Complete Profile</Heading>
-          <Text fontSize="sm" color={mutedColor}>We need a few more details to set up your account.</Text>
+          <Text fontSize="sm" color={mutedColor}>We need a few details to request access to this store.</Text>
         </VStack>
 
         <form onSubmit={handleDetailsSubmit} style={{ width: '100%' }} noValidate>
@@ -336,11 +350,11 @@ const LoginPage = () => {
               mt={4}
               h="56px"
               isLoading={isSubmitting}
-              loadingText="Creating Account..."
+              loadingText="Requesting Access..."
               shadow="lg"
               _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }}
             >
-              Complete Registration
+              Request Access
             </Button>
           </VStack>
         </form>

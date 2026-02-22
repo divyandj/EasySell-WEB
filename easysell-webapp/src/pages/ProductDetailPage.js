@@ -81,7 +81,7 @@ const ProductDetailPage = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [activeMedia, setActiveMedia] = useState(null);
 
-  const isApproved = currentUser && userData && (userData.status === 'approved' || userData.status === undefined) && userData.status !== 'pending' && userData.status !== 'rejected';
+  const isApproved = currentUser && userData && userData.status === 'approved';
 
   // --- THEME COLORS ---
   const pageBg = useColorModeValue('gray.50', 'gray.900');
@@ -395,7 +395,13 @@ const ProductDetailPage = () => {
                 <HStack spacing={3} color="gray.500">
                   <Icon as={FiLock} boxSize={5} />
                   <Text fontSize="lg" fontWeight="medium">
-                    {currentUser ? (userData?.status === 'pending' ? "Verification Pending" : "Login to view pricing") : "Login to view pricing"}
+                    {currentUser
+                      ? (userData?.status === 'pending'
+                        ? "Verification Pending"
+                        : (userData?.status === 'rejected'
+                          ? "Verification Rejected"
+                          : "Request access to view pricing"))
+                      : "Login to view pricing"}
                   </Text>
                 </HStack>
               )}
@@ -533,16 +539,16 @@ const ProductDetailPage = () => {
                 <Button
                   w="full"
                   size="lg"
-                  colorScheme={currentUser && !userData ? "brand" : (currentUser ? "gray" : "brand")}
+                  colorScheme={currentUser && !!userData && (userData.status === 'pending' || userData.status === 'rejected') ? "gray" : "brand"}
                   variant="solid"
-                  isDisabled={currentUser && !!userData}
+                  isDisabled={currentUser && !!userData && (userData.status === 'pending' || userData.status === 'rejected')}
                   borderRadius="2xl"
                   h="14"
-                  onClick={currentUser && !userData ? () => navigate('/signup') : (currentUser ? undefined : () => navigate('/login', { state: { from: location } }))}
-                  leftIcon={currentUser && !!userData ? <Icon as={FiLock} /> : undefined}
+                  onClick={() => navigate('/login', { state: { from: location } })}
+                  leftIcon={currentUser && !!userData && userData.status !== undefined ? <Icon as={FiLock} /> : undefined}
                 >
                   {currentUser
-                    ? (userData ? (userData.status === 'pending' ? "Account Under Review" : "Account Rejected") : "Complete Profile Setup")
+                    ? (userData ? (userData.status === 'pending' ? "Account Under Review" : (userData.status === 'rejected' ? "Account Rejected" : "Request Access")) : "Complete Profile Setup")
                     : "Login to Purchase"
                   }
                 </Button>

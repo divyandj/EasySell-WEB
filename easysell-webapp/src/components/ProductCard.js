@@ -35,7 +35,7 @@ const ProductCard = ({ product }) => {
   const isOutOfStock = !effectivelyInStock && !allowBackorder;
   const isPreOrder = !effectivelyInStock && allowBackorder;
 
-  const isApproved = currentUser && userData && (userData.status === 'approved' || userData.status === undefined) && userData.status !== 'pending' && userData.status !== 'rejected';
+  const isApproved = currentUser && userData && userData.status === 'approved';
 
   const handleAddToCart = (e) => {
     e.preventDefault();
@@ -158,7 +158,7 @@ const ProductCard = ({ product }) => {
               <Flex align="center" color="brand.500" fontSize="sm" fontWeight="bold">
                 <FiLock style={{ marginRight: '6px' }} />
                 <Text>
-                  {currentUser ? (userData ? (userData.status === 'pending' ? "Verification Pending" : "Login to View Price") : "Complete Setup") : "Login to View Price"}
+                  {currentUser ? (userData ? (userData.status === 'pending' ? "Verification Pending" : (userData.status === 'rejected' ? "Verification Rejected" : "Request Access")) : "Complete Setup") : "Login to View Price"}
                 </Text>
               </Flex>
             )}

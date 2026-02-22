@@ -30,10 +30,12 @@ const messaging = admin.messaging();
 // --- Helper Functions ---
 
 /**
- * Sends a push notification to the 'admin_orders' topic
+ * Sends a push notification to the 'admin_orders_[storeHandle]' topic
  */
-async function notifyNewOrder(orderId, amount, customerName) {
+async function notifyNewOrder(orderId, catalogueId, amount, customerName, storeHandle) {
   if (!serviceAccount) return;
+
+  const topicName = storeHandle ? `admin_orders_${storeHandle}` : "admin_orders";
 
   const message = {
     notification: {
@@ -42,24 +44,28 @@ async function notifyNewOrder(orderId, amount, customerName) {
     },
     data: {
       orderId: String(orderId),
-      type: "order"
+      catalogueId: catalogueId || "",
+      type: "order",
+      storeHandle: storeHandle || ""
     },
-    topic: "admin_orders"
+    topic: topicName
   };
 
   try {
     await messaging.send(message);
-    console.log(`🔔 Notification sent: New Order ${orderId}`);
+    console.log(`🔔 Notification sent: New Order ${orderId} to topic ${topicName}`);
   } catch (error) {
     console.error("❌ FCM Error (Order):", error.message);
   }
 }
 
 /**
- * Sends a push notification to the 'admin_new_users' topic
+ * Sends a push notification to the 'admin_new_users_[storeHandle]' topic
  */
-async function notifyNewUser(userName, userEmail) {
+async function notifyNewUser(userName, userEmail, storeHandle) {
   if (!serviceAccount) return;
+
+  const topicName = storeHandle ? `admin_new_users_${storeHandle}` : "admin_new_users";
 
   const message = {
     notification: {
@@ -68,14 +74,15 @@ async function notifyNewUser(userName, userEmail) {
     },
     data: {
       email: userEmail,
-      type: "user"
+      type: "user",
+      storeHandle: storeHandle || ""
     },
-    topic: "admin_new_users"
+    topic: topicName
   };
 
   try {
     await messaging.send(message);
-    console.log(`🔔 Notification sent: New User ${userEmail}`);
+    console.log(`🔔 Notification sent: New User ${userEmail} to topic ${topicName}`);
   } catch (error) {
     console.error("❌ FCM Error (User):", error.message);
   }

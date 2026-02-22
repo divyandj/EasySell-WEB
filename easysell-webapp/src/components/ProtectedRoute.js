@@ -37,7 +37,7 @@
 //   // 2. Logged In but Profile Logic
 //   // If userData is still loading (but auth is done), usually AuthContext handles this loading state globally.
 //   // But if userData is null (e.g. new google login edge case), treat as restricted.
-  
+
 //   if (userData) {
 //     // 3. Pending Approval -> Show Block Screen
 //     if (userData.status === 'pending') {
@@ -106,7 +106,7 @@ const ProtectedRoute = ({ children }) => {
   // If userData is null, it might be loading, or it might be a new user who hasn't finished reg form yet.
   // If they are on a protected route with no profile, we kick them back to login to finish the form.
   if (currentUser && !userData) {
-     return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   if (userData) {
@@ -130,21 +130,26 @@ const ProtectedRoute = ({ children }) => {
 
     // Rejected
     if (userData.status === 'rejected') {
-        return (
-          <Center h="80vh">
-            <VStack spacing={6} p={8} borderWidth={1} borderRadius="lg" shadow="lg" maxW="md" textAlign="center" bg="white">
-              <Icon as={FiLock} w={16} h={16} color="red.500" />
-              <Heading size="lg" color="red.500">Access Denied</Heading>
-              <Text color="gray.600">
-                Your account has been rejected.
-              </Text>
-              <Button colorScheme="red" variant="outline" onClick={() => signOut()}>
-                Sign Out
-              </Button>
-            </VStack>
-          </Center>
-        );
-      }
+      return (
+        <Center h="80vh">
+          <VStack spacing={6} p={8} borderWidth={1} borderRadius="lg" shadow="lg" maxW="md" textAlign="center" bg="white">
+            <Icon as={FiLock} w={16} h={16} color="red.500" />
+            <Heading size="lg" color="red.500">Access Denied</Heading>
+            <Text color="gray.600">
+              Your account has been rejected.
+            </Text>
+            <Button colorScheme="red" variant="outline" onClick={() => signOut()}>
+              Sign Out
+            </Button>
+          </VStack>
+        </Center>
+      );
+    }
+
+    // Undefined / Not Requested yet (Crucial fix for cross-store data leak)
+    if (userData.status === undefined) {
+      return <Navigate to="/login" replace />;
+    }
   }
 
   // 3. Approved -> Allow Access

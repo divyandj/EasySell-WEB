@@ -315,9 +315,21 @@ const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
+// Helper to extract subdomain
+const getSubdomain = () => {
+  const host = window.location.hostname;
+  const parts = host.split('.');
+  if (host.includes('localhost') && parts.length >= 2) {
+    if (parts[0] !== 'www') return parts[0];
+  } else if (parts.length >= 3) {
+    if (parts[0] !== 'www') return parts[0];
+  }
+  return null;
+};
+
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [userData, setUserData] = useState(null); // Stores Firestore profile data
+  const [userData, setUserData] = useState(null); // Stores Firestore profile data + specific store status
   const [loading, setLoading] = useState(true);
 
   // --- 1. GOOGLE AUTH (Raw) ---
@@ -333,19 +345,34 @@ export const AuthProvider = ({ children }) => {
   };
 
   // --- 2. CHECK PROFILE STATUS ---
-  // Helper to check if a profile exists and get its data
+  // Helper to check if a profile exists and get its data, including store-specific request status
   const getUserProfile = async (uid) => {
     const docRef = doc(db, 'users', uid);
     const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return docSnap.data();
+    if (!docSnap.exists()) return null;
+
+    let profile = docSnap.data();
+    const subdomain = getSubdomain();
+
+    // If the user is browsing a specific store, fetch their access request for that store
+    if (subdomain) {
+      const accessReqRef = doc(db, 'store_access_requests', `${uid}_${subdomain}`);
+      const accessReqSnap = await getDoc(accessReqRef);
+      if (accessReqSnap.exists()) {
+        profile.status = accessReqSnap.data().status;
+      } else {
+        profile.status = undefined; // Need to request access
+      }
     }
-    return null;
+
+    return profile;
   };
 
-  // --- 3. SAVE NEW PROFILE ---
+  // --- 3. SAVE NEW PROFILE & REQUEST ACCESS ---
   const saveUserProfile = async (uid, details) => {
     const userRef = doc(db, 'users', uid);
+
+    // 1. Save global user profile (base identity)
     await setDoc(userRef, {
       uid: uid,
       email: details.email,
@@ -354,18 +381,35 @@ export const AuthProvider = ({ children }) => {
       phoneNumber: details.phone,
       gstPan: details.gstPan,
       userType: 'buyer',
-      status: 'pending', // IMPORTANT: Starts as pending
       createdAt: serverTimestamp(),
-    });
+    }, { merge: true });
+
+    // 2. Request store access if on a subdomain
+    const subdomain = getSubdomain();
+    if (subdomain) {
+      const accessReqRef = doc(db, 'store_access_requests', `${uid}_${subdomain}`);
+      await setDoc(accessReqRef, {
+        buyerUid: uid,
+        storeHandle: subdomain,
+        status: 'pending',
+        buyerName: details.name,
+        buyerEmail: details.email,
+        buyerPhone: details.phone,
+        buyerGst: details.gstPan,
+        createdAt: serverTimestamp(),
+      });
+    }
 
     // Fire and forget. We don't wait for the result.
     axios.post(`${API_BASE_URL}/api/notify-signup`, {
       userName: details.name,
-      userEmail: details.email
+      userEmail: details.email,
+      storeHandle: subdomain || '' // Pass the store context for targeted notifications
     }).catch(err => console.error("Background notification error:", err));
 
-    const newItem = await getDoc(userRef);
-    setUserData(newItem.data());
+    // Reload the full profile context
+    const updatedProfile = await getUserProfile(uid);
+    setUserData(updatedProfile);
   };
 
   // --- 3.5. UPDATE PROFILE (Merge) ---

@@ -18,7 +18,7 @@ app.use(cors());
 
 // --- NEW: Add JSON Middleware ---
 // This is required for the Notification API to read data sent from your React App.
-app.use(express.json()); 
+app.use(express.json());
 
 
 app.get("/", (req, res) => {
@@ -36,11 +36,11 @@ app.post("/api/notify-order", (req, res) => {
     return res.status(500).json({ error: "Notification service not configured properly." });
   }
 
-  const { orderId, amount, customerName } = req.body;
-  
+  const { orderId, catalogueId, amount, customerName, storeHandle } = req.body;
+
   // Call the service (fire and forget - we don't wait for it to finish)
-  notificationService.notifyNewOrder(orderId, amount, customerName);
-  
+  notificationService.notifyNewOrder(orderId, catalogueId, amount, customerName, storeHandle);
+
   return res.json({ success: true, message: "Order notification queued" });
 });
 
@@ -50,10 +50,10 @@ app.post("/api/notify-signup", (req, res) => {
     return res.status(500).json({ error: "Notification service not configured properly." });
   }
 
-  const { userName, userEmail } = req.body;
+  const { userName, userEmail, storeHandle } = req.body;
 
   // Call the service
-  notificationService.notifyNewUser(userName, userEmail);
+  notificationService.notifyNewUser(userName, userEmail, storeHandle);
 
   return res.json({ success: true, message: "User notification queued" });
 });
