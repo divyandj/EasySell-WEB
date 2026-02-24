@@ -345,6 +345,14 @@ export const AuthProvider = ({ children }) => {
           const snap = await getDocs(q);
           if (!snap.empty) {
             setStoreConfig(snap.docs[0].data());
+
+            // --- ANALYTICS: Track Unique Daily Visit ---
+            const visitKey = `visited_${subdomain}_${new Date().toISOString().split('T')[0]}`;
+            if (!sessionStorage.getItem(visitKey)) {
+              axios.post(`${API_BASE_URL}/api/analytics/visit`, { storeHandle: subdomain })
+                .catch(err => console.error("Analytics visit ping failed:", err));
+              sessionStorage.setItem(visitKey, 'true');
+            }
           }
         } catch (error) {
           console.error("Error fetching store config:", error);

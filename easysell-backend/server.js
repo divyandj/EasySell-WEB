@@ -11,6 +11,13 @@ try {
   console.warn("⚠️ Notification Service not loaded. (Check if utils/notificationService.js and serviceAccountKey.json exist)");
 }
 
+let analyticsService;
+try {
+  analyticsService = require("./utils/analyticsService");
+} catch (error) {
+  console.warn("⚠️ Analytics Service not loaded. (Check if utils/analyticsService.js exists)");
+}
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -56,6 +63,40 @@ app.post("/api/notify-signup", (req, res) => {
   notificationService.notifyNewUser(userName, userEmail, storeHandle);
 
   return res.json({ success: true, message: "User notification queued" });
+});
+
+// ==========================================
+//  ANALYTICS API ENDPOINTS
+// ==========================================
+
+// 1. Visit Tracking
+app.post("/api/analytics/visit", async (req, res) => {
+  if (!analyticsService) return res.status(500).json({ error: "Service unavailable" });
+  const { storeHandle } = req.body;
+  if (!storeHandle) return res.status(400).json({ error: "storeHandle required" });
+
+  await analyticsService.trackVisit(storeHandle);
+  return res.json({ success: true });
+});
+
+// 2. Order Tracking (GMV, Products, Buyers)
+app.post("/api/analytics/order", async (req, res) => {
+  if (!analyticsService) return res.status(500).json({ error: "Service unavailable" });
+  const { storeHandle, orderData } = req.body;
+  if (!storeHandle || !orderData) return res.status(400).json({ error: "storeHandle and orderData required" });
+
+  await analyticsService.trackOrder(storeHandle, orderData);
+  return res.json({ success: true });
+});
+
+// 3. Abandoned Cart Tracking
+app.post("/api/analytics/abandoned", async (req, res) => {
+  if (!analyticsService) return res.status(500).json({ error: "Service unavailable" });
+  const { storeHandle, cartValue } = req.body;
+  if (!storeHandle || !cartValue) return res.status(400).json({ error: "Required params missing" });
+
+  await analyticsService.trackAbandonedCart(storeHandle, cartValue);
+  return res.json({ success: true });
 });
 
 app.listen(PORT, () => {

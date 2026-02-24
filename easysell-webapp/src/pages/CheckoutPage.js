@@ -40,6 +40,34 @@ const CheckoutPage = () => {
   const [error, setError] = useState(null);
   const [billingMode, setBillingMode] = useState('withBill');
 
+  // --- ANALYTICS: Track Abandoned Carts ---
+  const orderPlacedRef = React.useRef(false);
+  const cartStateRef = React.useRef({ count: 0, value: 0, tracked: false });
+
+  useEffect(() => {
+    cartStateRef.current.count = cartItems.length;
+    cartStateRef.current.value = billingMode === 'withBill' ? cartGrandTotal : cartSubtotal;
+  }, [cartItems, cartGrandTotal, cartSubtotal, billingMode]);
+
+  useEffect(() => {
+    const trackAbandonment = () => {
+      const state = cartStateRef.current;
+      if (!orderPlacedRef.current && state.count > 0 && !state.tracked) {
+        state.tracked = true; // Prevent duplicate tracking
+        axios.post(`${API_BASE_URL}/api/analytics/abandoned`, {
+          storeHandle: getSubdomain() || '',
+          cartValue: state.value
+        }).catch(e => console.error("Abandonment tracking failed", e));
+      }
+    };
+
+    window.addEventListener('beforeunload', trackAbandonment);
+    return () => {
+      window.removeEventListener('beforeunload', trackAbandonment);
+      trackAbandonment(); // Catch router navigations (component unmount)
+    };
+  }, []);
+
   // --- THEME COLORS ---
   const bgCard = useColorModeValue('white', 'whiteAlpha.50');
   const textColor = useColorModeValue('gray.800', 'white');
@@ -285,6 +313,25 @@ const CheckoutPage = () => {
           storeHandle: getSubdomain() || ''
         })
         .catch((err) => console.error("Notification Failed:", err));
+
+      // --- ANALYTICS: Track Order & Config ---
+      orderPlacedRef.current = true; // Mark success to prevent abandonment tracking
+      axios
+        .post(`${API_BASE_URL}/api/analytics/order`, {
+          storeHandle: getSubdomain() || '',
+          orderData: {
+            gmv: displayGrandTotal,
+            buyerName: shippingInfo.name,
+            buyerEmail: currentUser.email || '',
+            items: cartItems.map((i) => ({
+              id: i.productId,
+              name: i.title,
+              qty: i.quantity,
+              price: i.priceDetails.finalUnitPriceWithTax
+            }))
+          }
+        })
+        .catch((err) => console.error("Analytics Order Tracking Failed:", err));
 
       toast({
         title: "Order placed successfully!",
