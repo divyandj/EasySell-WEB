@@ -28,7 +28,7 @@ const getSubdomain = () => {
 };
 
 const CheckoutPage = () => {
-  const { currentUser, userData } = useAuth();
+  const { currentUser, userData, storeConfig } = useAuth();
   const { cartItems, cartSubtotal, cartTotalTax, cartGrandTotal, clearCart, itemCount, loadingProductData } = useCart();
   const navigate = useNavigate();
   const toast = useToast();
@@ -105,8 +105,11 @@ const CheckoutPage = () => {
       return;
     }
 
-    const isApproved = currentUser && userData && userData.status === 'approved';
-    if (!isApproved) {
+    const isPublicStore = storeConfig?.storeMode === 'public';
+    const isApprovedBuyer = currentUser && userData && userData.status === 'approved';
+    const hasAccess = isPublicStore || isApprovedBuyer;
+
+    if (!hasAccess) {
       toast({ title: "Account Not Approved", description: "Your account is under review or rejected. You cannot place orders.", status: "error", duration: 5000, isClosable: true });
       return;
     }

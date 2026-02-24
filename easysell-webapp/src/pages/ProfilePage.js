@@ -48,9 +48,11 @@ const InfoItem = ({ icon, label, value }) => {
 };
 
 const ProfilePage = () => {
-    const { currentUser, userData, signOut, updateUserProfile } = useAuth();
+    const { currentUser, userData, signOut, updateUserProfile, storeConfig } = useAuth();
     const navigate = useNavigate();
     const toast = useToast();
+
+    const isPublicStore = storeConfig?.storeMode === 'public';
 
     // Edit State
     const [isEditing, setIsEditing] = useState(false);
@@ -83,7 +85,11 @@ const ProfilePage = () => {
         const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
         const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 
-        if (!gstRegex.test(gstPanBox) && !panRegex.test(gstPanBox)) {
+        if (!gstPanBox) {
+            if (!isPublicStore) {
+                tempErrors.gstPan = "GSTIN or PAN is required";
+            }
+        } else if (!gstRegex.test(gstPanBox) && !panRegex.test(gstPanBox)) {
             tempErrors.gstPan = "Invalid GSTIN format (15 chars) or PAN format (10 chars)";
         }
 
@@ -139,6 +145,10 @@ const ProfilePage = () => {
 
     // Status Badge Logic
     const getStatusBadge = (status) => {
+        if (isPublicStore) {
+            return <Badge colorScheme="blue" fontSize="0.9em" px={3} py={1} rounded="full"><HStack><Icon as={FiUser} /> <Text>Shopper</Text></HStack></Badge>;
+        }
+
         switch (status) {
             case 'approved': return <Badge colorScheme="green" fontSize="0.9em" px={3} py={1} rounded="full"><HStack><Icon as={FiCheckCircle} /> <Text>Verified Account</Text></HStack></Badge>;
             case 'pending': return <Badge colorScheme="orange" fontSize="0.9em" px={3} py={1} rounded="full"><HStack><Icon as={FiClock} /> <Text>Awaiting Approval</Text></HStack></Badge>;
@@ -301,7 +311,9 @@ const ProfilePage = () => {
                                     <SimpleGrid columns={1} spacing={4}>
                                         {isEditing ? (
                                             <FormControl isInvalid={errors.gstPan}>
-                                                <FormLabel fontSize="xs" fontWeight="bold" textTransform="uppercase" color="gray.400">GSTIN / PAN Number</FormLabel>
+                                                <FormLabel fontSize="xs" fontWeight="bold" textTransform="uppercase" color="gray.400">
+                                                    {isPublicStore ? "GSTIN / PAN Number (Optional)" : "GSTIN / PAN Number"}
+                                                </FormLabel>
                                                 <Input
                                                     value={formData.gstPan}
                                                     onChange={(e) => setFormData({ ...formData, gstPan: e.target.value.toUpperCase() })}

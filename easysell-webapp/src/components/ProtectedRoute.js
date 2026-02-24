@@ -94,12 +94,17 @@ import { Center, VStack, Heading, Text, Button, Icon } from '@chakra-ui/react';
 import { FiClock, FiLock } from 'react-icons/fi';
 
 const ProtectedRoute = ({ children }) => {
-  const { currentUser, userData, signOut } = useAuth();
+  const { currentUser, userData, signOut, storeConfig } = useAuth();
   const location = useLocation();
 
   // 1. Check Authentication
   if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // 1.5. Check Public Store Bypass
+  if (storeConfig?.storeMode === 'public') {
+    return children;
   }
 
   // 2. Check Profile Status

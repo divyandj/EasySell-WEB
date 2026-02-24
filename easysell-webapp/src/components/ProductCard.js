@@ -21,7 +21,7 @@ const MotionBox = motion(Box);
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
-  const { currentUser, userData } = useAuth();
+  const { currentUser, userData, storeConfig } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -35,14 +35,26 @@ const ProductCard = ({ product }) => {
   const isOutOfStock = !effectivelyInStock && !allowBackorder;
   const isPreOrder = !effectivelyInStock && allowBackorder;
 
-  const isApproved = currentUser && userData && userData.status === 'approved';
+  const isPublicStore = storeConfig?.storeMode === 'public';
+  const isApprovedBuyer = currentUser && userData && userData.status === 'approved';
+  const hasAccess = isPublicStore || isApprovedBuyer;
 
   const handleAddToCart = (e) => {
     e.preventDefault();
-    if (!isApproved) return;
-    // Actually, usually we allow add to cart, but if price is hidden, maybe we shouldn't? 
-    // User requested "Login to view prices". Often this implies "Login to buy" too.
-    // But let's stick to hiding price first. The user can click to detail page and will see login prompt there.
+    if (!hasAccess) return;
+
+    // Enforce login for guests trying to add to cart on public stores
+    if (isPublicStore && !currentUser) {
+      toast({
+        title: "Please login to add to cart.",
+        status: "info",
+        duration: 3000,
+        isClosable: true,
+        position: 'top',
+      });
+      navigate('/login');
+      return;
+    }
 
     if (product.hasVariants || isOutOfStock) return;
     addToCart(product, 1);
@@ -99,8 +111,8 @@ const ProductCard = ({ product }) => {
             </Box>
           )}
 
-          {/* Floating Action Button - only if approved */}
-          {isApproved && (
+          {/* Floating Action Button - only if approved or public */}
+          {hasAccess && (
             <Box
               position="absolute"
               bottom="4"
@@ -143,7 +155,7 @@ const ProductCard = ({ product }) => {
           </Heading>
 
           <Flex align="baseline" mt={1}>
-            {isApproved ? (
+            {hasAccess ? (
               <>
                 <Text fontSize="lg" fontWeight="extrabold" color="gray.900">
                   ₹{price.toFixed(2)}

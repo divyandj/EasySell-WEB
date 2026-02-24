@@ -66,7 +66,7 @@ const ProductDetailPage = () => {
   // --- STATE MANAGEMENT ---
   const { productId } = useParams();
   const { addToCart } = useCart();
-  const { currentUser, userData } = useAuth();
+  const { currentUser, userData, storeConfig } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -81,7 +81,9 @@ const ProductDetailPage = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [activeMedia, setActiveMedia] = useState(null);
 
-  const isApproved = currentUser && userData && userData.status === 'approved';
+  const isPublicStore = storeConfig?.storeMode === 'public';
+  const isApprovedBuyer = currentUser && userData && userData.status === 'approved';
+  const hasAccess = isPublicStore || isApprovedBuyer;
 
   // --- THEME COLORS ---
   const pageBg = useColorModeValue('gray.50', 'gray.900');
@@ -167,8 +169,17 @@ const ProductDetailPage = () => {
   };
 
   const handleAddToCart = () => {
-    if (!currentUser) return navigate('/login', { state: { from: location } });
-    if (!isApproved) return;
+    if (!hasAccess) return;
+    if (isPublicStore && !currentUser) {
+      toast({
+        title: "Please login to add to cart.",
+        status: "info",
+        duration: 3000,
+        isClosable: true,
+        position: 'top',
+      });
+      return navigate('/login', { state: { from: location } });
+    }
 
     const itemToAdd = product;
     const variantInfo = selectedVariant && selectedVariant !== 'unavailable' ? selectedVariant : null;
@@ -374,7 +385,7 @@ const ProductDetailPage = () => {
 
             {/* Price Area - COMPACT & CLEAN */}
             <Box p={6} bg={cardBg} borderRadius="2xl" borderWidth="1px" borderColor={borderColor} shadow="sm">
-              {isApproved ? (
+              {hasAccess ? (
                 <VStack align="start" spacing={0}>
                   <Text fontSize="md" color={textMuted} fontWeight="medium">Total Price (Incl. Tax)</Text>
                   <HStack align="baseline" spacing={3}>
@@ -461,7 +472,7 @@ const ProductDetailPage = () => {
                             gap={1}
                           >
                             <Text lineHeight="1">{value}</Text>
-                            {isApproved && priceDiff !== null && (
+                            {hasAccess && priceDiff !== null && (
                               <Text fontSize="xs" color={priceDiff > 0 ? "orange.500" : "green.500"} fontWeight="extrabold">
                                 {priceDiff > 0 ? '+' : ''}{formatCurrency(priceDiff)}
                               </Text>
@@ -509,7 +520,7 @@ const ProductDetailPage = () => {
 
             {/* Action Bar */}
             <Flex gap={3} pt={2}>
-              {isApproved ? (
+              {hasAccess ? (
                 <>
                   <NumberInput size="lg" maxW="120px" defaultValue={1} min={displayDetails.minQty} max={displayDetails.maxQty} onChange={(val) => setQuantity(parseInt(val) || 1)} value={quantity}>
                     <NumberInputField borderRadius="2xl" fontWeight="bold" h="14" />
@@ -556,7 +567,7 @@ const ProductDetailPage = () => {
             </Flex>
 
             {/* Volume Pricing (Compact) */}
-            {product.bulkDiscounts && product.bulkDiscounts.length > 0 && isApproved && (
+            {product.bulkDiscounts && product.bulkDiscounts.length > 0 && hasAccess && (
               <Box pt={4}>
                 <Text fontSize="sm" fontWeight="bold" mb={2} color={textMuted} textTransform="uppercase">Volume Discounts</Text>
                 <TableContainer borderWidth="1px" borderColor={borderColor} borderRadius="lg">

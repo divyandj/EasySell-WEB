@@ -305,7 +305,7 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase';
 import { Spinner, Center } from '@chakra-ui/react';
 import axios from 'axios';
@@ -331,6 +331,29 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userData, setUserData] = useState(null); // Stores Firestore profile data + specific store status
   const [loading, setLoading] = useState(true);
+  const [storeConfig, setStoreConfig] = useState(null);
+  const [storeConfigLoaded, setStoreConfigLoaded] = useState(false);
+
+  // --- 0. FETCH STORE CONFIG (Public/Private Mode) ---
+  useEffect(() => {
+    const fetchStoreConfig = async () => {
+      const subdomain = getSubdomain();
+      if (subdomain) {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('storeHandle', '==', subdomain.toLowerCase()));
+        try {
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            setStoreConfig(snap.docs[0].data());
+          }
+        } catch (error) {
+          console.error("Error fetching store config:", error);
+        }
+      }
+      setStoreConfigLoaded(true);
+    };
+    fetchStoreConfig();
+  }, []);
 
   // --- 1. GOOGLE AUTH (Raw) ---
   // Just handles the popup. Logic for what to do next is in the UI.
@@ -457,6 +480,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     userData,
+    storeConfig,
     googleLogin,
     getUserProfile,
     saveUserProfile,
@@ -464,7 +488,7 @@ export const AuthProvider = ({ children }) => {
     signOut,
   };
 
-  if (loading) {
+  if (loading || !storeConfigLoaded) {
     return (
       <Center height="100vh">
         <Spinner size="xl" color="teal.500" />

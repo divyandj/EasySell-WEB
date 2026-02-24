@@ -73,7 +73,7 @@ const PageWrapper = ({ children }) => {
 };
 
 const LoginPage = () => {
-  const { googleLogin, getUserProfile, saveUserProfile, currentUser, userData, signOut } = useAuth();
+  const { googleLogin, getUserProfile, saveUserProfile, currentUser, userData, signOut, storeConfig } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -99,11 +99,18 @@ const LoginPage = () => {
   const successColor = "green.500";
   const errorColor = "red.500";
   const inputBg = useColorModeValue('white', 'whiteAlpha.50');
+  const isPublicStore = storeConfig?.storeMode === 'public';
 
   // --- REDIRECT LOGIC ---
   // --- REDIRECT LOGIC ---
   useEffect(() => {
     if (currentUser) {
+      if (storeConfig?.storeMode === 'public' && location.pathname !== '/signup') {
+        const from = location.state?.from?.pathname || '/';
+        navigate(from, { replace: true });
+        return;
+      }
+
       if (userData) {
         // Profile Exists - Check Status
         // Explicitly check for 'approved'. If undefined, it means they haven't requested access to THIS store yet.
@@ -143,7 +150,7 @@ const LoginPage = () => {
         }
       }
     }
-  }, [currentUser, userData, navigate, location, viewState]);
+  }, [currentUser, userData, navigate, location, viewState, storeConfig]);
 
   // --- VALIDATION LOGIC (Real-time) ---
   const validateField = (name, value) => {
@@ -162,8 +169,11 @@ const LoginPage = () => {
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
       const val = value.trim().toUpperCase();
 
-      if (!val) error = "GST or PAN number is required";
-      else if (val.length === 10) {
+      if (!val) {
+        if (!isPublicStore) {
+          error = "GST or PAN number is required";
+        }
+      } else if (val.length === 10) {
         if (!panRegex.test(val)) error = "Invalid PAN format (e.g., ABCDE1234F)";
       } else if (val.length === 15) {
         if (!gstRegex.test(val)) error = "Invalid GSTIN format";
@@ -248,7 +258,13 @@ const LoginPage = () => {
         email: targetUser.email
       });
       setViewState('pending');
-      toast({ title: "Registration Successful", description: "Account under review.", status: "success", duration: 5000, isClosable: true });
+      toast({
+        title: isPublicStore ? "Profile Saved" : "Registration Successful",
+        description: isPublicStore ? "You can now track your orders." : "Account under review.",
+        status: "success",
+        duration: 5000,
+        isClosable: true
+      });
     } catch (error) {
       toast({ title: "Registration Failed", description: error.message, status: "error", duration: 5000, isClosable: true });
     } finally {
@@ -257,12 +273,12 @@ const LoginPage = () => {
   };
 
   // --- RENDERERS ---
-  const renderInput = (label, name, placeholder, icon, type = "text", maxLength) => {
+  const renderInput = (label, name, placeholder, icon, type = "text", maxLength, isReq = true) => {
     const isError = !!errors[name];
     const isSuccess = touched[name] && !isError && formData[name].length > 0;
 
     return (
-      <FormControl isRequired isInvalid={isError && touched[name]}>
+      <FormControl isRequired={isReq} isInvalid={isError && touched[name]}>
         <FormLabel fontSize="sm" fontWeight="bold" color={mutedColor} mb={1}>{label}</FormLabel>
         <InputGroup size="lg">
           <InputLeftElement pointerEvents="none" children={<Icon as={icon} color={isError ? errorColor : (isSuccess ? successColor : "gray.300")} />} />
@@ -297,10 +313,23 @@ const LoginPage = () => {
     return (
       <PageWrapper>
         <VStack spacing={6} textAlign="center">
-          <Icon as={FiCheckCircle} boxSize="60px" color="orange.400" />
-          <Heading size="lg" color="orange.500">Verification Pending</Heading>
-          <Text color={mutedColor}>Thanks for registering! We are currently verifying your business details. You will be notified once approved.</Text>
-          <Button variant="outline" onClick={() => { signOut(); setViewState('login'); }}>Sign Out</Button>
+          <Icon as={FiCheckCircle} boxSize="60px" color={isPublicStore ? "green.400" : "orange.400"} />
+          <Heading size="lg" color={isPublicStore ? "green.500" : "orange.500"}>
+            {isPublicStore ? "Profile Complete!" : "Verification Pending"}
+          </Heading>
+          <Text color={mutedColor}>
+            {isPublicStore
+              ? "Thanks for setting up your profile! You can now track your orders and checkout faster."
+              : "Thanks for registering! We are currently verifying your business details. You will be notified once approved."}
+          </Text>
+          <HStack spacing={4}>
+            {isPublicStore && (
+              <Button colorScheme="brand" onClick={() => navigate('/')}>
+                Continue Shopping
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => { signOut(); setViewState('login'); }}>Sign Out</Button>
+          </HStack>
         </VStack>
       </PageWrapper>
     );
@@ -324,7 +353,11 @@ const LoginPage = () => {
       <PageWrapper>
         <VStack spacing={2} mb={6} align="start" w="full">
           <Heading size="lg" color={textColor}>Complete Profile</Heading>
-          <Text fontSize="sm" color={mutedColor}>We need a few details to request access to this store.</Text>
+          <Text fontSize="sm" color={mutedColor}>
+            {isPublicStore
+              ? "We need a few details to set up your account."
+              : "We need a few details to request access to this store."}
+          </Text>
         </VStack>
 
         <form onSubmit={handleDetailsSubmit} style={{ width: '100%' }} noValidate>
@@ -340,7 +373,15 @@ const LoginPage = () => {
             </FormControl>
 
             {renderInput("Phone Number", "phone", "9876543210", FiSmartphone, "tel", 10)}
-            {renderInput("GST or PAN Number", "gstPan", "GSTIN or PAN", FiFileText, "text", 15)}
+            {renderInput(
+              isPublicStore ? "GST or PAN Number (Optional)" : "GST or PAN Number",
+              "gstPan",
+              "GSTIN or PAN",
+              FiFileText,
+              "text",
+              15,
+              !isPublicStore
+            )}
 
             <Button
               type="submit"
@@ -350,11 +391,11 @@ const LoginPage = () => {
               mt={4}
               h="56px"
               isLoading={isSubmitting}
-              loadingText="Requesting Access..."
+              loadingText={isPublicStore ? "Saving Profile..." : "Requesting Access..."}
               shadow="lg"
               _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }}
             >
-              Request Access
+              {isPublicStore ? "Save Profile" : "Request Access"}
             </Button>
           </VStack>
         </form>
