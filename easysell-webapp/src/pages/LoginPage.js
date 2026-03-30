@@ -13,57 +13,47 @@ import {
   Box,
   Divider,
   HStack,
-  Alert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription,
   useColorModeValue,
   Flex,
   InputGroup,
   InputLeftElement,
   InputRightElement,
   FormErrorMessage,
-  FormHelperText,
-  Fade
 } from '@chakra-ui/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
-import { FiUser, FiSmartphone, FiFileText, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
+import { FiUser, FiSmartphone, FiFileText, FiAlertCircle, FiCheckCircle, FiShield } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 
 const MotionBox = motion(Box);
 
-// --- SHARED WRAPPER COMPONENT ---
+// --- SHARED WRAPPER ---
 const PageWrapper = ({ children }) => {
-  const bgGradient = useColorModeValue('linear(to-br, brand.600, purple.700)', 'linear(to-br, brand.900, gray.900)');
-  const cardBg = useColorModeValue('whiteAlpha.900', 'blackAlpha.600');
-  const cardBorder = useColorModeValue('white', 'whiteAlpha.200');
-
-  const cardVariants = {
-    hidden: { opacity: 0, y: 20, scale: 0.95 },
-    visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, ease: "easeOut" } }
-  };
+  const bgGradient = useColorModeValue(
+    'linear(to-br, brand.600, #4C3EC0, accent.700)',
+    'linear(to-br, brand.900, #1a1a2e, accent.900)'
+  );
+  const cardBg = useColorModeValue('white', '#111116');
+  const cardBorder = useColorModeValue('gray.100', 'whiteAlpha.100');
 
   return (
     <Flex minH="100vh" align="center" justify="center" bgGradient={bgGradient} p={4} position="relative" overflow="hidden">
-      {/* Decorative BG Elements (Animated) */}
-      <Box position="absolute" top="-10%" left="-5%" w="500px" h="500px" bg="whiteAlpha.100" rounded="full" filter="blur(80px)" animation="float 10s infinite alternate" />
-      <Box position="absolute" bottom="-10%" right="-5%" w="400px" h="400px" bg="brand.500" rounded="full" filter="blur(100px)" opacity={0.2} />
+      {/* Decorative blobs */}
+      <Box position="absolute" top="-20%" left="-10%" w="600px" h="600px" bg="brand.400" filter="blur(150px)" opacity="0.12" borderRadius="full" />
+      <Box position="absolute" bottom="-20%" right="-10%" w="500px" h="500px" bg="accent.500" filter="blur(150px)" opacity="0.08" borderRadius="full" />
 
       <MotionBox
-        variants={cardVariants}
-        initial="hidden"
-        animate="visible"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
         bg={cardBg}
-        backdropFilter="blur(20px)"
         borderWidth="1px"
         borderColor={cardBorder}
-        borderRadius="2xl"
-        boxShadow="2xl"
+        borderRadius="20px"
+        boxShadow="0 25px 50px rgba(0,0,0,0.15)"
         p={{ base: 8, md: 10 }}
         w="full"
-        maxW="md"
-        textAlign="left"
+        maxW="440px"
         zIndex={1}
       >
         {children}
@@ -78,30 +68,25 @@ const LoginPage = () => {
   const location = useLocation();
   const toast = useToast();
 
-  // State to manage the view: 'login', 'details', 'pending', 'rejected'
   const [viewState, setViewState] = useState('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authUser, setAuthUser] = useState(null);
-
-  // Form Data
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    gstPan: ''
-  });
-
-  // Validation State
+  const [formData, setFormData] = useState({ name: '', phone: '', gstPan: '' });
   const [touched, setTouched] = useState({});
   const [errors, setErrors] = useState({});
 
+  // Theme
   const textColor = useColorModeValue('gray.800', 'white');
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
   const successColor = "green.500";
   const errorColor = "red.500";
-  const inputBg = useColorModeValue('white', 'whiteAlpha.50');
+  const inputBg = useColorModeValue('gray.50', 'whiteAlpha.50');
+  const inputBorder = useColorModeValue('gray.200', 'whiteAlpha.200');
   const isPublicStore = storeConfig?.storeMode === 'public';
+  const pendingIconBg = useColorModeValue(isPublicStore ? 'green.50' : 'orange.50', 'whiteAlpha.100');
+  const rejectedIconBg = useColorModeValue('red.50', 'whiteAlpha.100');
+  const dividerColor = useColorModeValue('gray.200', 'whiteAlpha.200');
 
-  // --- REDIRECT LOGIC ---
   // --- REDIRECT LOGIC ---
   useEffect(() => {
     if (currentUser) {
@@ -112,8 +97,6 @@ const LoginPage = () => {
       }
 
       if (userData) {
-        // Profile Exists - Check Status
-        // Explicitly check for 'approved'. If undefined, it means they haven't requested access to THIS store yet.
         if (userData.status === 'approved') {
           const from = location.state?.from?.pathname || '/';
           navigate(from, { replace: true });
@@ -122,7 +105,6 @@ const LoginPage = () => {
         } else if (userData.status === 'rejected') {
           setViewState('rejected');
         } else if (userData.status === undefined) {
-          // Profile exists but no access request for this store -> Show Details Form to request access
           if (viewState !== 'details') {
             setAuthUser(currentUser);
             setFormData(prev => ({
@@ -136,9 +118,6 @@ const LoginPage = () => {
           }
         }
       } else {
-        // NEW: Profile Missing -> Auto-show Details Form
-        // We only do this if we are NOT already in the details view to avoid loops/resets
-        // and if we haven't already set the authUser for editing
         if (viewState !== 'details') {
           setAuthUser(currentUser);
           setFormData(prev => ({
@@ -152,7 +131,7 @@ const LoginPage = () => {
     }
   }, [currentUser, userData, navigate, location, viewState, storeConfig]);
 
-  // --- VALIDATION LOGIC (Real-time) ---
+  // --- VALIDATION ---
   const validateField = (name, value) => {
     let error = "";
     if (name === 'name') {
@@ -168,11 +147,8 @@ const LoginPage = () => {
       const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
       const val = value.trim().toUpperCase();
-
       if (!val) {
-        if (!isPublicStore) {
-          error = "GST or PAN number is required";
-        }
+        if (!isPublicStore) error = "GST or PAN number is required";
       } else if (val.length === 10) {
         if (!panRegex.test(val)) error = "Invalid PAN format (e.g., ABCDE1234F)";
       } else if (val.length === 15) {
@@ -187,14 +163,9 @@ const LoginPage = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     let finalValue = value;
-
-    // Auto-transform logic
     if (name === 'phone') finalValue = value.replace(/\D/g, '').slice(0, 10);
     if (name === 'gstPan') finalValue = value.toUpperCase();
-
     setFormData(prev => ({ ...prev, [name]: finalValue }));
-
-    // Real-time validation if already touched
     if (touched[name]) {
       setErrors(prev => ({ ...prev, [name]: validateField(name, finalValue) }));
     }
@@ -207,15 +178,12 @@ const LoginPage = () => {
   };
 
   const isValid = () => {
-    // Check all fields
     const nameErr = validateField('name', formData.name);
     const phoneErr = validateField('phone', formData.phone);
     const gstErr = validateField('gstPan', formData.gstPan);
-
     const newErrors = { name: nameErr, phone: phoneErr, gstPan: gstErr };
     setErrors(newErrors);
     setTouched({ name: true, phone: true, gstPan: true });
-
     return !nameErr && !phoneErr && !gstErr;
   };
 
@@ -243,15 +211,13 @@ const LoginPage = () => {
   const handleDetailsSubmit = async (e) => {
     e.preventDefault();
     if (!isValid()) {
-      toast({ title: "Check Fields", description: "Please correct the errors highlighting in red.", status: "warning", duration: 3000, isClosable: true });
+      toast({ title: "Check Fields", description: "Please correct the errors highlighted in red.", status: "warning", duration: 3000, isClosable: true });
       return;
     }
-
     setIsSubmitting(true);
     try {
       const targetUser = authUser || currentUser;
       if (!targetUser) throw new Error("Session expired. Please sign in again.");
-
       await saveUserProfile(targetUser.uid, {
         ...formData,
         photoURL: targetUser.photoURL,
@@ -272,16 +238,16 @@ const LoginPage = () => {
     }
   };
 
-  // --- RENDERERS ---
+  // --- RENDER INPUT ---
   const renderInput = (label, name, placeholder, icon, type = "text", maxLength, isReq = true) => {
     const isError = !!errors[name];
     const isSuccess = touched[name] && !isError && formData[name].length > 0;
 
     return (
       <FormControl isRequired={isReq} isInvalid={isError && touched[name]}>
-        <FormLabel fontSize="sm" fontWeight="bold" color={mutedColor} mb={1}>{label}</FormLabel>
-        <InputGroup size="lg">
-          <InputLeftElement pointerEvents="none" children={<Icon as={icon} color={isError ? errorColor : (isSuccess ? successColor : "gray.300")} />} />
+        <FormLabel fontSize="sm" fontWeight="600" color={mutedColor} mb={1}>{label}</FormLabel>
+        <InputGroup>
+          <InputLeftElement pointerEvents="none" h="44px" children={<Icon as={icon} color={isError ? errorColor : (isSuccess ? successColor : "gray.400")} />} />
           <Input
             name={name}
             type={type}
@@ -290,15 +256,16 @@ const LoginPage = () => {
             onBlur={handleBlur}
             placeholder={placeholder}
             maxLength={maxLength}
-            variant="filled"
-            bg={inputBg}
-            borderColor={isError ? errorColor : (isSuccess ? successColor : 'transparent')}
-            _focus={{ borderColor: isError ? errorColor : (isSuccess ? successColor : 'brand.500'), bg: 'transparent' }}
-            _hover={{ bg: 'transparent' }}
-            transition="all 0.2s"
+            borderColor={isError ? errorColor : inputBorder}
+            borderRadius="12px"
+            h="44px"
+            _focus={{ borderColor: isError ? errorColor : 'brand.400', boxShadow: `0 0 0 1px ${isError ? 'var(--chakra-colors-red-400)' : 'var(--chakra-colors-brand-400)'}` }}
+            _hover={{ borderColor: 'gray.300' }}
+            color={textColor}
+            bg="transparent"
           />
           {touched[name] && (
-            <InputRightElement>
+            <InputRightElement h="44px">
               {isError ? <Icon as={FiAlertCircle} color={errorColor} /> : <Icon as={FiCheckCircle} color={successColor} />}
             </InputRightElement>
           )}
@@ -308,73 +275,90 @@ const LoginPage = () => {
     );
   };
 
-  // --- VIEWS ---
+  // ============ VIEWS ============
+
+  // Pending
   if (viewState === 'pending') {
     return (
       <PageWrapper>
-        <VStack spacing={6} textAlign="center">
-          <Icon as={FiCheckCircle} boxSize="60px" color={isPublicStore ? "green.400" : "orange.400"} />
-          <Heading size="lg" color={isPublicStore ? "green.500" : "orange.500"}>
-            {isPublicStore ? "Profile Complete!" : "Verification Pending"}
+        <VStack spacing={6} textAlign="center" py={4}>
+          <Flex w={16} h={16} bg={pendingIconBg} borderRadius="full" align="center" justify="center">
+            <Icon as={FiCheckCircle} boxSize={8} color={isPublicStore ? "green.400" : "orange.400"} />
+          </Flex>
+          <Heading size="lg" color={textColor} fontWeight="800">
+            {isPublicStore ? "You're All Set!" : "Verification Pending"}
           </Heading>
-          <Text color={mutedColor}>
+          <Text color={mutedColor} fontSize="sm" lineHeight="1.6">
             {isPublicStore
-              ? "Thanks for setting up your profile! You can now track your orders and checkout faster."
-              : "Thanks for registering! We are currently verifying your business details. You will be notified once approved."}
+              ? "Your profile is complete. You can now browse, order, and track everything from your account."
+              : "We are verifying your business details. You'll be notified once approved."}
           </Text>
-          <HStack spacing={4}>
+          <VStack spacing={3} w="full">
             {isPublicStore && (
-              <Button colorScheme="brand" onClick={() => navigate('/')}>
+              <Button colorScheme="brand" w="full" borderRadius="12px" h="44px" fontWeight="600" onClick={() => navigate('/')}>
                 Continue Shopping
               </Button>
             )}
-            <Button variant="outline" onClick={() => { signOut(); setViewState('login'); }}>Sign Out</Button>
-          </HStack>
+            <Button variant="ghost" color={mutedColor} w="full" borderRadius="12px" h="44px" onClick={() => { signOut(); setViewState('login'); }}>
+              Sign Out
+            </Button>
+          </VStack>
         </VStack>
       </PageWrapper>
     );
   }
 
+  // Rejected
   if (viewState === 'rejected') {
     return (
       <PageWrapper>
-        <VStack spacing={6} textAlign="center">
-          <Icon as={FiAlertCircle} boxSize="60px" color="red.500" />
-          <Heading size="lg" color="red.500">Access Denied</Heading>
-          <Text color={mutedColor}>Your account request was declined. Please contact support.</Text>
-          <Button variant="outline" onClick={() => { signOut(); setViewState('login'); }}>Sign Out</Button>
+        <VStack spacing={6} textAlign="center" py={4}>
+          <Flex w={16} h={16} bg={rejectedIconBg} borderRadius="full" align="center" justify="center">
+            <Icon as={FiAlertCircle} boxSize={8} color="red.400" />
+          </Flex>
+          <Heading size="lg" color={textColor} fontWeight="800">Access Denied</Heading>
+          <Text color={mutedColor} fontSize="sm">Your account request was declined. Please contact support.</Text>
+          <Button variant="ghost" color={mutedColor} w="full" borderRadius="12px" h="44px" onClick={() => { signOut(); setViewState('login'); }}>
+            Sign Out
+          </Button>
         </VStack>
       </PageWrapper>
     );
   }
 
+  // Details Form
   if (viewState === 'details') {
     return (
       <PageWrapper>
-        <VStack spacing={2} mb={6} align="start" w="full">
-          <Heading size="lg" color={textColor}>Complete Profile</Heading>
+        <VStack spacing={1} mb={6} align="start" w="full">
+          <Heading size="lg" color={textColor} fontWeight="800">Complete Profile</Heading>
           <Text fontSize="sm" color={mutedColor}>
-            {isPublicStore
-              ? "We need a few details to set up your account."
-              : "We need a few details to request access to this store."}
+            {isPublicStore ? "A few details to set up your account." : "Complete your details to request store access."}
           </Text>
         </VStack>
 
         <form onSubmit={handleDetailsSubmit} style={{ width: '100%' }} noValidate>
-          <VStack spacing={5}>
+          <VStack spacing={4}>
             {renderInput("Full Name", "name", "John Doe", FiUser)}
 
             <FormControl isReadOnly>
-              <FormLabel fontSize="sm" fontWeight="bold" color={mutedColor} mb={1}>Email Address</FormLabel>
-              <InputGroup size="lg">
-                <InputLeftElement pointerEvents="none" children={<Icon as={FiFileText} color="gray.300" />} />
-                <Input value={authUser?.email || currentUser?.email || ''} isDisabled bg="blackAlpha.50" opacity={0.7} />
+              <FormLabel fontSize="sm" fontWeight="600" color={mutedColor} mb={1}>Email</FormLabel>
+              <InputGroup>
+                <InputLeftElement pointerEvents="none" h="44px" children={<Icon as={FiFileText} color="gray.400" />} />
+                <Input
+                  value={authUser?.email || currentUser?.email || ''}
+                  isDisabled
+                  borderRadius="12px"
+                  h="44px"
+                  opacity={0.6}
+                  borderColor={inputBorder}
+                />
               </InputGroup>
             </FormControl>
 
             {renderInput("Phone Number", "phone", "9876543210", FiSmartphone, "tel", 10)}
             {renderInput(
-              isPublicStore ? "GST or PAN Number (Optional)" : "GST or PAN Number",
+              isPublicStore ? "GST / PAN (Optional)" : "GST or PAN Number",
               "gstPan",
               "GSTIN or PAN",
               FiFileText,
@@ -387,13 +371,14 @@ const LoginPage = () => {
               type="submit"
               colorScheme="brand"
               w="full"
-              size="lg"
-              mt={4}
-              h="56px"
+              h="48px"
+              borderRadius="12px"
+              mt={2}
               isLoading={isSubmitting}
-              loadingText={isPublicStore ? "Saving Profile..." : "Requesting Access..."}
-              shadow="lg"
-              _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }}
+              loadingText={isPublicStore ? "Saving..." : "Requesting Access..."}
+              fontWeight="700"
+              boxShadow="0 4px 14px rgba(108,92,231,0.3)"
+              _hover={{ transform: 'translateY(-2px)', boxShadow: '0 6px 20px rgba(108,92,231,0.4)' }}
             >
               {isPublicStore ? "Save Profile" : "Request Access"}
             </Button>
@@ -403,47 +388,60 @@ const LoginPage = () => {
     );
   }
 
+  // Login (default)
   return (
     <PageWrapper>
-      <VStack spacing={8} py={4}>
+      <VStack spacing={6} py={2}>
+        {/* Logo */}
         <Box textAlign="center">
-          <Heading size="3xl" mb={2} fontWeight="900" bgGradient="linear(to-r, brand.500, accent.500)" bgClip="text" letterSpacing="inperit">
+          <Text
+            fontSize="3xl"
+            fontWeight="900"
+            bgGradient="linear(to-r, brand.500, accent.500)"
+            bgClip="text"
+            letterSpacing="-0.03em"
+          >
             easySell
-          </Heading>
-          <Text fontSize="lg" color={mutedColor} fontWeight="medium">B2B Wholesale Portal</Text>
+          </Text>
+          <Text fontSize="sm" color={mutedColor} mt={1}>
+            Sign in to continue
+          </Text>
         </Box>
 
-        <VStack w="full" spacing={4}>
-          <Button
-            w="full"
-            h="60px"
-            size="lg"
-            variant="outline"
-            leftIcon={<Icon as={FcGoogle} boxSize={7} mr={2} />}
-            onClick={handleGoogleClick}
-            isLoading={isSubmitting}
-            loadingText="Connecting..."
-            borderWidth="2px"
-            borderColor="gray.200"
-            _hover={{ bg: 'gray.50', borderColor: 'brand.500', transform: 'translateY(-2px)', shadow: 'md' }}
-            transition="all 0.2s"
-            fontSize="lg"
-            fontWeight="bold"
-            color="gray.700"
-            bg="white"
-          >
-            Sign in with Google
-          </Button>
+        {/* Google Button */}
+        <Button
+          w="full"
+          h="52px"
+          size="lg"
+          variant="outline"
+          leftIcon={<Icon as={FcGoogle} boxSize={6} />}
+          onClick={handleGoogleClick}
+          isLoading={isSubmitting}
+          loadingText="Connecting..."
+          borderWidth="1.5px"
+          borderColor={inputBorder}
+          borderRadius="12px"
+          _hover={{ borderColor: 'brand.500', transform: 'translateY(-1px)', boxShadow: 'sm' }}
+          transition="all 0.2s"
+          fontWeight="600"
+          color={textColor}
+        >
+          Continue with Google
+        </Button>
 
-          <HStack w="full" pt={2}>
-            <Divider borderColor="gray.300" />
-            <Text fontSize="xs" color="gray.400" whiteSpace="nowrap" textTransform="uppercase" letterSpacing="widest" fontWeight="semibold">Secure Access</Text>
-            <Divider borderColor="gray.300" />
+        <HStack w="full">
+          <Divider borderColor={dividerColor} />
+          <HStack spacing={1.5}>
+            <Icon as={FiShield} boxSize={3} color="gray.400" />
+            <Text fontSize="xs" color="gray.400" whiteSpace="nowrap" fontWeight="500">
+              Secure
+            </Text>
           </HStack>
-        </VStack>
+          <Divider borderColor={dividerColor} />
+        </HStack>
 
-        <Text fontSize="xs" color={mutedColor} textAlign="center" lineHeight="tall">
-          By continuing, you acknowledge that this is a restricted B2B platform.
+        <Text fontSize="xs" color={mutedColor} textAlign="center" lineHeight="1.6">
+          By continuing, you agree to our Terms of Service and Privacy Policy.
         </Text>
       </VStack>
     </PageWrapper>

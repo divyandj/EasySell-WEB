@@ -12,14 +12,16 @@ import {
   Icon,
   Flex,
   Center,
-  VStack
+  VStack,
+  HStack,
+  Badge,
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { Link as RouterLink } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { FiArrowRight, FiShoppingBag } from 'react-icons/fi';
+import { FiArrowRight, FiShoppingBag, FiShield, FiCheckCircle } from 'react-icons/fi';
 
 const MotionBox = motion(Box);
 
@@ -27,17 +29,16 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
+    transition: { staggerChildren: 0.12, delayChildren: 0.1 }
   }
 };
 
 const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
+  hidden: { y: 24, opacity: 0 },
   visible: {
     y: 0,
-    opacity: 1
+    opacity: 1,
+    transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }
   }
 };
 
@@ -52,8 +53,6 @@ const StorefrontPage = ({ subdomain }) => {
     const fetchStorefrontData = async () => {
       try {
         setLoading(true);
-
-        // 1. Find the User by storeHandle
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('storeHandle', '==', subdomain.toLowerCase()));
         const userSnapshot = await getDocs(q);
@@ -68,7 +67,6 @@ const StorefrontPage = ({ subdomain }) => {
         const ownerId = userSnapshot.docs[0].id;
         setStoreOwner({ id: ownerId, ...ownerData });
 
-        // 2. Fetch Catalogues for this User
         const catRef = collection(db, 'catalogues');
         const catQuery = query(catRef, where('userId', '==', ownerId));
         const catSnapshot = await getDocs(catQuery);
@@ -78,7 +76,6 @@ const StorefrontPage = ({ subdomain }) => {
           ...doc.data()
         }));
         setCatalogues(catalogueList);
-
       } catch (err) {
         console.error("Error fetching storefront:", err);
         setError("Failed to load storefront.");
@@ -92,195 +89,293 @@ const StorefrontPage = ({ subdomain }) => {
     }
   }, [subdomain]);
 
-  // --- THEME COLORS ---
-  const cardBg = useColorModeValue('white', 'whiteAlpha.50');
-  const cardBorder = useColorModeValue('gray.200', 'whiteAlpha.100');
-  const cardShadow = useColorModeValue('lg', 'xl');
-  const catTextColor = useColorModeValue('brand.600', 'brand.300');
-  const descColor = useColorModeValue('gray.600', 'gray.400');
-  const noCatColor = useColorModeValue('gray.500', 'gray.400');
-  const headingGradient = useColorModeValue(
-    "linear(to-r, gray.700, gray.900)",
-    "linear(to-r, white, gray.200)"
-  );
+  // Theme colors
+  const pageBg = useColorModeValue('#F8F9FC', '#09090B');
+  const cardBg = useColorModeValue('white', '#111116');
+  const cardBorder = useColorModeValue('gray.100', 'whiteAlpha.100');
+  const textColor = useColorModeValue('gray.800', 'white');
+  const descColor = useColorModeValue('gray.500', 'gray.400');
+  const catLabel = useColorModeValue('brand.600', 'brand.300');
+  const emptyIconBg = useColorModeValue('gray.100', 'whiteAlpha.100');
+  const avatarBorder = useColorModeValue('white', '#09090B');
 
+  // Loading State
   if (loading) {
     return (
-      <Box pt={24} pb={16}>
-        <Container maxW="container.xl" textAlign="center">
-          <Skeleton height="200px" mb={12} borderRadius="xl" />
-          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={10}>
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} height="300px" borderRadius="lg" />
-            ))}
-          </SimpleGrid>
-        </Container>
+      <Box bg={pageBg} minH="100vh">
+        <Box py={16} px={6}>
+          <Container maxW="container.xl">
+            <Skeleton height="200px" mb={12} borderRadius="20px" />
+            <SimpleGrid columns={{ base: 1, md: 3 }} spacing={8}>
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} height="300px" borderRadius="16px" />
+              ))}
+            </SimpleGrid>
+          </Container>
+        </Box>
       </Box>
     );
   }
 
+  // Error State
   if (error || !storeOwner) {
     return (
-      <Center py={32}>
-        <VStack spacing={6}>
-          <Icon as={FiShoppingBag} w={20} h={20} color="gray.400" />
-          <Heading color="gray.600">{error || "Store Not Found"}</Heading>
-          <Text color="gray.500">The store you are looking for does not exist or has been removed.</Text>
-          <Button as="a" href="https://mmproperty.in" colorScheme="brand" mt={4}>
-            Go to Main easySell
-          </Button>
-        </VStack>
-      </Center>
+      <Box bg={pageBg} minH="100vh">
+        <Center py={32}>
+          <VStack spacing={6} textAlign="center">
+            <Flex w={20} h={20} bg={emptyIconBg} borderRadius="full" align="center" justify="center">
+              <Icon as={FiShoppingBag} w={10} h={10} color="gray.400" />
+            </Flex>
+            <Heading color={textColor} size="lg">{error || "Store Not Found"}</Heading>
+            <Text color={descColor} maxW="400px">The store you are looking for does not exist or has been removed.</Text>
+            <Button as="a" href="https://mmproperty.in" colorScheme="brand" borderRadius="full" px={8}>
+              Go to easySell
+            </Button>
+          </VStack>
+        </Center>
+      </Box>
     );
   }
 
   return (
-    <Box>
-      {/* Personalized Hero Section */}
+    <Box bg={pageBg} minH="100vh">
+      {/* ============================================
+          STORE HERO
+          ============================================ */}
       <Box
-        bgGradient="linear(to-r, brand.800, purple.700)"
-        color="white"
-        py={20}
-        px={6}
-        textAlign="center"
+        bgGradient="linear(to-br, brand.600, brand.800)"
         position="relative"
         overflow="hidden"
+        pt={{ base: 12, md: 16 }}
+        pb={{ base: 16, md: 20 }}
+        px={6}
       >
-        <Box
-          position="absolute"
-          top="-50%"
-          left="-10%"
-          width="500px"
-          height="500px"
-          bg="purple.400"
-          filter="blur(150px)"
-          opacity="0.3"
-          borderRadius="full"
-        />
-        <Container maxW="container.lg" position="relative" zIndex={1} as={motion.div} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6 }}>
-          {storeOwner.profileImageUrl ? (
-            <Center mb={6}>
-              <Box p={1} bg="white" borderRadius="full" boxShadow="2xl">
-                <Image
-                  src={storeOwner.profileImageUrl}
-                  alt={storeOwner.businessName || "Store"}
-                  boxSize="120px"
+        {/* Decorative */}
+        <Box position="absolute" top="-30%" right="-15%" w="500px" h="500px" bg="accent.500" filter="blur(180px)" opacity="0.12" borderRadius="full" />
+
+        <Container maxW="container.lg" position="relative" zIndex={1}>
+          <MotionBox
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            textAlign="center"
+          >
+            {/* Store Logo */}
+            {storeOwner.profileImageUrl ? (
+              <Center mb={5}>
+                <Box
+                  p="3px"
+                  bgGradient="linear(to-r, accent.300, brand.300)"
                   borderRadius="full"
-                  objectFit="cover"
-                />
-              </Box>
-            </Center>
-          ) : (
-            <Center mb={6}>
-              <Box p={6} bg="whiteAlpha.200" borderRadius="full" backdropFilter="blur(10px)">
-                <Icon as={FiShoppingBag} w={16} h={16} color="white" />
-              </Box>
-            </Center>
-          )}
+                  boxShadow="0 8px 30px rgba(0,0,0,0.2)"
+                >
+                  <Image
+                    src={storeOwner.profileImageUrl}
+                    alt={storeOwner.businessName || "Store"}
+                    boxSize="100px"
+                    borderRadius="full"
+                    objectFit="cover"
+                    border="3px solid"
+                    borderColor={avatarBorder}
+                  />
+                </Box>
+              </Center>
+            ) : (
+              <Center mb={5}>
+                <Flex
+                  w={20}
+                  h={20}
+                  bg="whiteAlpha.200"
+                  borderRadius="full"
+                  align="center"
+                  justify="center"
+                  backdropFilter="blur(10px)"
+                >
+                  <Icon as={FiShoppingBag} w={10} h={10} color="white" />
+                </Flex>
+              </Center>
+            )}
 
-          <Heading size="3xl" mb={4} fontWeight="extrabold" letterSpacing="tight">
-            {storeOwner.businessName || "My Storefront"}
-          </Heading>
-
-          <Text fontSize="xl" opacity={0.9} mb={8} maxW="2xl" mx="auto">
-            {storeOwner.ownerName ? `Operated by ${storeOwner.ownerName}` : "Explore our exclusive collections."}
-          </Text>
-
-          {!currentUser && (
-            <Button
-              as={RouterLink}
-              to="/login"
-              size="lg"
-              variant="solid"
-              colorScheme="whiteAlpha"
-              color="purple.800"
-              bg="white"
-              boxShadow="xl"
-              _hover={{ transform: 'translateY(-2px)', boxShadow: '2xl', bg: 'gray.50' }}
+            {/* Store Name */}
+            <Heading
+              as="h1"
+              fontSize={{ base: '2xl', md: '4xl' }}
+              fontWeight="900"
+              color="white"
+              letterSpacing="-0.02em"
+              mb={3}
             >
-              Login to Shop
-            </Button>
-          )}
+              {storeOwner.businessName || "My Storefront"}
+            </Heading>
+
+            {/* Store Owner */}
+            {storeOwner.ownerName && (
+              <Text fontSize="md" color="whiteAlpha.800" mb={4}>
+                by {storeOwner.ownerName}
+              </Text>
+            )}
+
+            {/* Trust Indicators */}
+            <HStack justify="center" spacing={3} flexWrap="wrap">
+              <Badge
+                bg="whiteAlpha.200"
+                color="white"
+                backdropFilter="blur(10px)"
+                px={3}
+                py={1.5}
+                borderRadius="full"
+                fontSize="xs"
+                fontWeight="600"
+                display="flex"
+                alignItems="center"
+                gap={1.5}
+              >
+                <Icon as={FiCheckCircle} boxSize={3} />
+                Verified Seller
+              </Badge>
+              <Badge
+                bg="whiteAlpha.200"
+                color="white"
+                backdropFilter="blur(10px)"
+                px={3}
+                py={1.5}
+                borderRadius="full"
+                fontSize="xs"
+                fontWeight="600"
+                display="flex"
+                alignItems="center"
+                gap={1.5}
+              >
+                <Icon as={FiShield} boxSize={3} />
+                Secure Checkout
+              </Badge>
+            </HStack>
+
+            {/* Login CTA (for guests) */}
+            {!currentUser && (
+              <Button
+                as={RouterLink}
+                to="/login"
+                mt={6}
+                size="md"
+                bg="white"
+                color="brand.600"
+                borderRadius="full"
+                fontWeight="600"
+                px={8}
+                _hover={{ transform: 'translateY(-2px)', boxShadow: '0 8px 24px rgba(0,0,0,0.2)' }}
+              >
+                Login to Shop
+              </Button>
+            )}
+          </MotionBox>
         </Container>
       </Box>
 
-      {/* Catalogues Grid */}
-      <Container maxW="container.xl" py={20}>
-        <Box textAlign="center" mb={12}>
-          <Text textTransform="uppercase" color="brand.500" fontWeight="bold" letterSpacing="widest" mb={2}>
+      {/* ============================================
+          CATALOGUES GRID
+          ============================================ */}
+      <Container maxW="container.xl" py={{ base: 12, md: 16 }}>
+        <VStack spacing={2} mb={10} textAlign="center">
+          <Text fontSize="xs" fontWeight="700" color="brand.500" textTransform="uppercase" letterSpacing="0.1em">
             Collections
           </Text>
-          <Heading fontSize="3xl" bgGradient={headingGradient} bgClip="text" fontWeight="extrabold">
-            Featured Categories
+          <Heading fontSize={{ base: 'xl', md: '2xl' }} color={textColor}>
+            Browse Our Categories
           </Heading>
-        </Box>
+        </VStack>
 
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={10} as={motion.div} variants={containerVariants} initial="hidden" animate="visible">
+        <SimpleGrid
+          columns={{ base: 1, md: 2, lg: 3 }}
+          spacing={8}
+          as={motion.div}
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
           {catalogues.length > 0 ? (
             catalogues.map((catalogue) => (
               <MotionBox
                 key={catalogue.id}
                 variants={itemVariants}
-                bg={cardBg}
-                maxW="sm"
-                borderWidth="1px"
-                borderColor={cardBorder}
-                borderRadius="2xl"
-                overflow="hidden"
-                boxShadow={cardShadow}
-                backdropFilter="blur(10px)"
-                whileHover={{ scale: 1.03, boxShadow: '2xl' }}
                 as={RouterLink}
                 to={`/catalogue/${catalogue.id}`}
+                display="block"
+                bg={cardBg}
+                borderWidth="1px"
+                borderColor={cardBorder}
+                borderRadius="20px"
+                overflow="hidden"
+                boxShadow="card"
+                _hover={{ boxShadow: 'cardHover', transform: 'translateY(-4px)' }}
+                transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                role="group"
               >
-                <Image
-                  src={catalogue.imageUrl}
-                  alt={catalogue.name}
-                  h="240px"
-                  w="full"
-                  objectFit="cover"
-                  fallbackSrc="https://via.placeholder.com/400x200?text=Collection"
-                />
+                {/* Image */}
+                <Box overflow="hidden">
+                  <Image
+                    src={catalogue.imageUrl}
+                    alt={catalogue.name}
+                    h="220px"
+                    w="full"
+                    objectFit="cover"
+                    fallbackSrc="https://via.placeholder.com/400x220?text=Collection"
+                    transition="transform 0.4s ease"
+                    _groupHover={{ transform: 'scale(1.05)' }}
+                  />
+                </Box>
 
-                <Box p={8}>
-                  <Flex alignItems="center" mb={3}>
-                    <Icon as={FiShoppingBag} color={catTextColor} mr={2} />
-                    <Text
-                      color={catTextColor}
-                      fontWeight="bold"
-                      textTransform="uppercase"
-                      fontSize="xs"
-                      letterSpacing="wide"
-                    >
-                      Collection
-                    </Text>
-                  </Flex>
+                {/* Content */}
+                <Box p={6}>
+                  <Text
+                    color={catLabel}
+                    fontWeight="700"
+                    textTransform="uppercase"
+                    fontSize="xs"
+                    letterSpacing="0.08em"
+                    mb={2}
+                  >
+                    Collection
+                  </Text>
 
-                  <Heading size="md" mb={3} noOfLines={1} bgGradient={headingGradient} bgClip="text">
+                  <Heading
+                    as="h3"
+                    size="md"
+                    mb={2}
+                    noOfLines={1}
+                    color={textColor}
+                    fontWeight="700"
+                    _groupHover={{ color: 'brand.500' }}
+                    transition="color 0.2s"
+                  >
                     {catalogue.name}
                   </Heading>
 
-                  <Text color={descColor} fontSize="sm" noOfLines={2} mb={5}>
+                  <Text color={descColor} fontSize="sm" noOfLines={2} mb={4} lineHeight="1.6">
                     {catalogue.description || "Browse our latest products in this collection."}
                   </Text>
 
-                  <Button
-                    variant="link"
-                    colorScheme="brand"
-                    rightIcon={<FiArrowRight />}
-                    fontWeight="bold"
+                  <HStack
+                    color="brand.500"
+                    fontWeight="600"
+                    fontSize="sm"
+                    _groupHover={{ gap: 3 }}
+                    transition="all 0.2s"
+                    spacing={2}
                   >
-                    View Catalog
-                  </Button>
+                    <Text>View Products</Text>
+                    <Icon as={FiArrowRight} transition="transform 0.2s" _groupHover={{ transform: 'translateX(4px)' }} />
+                  </HStack>
                 </Box>
               </MotionBox>
             ))
           ) : (
-            <Box gridColumn="1 / -1" textAlign="center" py={12}>
-              <Icon as={FiShoppingBag} w={12} h={12} color={noCatColor} mb={4} opacity={0.5} />
-              <Text fontSize="xl" color={noCatColor} fontWeight="medium">
-                No catalogues available yet.
-              </Text>
+            <Box gridColumn="1 / -1" textAlign="center" py={16}>
+              <Flex w={16} h={16} bg={emptyIconBg} borderRadius="full" align="center" justify="center" mx="auto" mb={4}>
+                <Icon as={FiShoppingBag} w={8} h={8} color="gray.400" />
+              </Flex>
+              <Heading size="md" color={textColor} mb={2}>No catalogues yet</Heading>
+              <Text color={descColor}>This store hasn't added any collections yet. Check back soon!</Text>
             </Box>
           )}
         </SimpleGrid>

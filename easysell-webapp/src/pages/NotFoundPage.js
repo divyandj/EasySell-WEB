@@ -1,30 +1,35 @@
-// src/pages/NotFoundPage.js
 import React from 'react';
-import { Box, Heading, Text, Button, Center } from '@chakra-ui/react';
+import { Box, Heading, Text, Button, Center, VStack, Flex, Icon, useColorModeValue } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
+import { FiHome } from 'react-icons/fi';
 
 const NotFoundPage = () => {
-  return (
-    <Center h="80vh">
-      <Box textAlign="center">
-        <Heading display="inline-block" as="h2" size="2xl" bg="teal.400" backgroundClip="text">
-          404
-        </Heading>
-        <Text fontSize="18px" mt={3} mb={2}>
-          Page Not Found
-        </Text>
-        <Text color={'gray.500'} mb={6}>
-          The page you're looking for does not seem to exist.
-        </Text>
+  const pageBg = useColorModeValue('#F8F9FC', '#09090B');
+  const textColor = useColorModeValue('gray.800', 'white');
+  const mutedColor = useColorModeValue('gray.500', 'gray.400');
 
+  return (
+    <Center minH="80vh" bg={pageBg}>
+      <VStack spacing={6} textAlign="center" px={6}>
+        <Text fontSize="8xl" fontWeight="900" bgGradient="linear(to-r, brand.500, accent.500)" bgClip="text" lineHeight="1">
+          404
+        </Text>
+        <Heading size="lg" color={textColor} fontWeight="800">Page Not Found</Heading>
+        <Text color={mutedColor} maxW="400px">
+          The page you're looking for doesn't exist or has been moved.
+        </Text>
         <Button
           as={RouterLink}
           to="/"
-          colorScheme="teal"
-          variant="solid">
-          Go to Home
+          colorScheme="brand"
+          borderRadius="12px"
+          px={8}
+          leftIcon={<FiHome />}
+          fontWeight="600"
+        >
+          Go Home
         </Button>
-      </Box>
+      </VStack>
     </Center>
   );
 };

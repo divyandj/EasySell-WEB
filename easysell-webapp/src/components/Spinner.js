@@ -1,24 +1,26 @@
-// src/components/Spinner.js
 import React from 'react';
-import { Center, Spinner as ChakraSpinner } from '@chakra-ui/react';
+import { Center, Spinner, VStack, Text, useColorModeValue } from '@chakra-ui/react';
 
-/**
- * A reusable loading spinner component that is centered on the page.
- * The height is calculated to fill the viewport minus the height of the fixed navbar (60px),
- * ensuring the spinner is always vertically centered in the main content area.
- */
-const Spinner = () => {
+const SpinnerComponent = ({ message = "Loading..." }) => {
+  const bg = useColorModeValue('#F8F9FC', '#09090B');
+  const textColor = useColorModeValue('gray.400', 'gray.500');
+
   return (
-    <Center h="calc(100vh - 60px)">
-      <ChakraSpinner
-        thickness="4px"
-        speed="0.65s"
-        emptyColor="gray.200"
-        color="teal.500"
-        size="xl"
-      />
+    <Center h="80vh" bg={bg}>
+      <VStack spacing={4}>
+        <Spinner
+          size="lg"
+          color="brand.500"
+          thickness="3px"
+          speed="0.8s"
+          emptyColor={useColorModeValue('gray.100', 'whiteAlpha.100')}
+        />
+        <Text fontSize="sm" color={textColor} fontWeight="500">
+          {message}
+        </Text>
+      </VStack>
     </Center>
   );
 };
 
-export default Spinner;
+export default SpinnerComponent;

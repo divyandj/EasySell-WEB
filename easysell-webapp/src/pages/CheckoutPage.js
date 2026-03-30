@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Heading, VStack, FormControl, FormLabel, Input, Button,
   Box, Text, useToast, SimpleGrid, Divider, Alert, AlertIcon,
-  AlertTitle, AlertDescription, Spinner, Center, HStack, Radio, RadioGroup, Stack, Badge, useColorModeValue, Icon
+  AlertTitle, AlertDescription, HStack, Radio, RadioGroup, Stack, Badge, useColorModeValue, Icon, Flex, Center
 } from '@chakra-ui/react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -12,10 +12,10 @@ import { db } from '../firebase';
 import SpinnerComponent from '../components/Spinner';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { FiShield, FiArrowRight, FiMapPin, FiCreditCard, FiShoppingBag } from 'react-icons/fi';
 
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
-// Helper to extract subdomain
 const getSubdomain = () => {
   const host = window.location.hostname;
   const parts = host.split('.');
@@ -40,7 +40,7 @@ const CheckoutPage = () => {
   const [error, setError] = useState(null);
   const [billingMode, setBillingMode] = useState('withBill');
 
-  // --- ANALYTICS: Track Abandoned Carts ---
+  // Analytics
   const orderPlacedRef = React.useRef(false);
   const cartStateRef = React.useRef({ count: 0, value: 0, tracked: false });
 
@@ -53,72 +53,53 @@ const CheckoutPage = () => {
     const trackAbandonment = () => {
       const state = cartStateRef.current;
       if (!orderPlacedRef.current && state.count > 0 && !state.tracked) {
-        state.tracked = true; // Prevent duplicate tracking
+        state.tracked = true;
         axios.post(`${API_BASE_URL}/api/analytics/abandoned`, {
           storeHandle: getSubdomain() || '',
           cartValue: state.value
         }).catch(e => console.error("Abandonment tracking failed", e));
       }
     };
-
     window.addEventListener('beforeunload', trackAbandonment);
     return () => {
       window.removeEventListener('beforeunload', trackAbandonment);
-      trackAbandonment(); // Catch router navigations (component unmount)
+      trackAbandonment();
     };
   }, []);
 
-  // --- THEME COLORS ---
-  const bgCard = useColorModeValue('white', 'whiteAlpha.50');
+  // Theme
+  const pageBg = useColorModeValue('#F8F9FC', '#09090B');
+  const cardBg = useColorModeValue('white', '#111116');
   const textColor = useColorModeValue('gray.800', 'white');
-  const mutedColor = useColorModeValue('gray.600', 'gray.400');
-  const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
-  const inputBg = useColorModeValue('white', 'whiteAlpha.100');
-  const inputBorder = useColorModeValue('gray.300', 'whiteAlpha.200');
-  const radioBg = useColorModeValue('gray.50', 'whiteAlpha.200');
-  const itemTotalColor = useColorModeValue('brand.600', 'brand.200');
+  const mutedColor = useColorModeValue('gray.500', 'gray.400');
+  const borderColor = useColorModeValue('gray.100', 'whiteAlpha.100');
+  const inputBorder = useColorModeValue('gray.200', 'whiteAlpha.200');
+  const priceColor = useColorModeValue('brand.600', 'brand.300');
+  const stepBg = useColorModeValue('brand.50', 'whiteAlpha.100');
+  const stepActiveColor = useColorModeValue('brand.600', 'brand.300');
+  const selectedBillingBg = useColorModeValue('brand.50', 'whiteAlpha.50');
 
-  // Premium Gradient Heading
-  const headingGradient = useColorModeValue(
-    "linear(to-r, brand.600, accent.600)",
-    "linear(to-r, brand.200, accent.200)"
-  );
-
-  // --- RESTORE SHIPPING INFO ON LOAD ---
   useEffect(() => {
     if (currentUser) {
       try {
         const savedInfo = localStorage.getItem(`shipping_${currentUser.uid}`);
-        if (savedInfo) {
-          setShippingInfo(JSON.parse(savedInfo));
-        }
+        if (savedInfo) setShippingInfo(JSON.parse(savedInfo));
       } catch (e) { console.error("Error loading saved shipping info", e); }
     }
   }, [currentUser]);
 
-  // Derived values
   const displayTax = billingMode === 'withBill' ? cartTotalTax : 0;
   const displayGrandTotal = billingMode === 'withBill' ? cartGrandTotal : cartSubtotal;
 
-  // --- HANDLER: INPUT CHANGE ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let newValue = value;
-
-    // **VALIDATION LOGIC FOR PHONE NUMBER**
     if (name === 'phone') {
-      // Remove any non-digit characters
       newValue = value.replace(/\D/g, '');
-      // Limit to 10 digits
-      if (newValue.length > 10) {
-        newValue = newValue.slice(0, 10);
-      }
+      if (newValue.length > 10) newValue = newValue.slice(0, 10);
     }
-
     const newInfo = { ...shippingInfo, [name]: newValue };
     setShippingInfo(newInfo);
-
-    // SAVE SHIPPING INFO ON CHANGE
     if (currentUser) {
       localStorage.setItem(`shipping_${currentUser.uid}`, JSON.stringify(newInfo));
     }
@@ -138,11 +119,10 @@ const CheckoutPage = () => {
     const hasAccess = isPublicStore || isApprovedBuyer;
 
     if (!hasAccess) {
-      toast({ title: "Account Not Approved", description: "Your account is under review or rejected. You cannot place orders.", status: "error", duration: 5000, isClosable: true });
+      toast({ title: "Account Not Approved", description: "Your account is under review or rejected.", status: "error", duration: 5000, isClosable: true });
       return;
     }
 
-    // **VALIDATION CHECK BEFORE SUBMIT**
     if (shippingInfo.phone.length !== 10) {
       toast({ title: "Invalid Phone Number", description: "Please enter a valid 10-digit phone number.", status: "warning", duration: 3000, isClosable: true });
       return;
@@ -230,60 +210,42 @@ const CheckoutPage = () => {
 
           if (item.variant) {
             const variantIndex = productData.variants?.findIndex(
-              (v) =>
-                JSON.stringify(v.options) ===
-                JSON.stringify(item.variant.options)
+              (v) => JSON.stringify(v.options) === JSON.stringify(item.variant.options)
             );
             if (variantIndex === -1 || variantIndex === undefined)
               throw new Error(`Variant not found for "${item.title}".`);
 
             const currentVariant = productData.variants[variantIndex];
-            const currentInStock =
-              currentVariant.inStock !== undefined
-                ? currentVariant.inStock
-                : productData.inStock;
+            const currentInStock = currentVariant.inStock !== undefined ? currentVariant.inStock : productData.inStock;
             const currentQuantity = currentVariant.quantity !== undefined ? currentVariant.quantity : 0;
             const isInfiniteStock = currentQuantity === -1;
 
-            // Stock Check
             const effectivelyInStock = isInfiniteStock || currentInStock;
             if (!effectivelyInStock && !allowBackorder)
               throw new Error(`Variant for "${item.title}" is out of stock.`);
-
             if (!isInfiniteStock && !allowBackorder && currentQuantity < item.quantity)
               throw new Error(`Insufficient stock for "${item.title}".`);
 
-            // Quantity Update
             const updatedVariants = [...productData.variants];
             const newQuantity = isInfiniteStock ? -1 : (currentQuantity - item.quantity);
-
             updatedVariants[variantIndex] = {
               ...currentVariant,
               quantity: newQuantity,
-              inStock: allowBackorder
-                ? currentVariant.inStock
-                : (isInfiniteStock ? true : newQuantity > 0),
+              inStock: allowBackorder ? currentVariant.inStock : (isInfiniteStock ? true : newQuantity > 0),
             };
-            productUpdates.push({
-              ref: productRef,
-              data: { variants: updatedVariants },
-            });
+            productUpdates.push({ ref: productRef, data: { variants: updatedVariants } });
           } else {
             const currentInStock = productData.inStock;
             const currentQuantity = productData.availableQuantity !== undefined ? productData.availableQuantity : 0;
             const isInfiniteStock = currentQuantity === -1;
 
-            // Stock Check
             const effectivelyInStock = isInfiniteStock || currentInStock;
             if (!effectivelyInStock && !allowBackorder)
               throw new Error(`Product "${item.title}" is out of stock.`);
-
             if (!isInfiniteStock && !allowBackorder && currentQuantity < item.quantity)
               throw new Error(`Insufficient stock for "${item.title}".`);
 
-            // Quantity Update
             const newQuantity = isInfiniteStock ? -1 : (currentQuantity - item.quantity);
-
             productUpdates.push({
               ref: productRef,
               data: {
@@ -294,44 +256,35 @@ const CheckoutPage = () => {
           }
         }
 
-        productUpdates.forEach((update) =>
-          transaction.update(update.ref, update.data)
-        );
-        const newOrderRef = doc(
-          collection(db, "catalogues", catalogueId, "orders")
-        );
+        productUpdates.forEach((update) => transaction.update(update.ref, update.data));
+        const newOrderRef = doc(collection(db, "catalogues", catalogueId, "orders"));
         transaction.set(newOrderRef, orderData);
         return newOrderRef.id;
       });
 
-      axios
-        .post(`${API_BASE_URL}/api/notify-order`, {
-          orderId: newOrderId,
-          catalogueId: catalogueId,
-          amount: displayGrandTotal,
-          customerName: shippingInfo.name,
-          storeHandle: getSubdomain() || ''
-        })
-        .catch((err) => console.error("Notification Failed:", err));
+      axios.post(`${API_BASE_URL}/api/notify-order`, {
+        orderId: newOrderId,
+        catalogueId: catalogueId,
+        amount: displayGrandTotal,
+        customerName: shippingInfo.name,
+        storeHandle: getSubdomain() || ''
+      }).catch((err) => console.error("Notification Failed:", err));
 
-      // --- ANALYTICS: Track Order & Config ---
-      orderPlacedRef.current = true; // Mark success to prevent abandonment tracking
-      axios
-        .post(`${API_BASE_URL}/api/analytics/order`, {
-          storeHandle: getSubdomain() || '',
-          orderData: {
-            gmv: displayGrandTotal,
-            buyerName: shippingInfo.name,
-            buyerEmail: currentUser.email || '',
-            items: cartItems.map((i) => ({
-              id: i.productId,
-              name: i.title,
-              qty: i.quantity,
-              price: i.priceDetails.finalUnitPriceWithTax
-            }))
-          }
-        })
-        .catch((err) => console.error("Analytics Order Tracking Failed:", err));
+      orderPlacedRef.current = true;
+      axios.post(`${API_BASE_URL}/api/analytics/order`, {
+        storeHandle: getSubdomain() || '',
+        orderData: {
+          gmv: displayGrandTotal,
+          buyerName: shippingInfo.name,
+          buyerEmail: currentUser.email || '',
+          items: cartItems.map((i) => ({
+            id: i.productId,
+            name: i.title,
+            qty: i.quantity,
+            price: i.priceDetails.finalUnitPriceWithTax
+          }))
+        }
+      }).catch((err) => console.error("Analytics Order Tracking Failed:", err));
 
       toast({
         title: "Order placed successfully!",
@@ -355,108 +308,315 @@ const CheckoutPage = () => {
   if (loadingProductData) return <SpinnerComponent />;
   if (cartItems.length === 0 && !isSubmitting) {
     return (
-      <Container centerContent py={20}>
-        <Heading size="md" color={textColor}>Your cart is empty.</Heading>
-        <Button mt={4} colorScheme="brand" onClick={() => navigate('/')}>Continue Shopping</Button>
-      </Container>
+      <Box bg={pageBg} minH="80vh">
+        <Container centerContent py={20}>
+          <VStack spacing={4}>
+            <Heading size="md" color={textColor}>Your cart is empty.</Heading>
+            <Button colorScheme="brand" onClick={() => navigate('/')}>Continue Shopping</Button>
+          </VStack>
+        </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxW="container.xl" py={12}>
-      <Heading mb={8} bgGradient={headingGradient} bgClip="text" fontSize="4xl" fontWeight="800">Checkout</Heading>
+    <Box bg={pageBg} minH="100vh" py={{ base: 6, md: 10 }}>
+      <Container maxW="container.xl">
+        {/* Header */}
+        <Heading fontSize={{ base: 'xl', md: '2xl' }} color={textColor} fontWeight="800" letterSpacing="-0.02em" mb={8}>
+          Checkout
+        </Heading>
 
-      {error && (
-        <Alert status="error" mb={6} borderRadius="md">
-          <AlertIcon />
-          <AlertTitle mr={2}>Order Error!</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+        {error && (
+          <Alert status="error" mb={6} borderRadius="12px">
+            <AlertIcon />
+            <AlertTitle mr={2}>Order Error!</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={10}>
-        <Box>
-          <Box mb={8} p={6} borderWidth="1px" borderRadius="2xl" borderColor={borderColor} bg={bgCard} shadow="xl" backdropFilter="blur(10px)">
-            <Heading size="sm" mb={4} color="brand.500" textTransform="uppercase" letterSpacing="wide">1. Choose Billing Type</Heading>
-            <RadioGroup onChange={setBillingMode} value={billingMode}>
-              <Stack direction={{ base: 'column', sm: 'row' }} spacing={5}>
-                <Radio value='withBill' colorScheme='brand' size="lg" bg={radioBg}><Box><Text fontWeight="bold" color={textColor}>With Bill</Text><Text fontSize="xs" color={mutedColor}>Includes Taxes</Text></Box></Radio>
-                <Radio value='withoutBill' colorScheme='brand' size="lg" bg={radioBg}><Box><Text fontWeight="bold" color={textColor}>Without Bill</Text><Text fontSize="xs" color={mutedColor}>Tax Excluded</Text></Box></Radio>
-              </Stack>
-            </RadioGroup>
+        <SimpleGrid columns={{ base: 1, lg: 5 }} spacing={{ base: 6, lg: 8 }}>
+          {/* ====== LEFT: Form (3 cols) ====== */}
+          <Box gridColumn={{ lg: "span 3" }}>
+            {/* Step 1: Billing */}
+            <Box
+              mb={6}
+              p={6}
+              borderWidth="1px"
+              borderRadius="16px"
+              borderColor={borderColor}
+              bg={cardBg}
+              boxShadow="card"
+            >
+              <HStack spacing={3} mb={4}>
+                <Flex w={8} h={8} bg={stepBg} borderRadius="10px" align="center" justify="center">
+                  <Icon as={FiCreditCard} color={stepActiveColor} boxSize={4} />
+                </Flex>
+                <Text fontSize="sm" fontWeight="700" color={textColor} textTransform="uppercase" letterSpacing="0.06em">
+                  Billing Type
+                </Text>
+              </HStack>
+              <RadioGroup onChange={setBillingMode} value={billingMode}>
+                <Stack direction={{ base: 'column', sm: 'row' }} spacing={3}>
+                  <Box
+                    flex="1"
+                    p={4}
+                    borderWidth="1.5px"
+                    borderRadius="12px"
+                    borderColor={billingMode === 'withBill' ? 'brand.500' : borderColor}
+                    bg={billingMode === 'withBill' ? selectedBillingBg : 'transparent'}
+                    cursor="pointer"
+                    onClick={() => setBillingMode('withBill')}
+                    transition="all 0.2s"
+                  >
+                    <Radio value='withBill' colorScheme='brand' size="sm">
+                      <VStack align="start" spacing={0} ml={1}>
+                        <Text fontWeight="600" fontSize="sm" color={textColor}>With Bill</Text>
+                        <Text fontSize="xs" color={mutedColor}>Tax included in total</Text>
+                      </VStack>
+                    </Radio>
+                  </Box>
+                  <Box
+                    flex="1"
+                    p={4}
+                    borderWidth="1.5px"
+                    borderRadius="12px"
+                    borderColor={billingMode === 'withoutBill' ? 'brand.500' : borderColor}
+                    bg={billingMode === 'withoutBill' ? selectedBillingBg : 'transparent'}
+                    cursor="pointer"
+                    onClick={() => setBillingMode('withoutBill')}
+                    transition="all 0.2s"
+                  >
+                    <Radio value='withoutBill' colorScheme='brand' size="sm">
+                      <VStack align="start" spacing={0} ml={1}>
+                        <Text fontWeight="600" fontSize="sm" color={textColor}>Without Bill</Text>
+                        <Text fontSize="xs" color={mutedColor}>Tax excluded from total</Text>
+                      </VStack>
+                    </Radio>
+                  </Box>
+                </Stack>
+              </RadioGroup>
+            </Box>
+
+            {/* Step 2: Shipping */}
+            <Box
+              p={6}
+              borderWidth="1px"
+              borderRadius="16px"
+              borderColor={borderColor}
+              bg={cardBg}
+              boxShadow="card"
+            >
+              <HStack spacing={3} mb={5}>
+                <Flex w={8} h={8} bg={stepBg} borderRadius="10px" align="center" justify="center">
+                  <Icon as={FiMapPin} color={stepActiveColor} boxSize={4} />
+                </Flex>
+                <Text fontSize="sm" fontWeight="700" color={textColor} textTransform="uppercase" letterSpacing="0.06em">
+                  Shipping Address
+                </Text>
+              </HStack>
+
+              <form onSubmit={handlePlaceOrder}>
+                <VStack spacing={4}>
+                  <FormControl isRequired id="name">
+                    <FormLabel fontSize="sm" fontWeight="600" color={mutedColor}>Full Name</FormLabel>
+                    <Input
+                      name="name"
+                      borderColor={inputBorder}
+                      borderRadius="12px"
+                      color={textColor}
+                      h="44px"
+                      _focus={{ borderColor: 'brand.400', boxShadow: '0 0 0 1px var(--chakra-colors-brand-400)' }}
+                      _hover={{ borderColor: 'gray.300' }}
+                      onChange={handleInputChange}
+                      value={shippingInfo.name}
+                      placeholder="John Doe"
+                    />
+                  </FormControl>
+
+                  <FormControl isRequired id="phone">
+                    <FormLabel fontSize="sm" fontWeight="600" color={mutedColor}>
+                      Phone Number
+                    </FormLabel>
+                    <Input
+                      name="phone"
+                      type="tel"
+                      borderColor={inputBorder}
+                      borderRadius="12px"
+                      color={textColor}
+                      h="44px"
+                      _focus={{ borderColor: 'brand.400', boxShadow: '0 0 0 1px var(--chakra-colors-brand-400)' }}
+                      _hover={{ borderColor: 'gray.300' }}
+                      onChange={handleInputChange}
+                      value={shippingInfo.phone}
+                      placeholder="9876543210"
+                      maxLength={10}
+                    />
+                  </FormControl>
+
+                  <FormControl isRequired id="address">
+                    <FormLabel fontSize="sm" fontWeight="600" color={mutedColor}>Address</FormLabel>
+                    <Input
+                      name="address"
+                      borderColor={inputBorder}
+                      borderRadius="12px"
+                      color={textColor}
+                      h="44px"
+                      _focus={{ borderColor: 'brand.400', boxShadow: '0 0 0 1px var(--chakra-colors-brand-400)' }}
+                      _hover={{ borderColor: 'gray.300' }}
+                      onChange={handleInputChange}
+                      value={shippingInfo.address}
+                      placeholder="123 Main Street, Apt 4B"
+                    />
+                  </FormControl>
+
+                  <HStack w="full" spacing={4}>
+                    <FormControl isRequired id="city">
+                      <FormLabel fontSize="sm" fontWeight="600" color={mutedColor}>City</FormLabel>
+                      <Input
+                        name="city"
+                        borderColor={inputBorder}
+                        borderRadius="12px"
+                        color={textColor}
+                        h="44px"
+                        _focus={{ borderColor: 'brand.400', boxShadow: '0 0 0 1px var(--chakra-colors-brand-400)' }}
+                        _hover={{ borderColor: 'gray.300' }}
+                        onChange={handleInputChange}
+                        value={shippingInfo.city}
+                        placeholder="Mumbai"
+                      />
+                    </FormControl>
+                    <FormControl isRequired id="pincode">
+                      <FormLabel fontSize="sm" fontWeight="600" color={mutedColor}>Pincode</FormLabel>
+                      <Input
+                        name="pincode"
+                        borderColor={inputBorder}
+                        borderRadius="12px"
+                        color={textColor}
+                        h="44px"
+                        _focus={{ borderColor: 'brand.400', boxShadow: '0 0 0 1px var(--chakra-colors-brand-400)' }}
+                        _hover={{ borderColor: 'gray.300' }}
+                        onChange={handleInputChange}
+                        value={shippingInfo.pincode}
+                        placeholder="400001"
+                      />
+                    </FormControl>
+                  </HStack>
+
+                  <Button
+                    type="submit"
+                    colorScheme="brand"
+                    size="lg"
+                    w="full"
+                    mt={4}
+                    h="52px"
+                    borderRadius="12px"
+                    isLoading={isSubmitting}
+                    loadingText="Processing Order..."
+                    disabled={isSubmitting || cartItems.length === 0 || loadingProductData}
+                    rightIcon={<FiArrowRight />}
+                    fontWeight="700"
+                    boxShadow="0 4px 14px rgba(108,92,231,0.3)"
+                    _hover={{ transform: 'translateY(-2px)', boxShadow: '0 6px 20px rgba(108,92,231,0.4)' }}
+                  >
+                    Place Order · {formatCurrency(displayGrandTotal)}
+                  </Button>
+
+                  <HStack justify="center" spacing={2} pt={1}>
+                    <Icon as={FiShield} color="green.400" boxSize={3.5} />
+                    <Text fontSize="xs" color={mutedColor}>Your information is secure and encrypted</Text>
+                  </HStack>
+                </VStack>
+              </form>
+            </Box>
           </Box>
 
-          <Heading size="md" mb={4} color={textColor}>2. Shipping Information</Heading>
-          <form onSubmit={handlePlaceOrder}>
-            <VStack spacing={4}>
-              <FormControl isRequired id="name"><FormLabel color={mutedColor}>Full Name</FormLabel><Input name="name" bg={inputBg} borderColor={inputBorder} color={textColor} _hover={{ borderColor: 'brand.400' }} onChange={handleInputChange} value={shippingInfo.name} /></FormControl>
-
-              {/* --- UPDATED PHONE INPUT --- */}
-              <FormControl isRequired id="phone">
-                <FormLabel color={mutedColor}>
-                  Phone Number
-                  <Text as="span" fontSize="xs" color={mutedColor} fontWeight="normal" ml={2}>
-                    (Enter 10 digit phone number)
-                  </Text>
-                </FormLabel>
-                <Input
-                  name="phone"
-                  type="tel"
-                  bg={inputBg}
-                  borderColor={inputBorder}
-                  color={textColor}
-                  _hover={{ borderColor: 'brand.400' }}
-                  onChange={handleInputChange}
-                  value={shippingInfo.phone}
-                  placeholder="e.g. 9876543210"
-                  maxLength={10} // HTML attribute limit
-                />
-              </FormControl>
-              {/* --- END UPDATE --- */}
-
-              <FormControl isRequired id="address"><FormLabel color={mutedColor}>Address</FormLabel><Input name="address" bg={inputBg} borderColor={inputBorder} color={textColor} _hover={{ borderColor: 'brand.400' }} onChange={handleInputChange} value={shippingInfo.address} /></FormControl>
-              <HStack w="full">
-                <FormControl isRequired id="city"><FormLabel color={mutedColor}>City</FormLabel><Input name="city" bg={inputBg} borderColor={inputBorder} color={textColor} _hover={{ borderColor: 'brand.400' }} onChange={handleInputChange} value={shippingInfo.city} /></FormControl>
-                <FormControl isRequired id="pincode"><FormLabel color={mutedColor}>Pincode</FormLabel><Input name="pincode" bg={inputBg} borderColor={inputBorder} color={textColor} _hover={{ borderColor: 'brand.400' }} onChange={handleInputChange} value={shippingInfo.pincode} /></FormControl>
+          {/* ====== RIGHT: Order Summary (2 cols) ====== */}
+          <Box gridColumn={{ lg: "span 2" }}>
+            <VStack
+              spacing={4}
+              align="stretch"
+              p={6}
+              borderWidth="1px"
+              borderColor={borderColor}
+              borderRadius="20px"
+              bg={cardBg}
+              boxShadow="card"
+              position="sticky"
+              top="80px"
+            >
+              <HStack spacing={3}>
+                <Flex w={8} h={8} bg={stepBg} borderRadius="10px" align="center" justify="center">
+                  <Icon as={FiShoppingBag} color={stepActiveColor} boxSize={4} />
+                </Flex>
+                <Text fontSize="sm" fontWeight="700" color={textColor} textTransform="uppercase" letterSpacing="0.06em">
+                  Order Summary
+                </Text>
+                <Badge borderRadius="full" colorScheme="brand" ml="auto">{itemCount} items</Badge>
               </HStack>
-              <Button type="submit" colorScheme="brand" size="lg" w="full" mt={6} isLoading={isSubmitting} loadingText="Processing Order" disabled={isSubmitting || cartItems.length === 0 || loadingProductData} shadow="lg" _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }}>
-                Place Order - {formatCurrency(displayGrandTotal)}
-              </Button>
-            </VStack>
-          </form>
-        </Box>
 
-        <Box>
-          <Heading size="md" mb={4} color={textColor}>Order Summary</Heading>
-          <VStack spacing={4} align="stretch" p={6} borderWidth="1px" borderColor={borderColor} borderRadius="2xl" bg={bgCard} shadow="xl" backdropFilter="blur(16px)">
-            <VStack spacing={3} align="stretch" divider={<Divider borderColor={borderColor} />}>
-              {cartItems.map(item => {
-                const lineTotal = billingMode === 'withBill' ? item.priceDetails.lineItemTotal : item.priceDetails.lineItemSubtotal;
-                return (
-                  <HStack key={item.cartId} justifyContent="space-between" fontSize="sm" align="start">
-                    <Box flex={1}>
-                      <Text fontWeight="semibold" noOfLines={2} color={textColor}>{item.title}</Text>
-                      <Text fontSize="xs" color={mutedColor}>{item.variant ? `${Object.values(item.variant.options).join('/')}` : ''} {item.variant ? ' • ' : ''} Qty: {item.quantity}</Text>
-                    </Box>
-                    <Text fontWeight="bold" whiteSpace="nowrap" color={itemTotalColor}>{formatCurrency(lineTotal)}</Text>
-                  </HStack>
-                );
-              })}
-            </VStack>
-            <Divider borderColor={borderColor} />
-            <VStack spacing={2} align="stretch">
-              <HStack justifyContent="space-between"><Text color={mutedColor}>Subtotal (excl. tax)</Text><Text fontWeight="medium" color={textColor}>{formatCurrency(cartSubtotal)}</Text></HStack>
-              <HStack justifyContent="space-between">
-                <Text color={billingMode === 'withBill' ? mutedColor : "gray.600"}>Taxes {billingMode === 'withoutBill' && <Badge ml={2} colorScheme="red">Excluded</Badge>}</Text>
-                <Text fontWeight="medium" color={billingMode === 'withBill' ? textColor : "gray.600"} textDecoration={billingMode === 'withoutBill' ? 'line-through' : 'none'}>{formatCurrency(cartTotalTax)}</Text>
-              </HStack>
               <Divider borderColor={borderColor} />
-              <HStack justifyContent="space-between" pt={1}><Text fontWeight="bold" fontSize="xl" color={textColor}>Grand Total</Text><Text fontWeight="bold" fontSize="2xl" bgGradient={headingGradient} bgClip="text">{formatCurrency(displayGrandTotal)}</Text></HStack>
+
+              {/* Items */}
+              <VStack spacing={3} align="stretch">
+                {cartItems.map(item => {
+                  const lineTotal = billingMode === 'withBill' ? item.priceDetails.lineItemTotal : item.priceDetails.lineItemSubtotal;
+                  return (
+                    <HStack key={item.cartId} justify="space-between" fontSize="sm" align="start">
+                      <Box flex={1}>
+                        <Text fontWeight="600" noOfLines={1} color={textColor} fontSize="sm">{item.title}</Text>
+                        <Text fontSize="xs" color={mutedColor}>
+                          {item.variant ? Object.values(item.variant.options).join('/') + ' · ' : ''}
+                          Qty: {item.quantity}
+                        </Text>
+                      </Box>
+                      <Text fontWeight="700" whiteSpace="nowrap" color={priceColor} fontSize="sm">
+                        {formatCurrency(lineTotal)}
+                      </Text>
+                    </HStack>
+                  );
+                })}
+              </VStack>
+
+              <Divider borderColor={borderColor} />
+
+              {/* Totals */}
+              <VStack spacing={2} align="stretch">
+                <Flex justify="space-between">
+                  <Text fontSize="sm" color={mutedColor}>Subtotal</Text>
+                  <Text fontSize="sm" fontWeight="600" color={textColor}>{formatCurrency(cartSubtotal)}</Text>
+                </Flex>
+                <Flex justify="space-between">
+                  <HStack spacing={1}>
+                    <Text fontSize="sm" color={billingMode === 'withBill' ? mutedColor : "gray.400"}>Tax</Text>
+                    {billingMode === 'withoutBill' && (
+                      <Badge colorScheme="purple" variant="outline" fontSize="0.5em" borderRadius="full">Excl.</Badge>
+                    )}
+                  </HStack>
+                  <Text
+                    fontSize="sm"
+                    fontWeight="600"
+                    color={billingMode === 'withBill' ? textColor : "gray.400"}
+                    textDecoration={billingMode === 'withoutBill' ? 'line-through' : 'none'}
+                  >
+                    {formatCurrency(cartTotalTax)}
+                  </Text>
+                </Flex>
+
+                <Divider borderColor={borderColor} />
+
+                <Flex justify="space-between" align="center" pt={1}>
+                  <Text fontSize="md" fontWeight="700" color={textColor}>Total</Text>
+                  <Text fontSize="xl" fontWeight="800" color={priceColor}>
+                    {formatCurrency(displayGrandTotal)}
+                  </Text>
+                </Flex>
+              </VStack>
             </VStack>
-          </VStack>
-        </Box>
-      </SimpleGrid>
-    </Container>
+          </Box>
+        </SimpleGrid>
+      </Container>
+    </Box>
   );
 };
 

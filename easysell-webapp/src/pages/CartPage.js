@@ -18,15 +18,14 @@ import {
   Stack,
   Badge,
   Icon,
-  useColorModeValue
+  useColorModeValue,
+  Center,
 } from "@chakra-ui/react";
-import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight } from "react-icons/fi";
+import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiShield } from "react-icons/fi";
 import { useCart } from "../context/CartContext";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
-
 import SpinnerComponent from "../components/Spinner";
 
-// Helper to format currency
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
 const CartPage = () => {
@@ -44,36 +43,28 @@ const CartPage = () => {
 
   const navigate = useNavigate();
   const toast = useToast();
-
-  // --- NEW STATE: Billing Mode ---
-  // Default to 'withBill' (Tax included)
   const [billingMode, setBillingMode] = useState("withBill");
 
-  // --- THEME COLORS ---
-  const bgCard = useColorModeValue('white', 'whiteAlpha.50');
+  // Theme
+  const pageBg = useColorModeValue('#F8F9FC', '#09090B');
+  const cardBg = useColorModeValue('white', '#111116');
   const textColor = useColorModeValue('gray.800', 'white');
-  const mutedColor = useColorModeValue('gray.600', 'gray.400');
-  const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
-  const highlightColor = useColorModeValue('teal.600', 'brand.200');
+  const mutedColor = useColorModeValue('gray.500', 'gray.400');
+  const borderColor = useColorModeValue('gray.100', 'whiteAlpha.100');
   const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.100');
-  const radioBg = useColorModeValue('gray.50', 'whiteAlpha.100'); // For radio buttons
+  const radioBg = useColorModeValue('gray.50', 'whiteAlpha.50');
+  const priceColor = useColorModeValue('brand.600', 'brand.300');
+  const emptyIconBg = useColorModeValue('gray.100', 'whiteAlpha.100');
+  const imageBg = useColorModeValue('gray.50', '#0D0D12');
 
-  const grandTotalGradient = useColorModeValue(
-    "linear(to-r, teal.600, blue.600)",
-    "linear(to-r, brand.200, accent.200)"
-  );
-
-  // --- Dynamic Calculation Logic ---
-  // If 'withoutBill', Tax is 0 and Grand Total equals Subtotal.
   const displayTax = billingMode === "withBill" ? cartTotalTax : 0;
-  const displayGrandTotal =
-    billingMode === "withBill" ? cartGrandTotal : cartSubtotal;
+  const displayGrandTotal = billingMode === "withBill" ? cartGrandTotal : cartSubtotal;
 
   const handleRemove = (cartId, title) => {
     removeFromCart(cartId);
     toast({
       title: "Item removed",
-      description: `${title} has been removed from your cart.`,
+      description: `${title} removed from cart.`,
       status: "info",
       duration: 2000,
       isClosable: true,
@@ -81,390 +72,278 @@ const CartPage = () => {
     });
   };
 
-  const handleCheckout = () => {
-    // We can pass the billing mode state to the checkout page if we wanted to persist it,
-    // but typically the Checkout page has its own selector.
-    // For now, we just navigate.
-    navigate("/checkout");
-  };
+  const handleCheckout = () => navigate("/checkout");
 
-  if (loadingProductData) {
-    return <SpinnerComponent />;
-  }
+  if (loadingProductData) return <SpinnerComponent />;
 
   if (cartItems.length === 0) {
     return (
-      <Container maxW="container.lg" py={20} centerContent>
-        <VStack spacing={6} p={10} bg={bgCard} borderRadius="2xl" shadow="xl" backdropFilter="blur(10px)">
-          <Icon as={FiShoppingCart} boxSize={16} color={mutedColor} />
-          <Heading size="lg" color={textColor}>
-            Your Cart is Empty
-          </Heading>
-          <Text color={mutedColor}>
-            Looks like you haven't added anything yet.
-          </Text>
-          <Button colorScheme="brand" size="lg" as={RouterLink} to="/" px={8} borderRadius="full">
-            Start Shopping
-          </Button>
-        </VStack>
-      </Container>
+      <Box bg={pageBg} minH="80vh">
+        <Container maxW="container.md" py={20} centerContent>
+          <VStack spacing={6} p={10} bg={cardBg} borderRadius="20px" borderWidth="1px" borderColor={borderColor} boxShadow="card">
+            <Flex w={20} h={20} bg={emptyIconBg} borderRadius="full" align="center" justify="center">
+              <Icon as={FiShoppingCart} boxSize={10} color="gray.400" />
+            </Flex>
+            <Heading size="lg" color={textColor}>Your Cart is Empty</Heading>
+            <Text color={mutedColor}>Looks like you haven't added anything yet.</Text>
+            <Button colorScheme="brand" size="lg" as={RouterLink} to="/" px={8} borderRadius="full">
+              Start Shopping
+            </Button>
+          </VStack>
+        </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxW="container.xl" py={12}>
-      <Heading mb={8} fontSize="3xl" color={textColor}>Shopping Cart <Text as="span" fontSize="xl" color={mutedColor} fontWeight="normal">({itemCount} items)</Text></Heading>
+    <Box bg={pageBg} minH="100vh" py={{ base: 6, md: 10 }}>
+      <Container maxW="container.xl">
+        <Flex justify="space-between" align="center" mb={8}>
+          <HStack spacing={3} align="baseline">
+            <Heading fontSize={{ base: 'xl', md: '2xl' }} color={textColor} fontWeight="800" letterSpacing="-0.02em">
+              Shopping Cart
+            </Heading>
+            <Text fontSize="md" color={mutedColor} fontWeight="500">({itemCount} items)</Text>
+          </HStack>
+          <Button variant="ghost" color={mutedColor} size="sm" onClick={clearCart} _hover={{ color: 'red.500' }}>
+            Clear All
+          </Button>
+        </Flex>
 
-      <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={10}>
-        {/* --- LEFT COLUMN: Cart Items List --- */}
-        <Box gridColumn={{ lg: "span 2" }}>
-          <VStack spacing={4} align="stretch">
-            {cartItems.map((item) => {
-              // Determine line total to display based on billing mode for individual items
-              const priceDetails = item.priceDetails || {}; // Safety check
-              const productData = item.productData || {};
-
-              const lineTotal =
-                billingMode === "withBill"
-                  ? priceDetails.lineItemTotal
-                  : priceDetails.lineItemSubtotal;
-
-              const totalUnitDiscount =
-                (priceDetails.discountAmountUnit || 0) +
-                (priceDetails.bulkDiscountAmountUnit || 0);
-
-              return (
-                <Box
-                  key={item.cartId}
-                  p={6}
-                  borderWidth="1px"
-                  borderRadius="2xl"
-                  overflow="hidden"
-                  bg={bgCard}
-                  borderColor={borderColor}
-                  shadow="lg"
-                  backdropFilter="blur(10px)"
-                  transition="all 0.2s"
-                  _hover={{ borderColor: 'brand.400', shadow: 'xl' }}
-                >
-                  <Flex
-                    direction={{ base: "column", sm: "row" }}
-                    align="center"
-                    gap={6}
-                  >
-                    {/* Product Image */}
-                    <Box borderRadius="xl" overflow="hidden" boxSize="120px" bg="white">
-                      <Image
-                        src={item.imageUrl}
-                        alt={item.title}
-                        boxSize="100%"
-                        objectFit="contain"
-                        fallbackSrc="https://via.placeholder.com/100"
-                      />
-                    </Box>
-
-                    {/* Product Info */}
-                    <Box flex="1" w="full">
-                      <Flex justify="space-between" align="start">
-                        <Box>
-                          <Heading
-                            size="md"
-                            mb={2}
-                            noOfLines={2}
-                            title={item.title}
-                            color={textColor}
-                          >
-                            {item.title}
-                          </Heading>
-                          <Text fontSize="sm" color={mutedColor} mb={2}>
-                            {item.variant
-                              ? Object.values(item.variant.options).join(" / ")
-                              : "Standard"}
-                          </Text>
-
-                          {/* --- VISIBLE PRICE BREAKDOWN PER UNIT --- */}
-                          <VStack
-                            align="start"
-                            spacing={0}
-                            mt={3}
-                            fontSize="xs"
-                            color={mutedColor}
-                          >
-                            <HStack>
-                              <Text minW="70px">Base Price:</Text>
-                              <Text
-                                as={totalUnitDiscount > 0 ? "s" : "span"}
-                                color={
-                                  totalUnitDiscount > 0
-                                    ? "gray.500"
-                                    : "gray.300"
-                                }
-                              >
-                                {formatCurrency(priceDetails.baseUnitPrice)}
-                              </Text>
-                            </HStack>
-                            {totalUnitDiscount > 0 && (
-                              <HStack color="green.300">
-                                <Text minW="70px">Discount:</Text>
-                                <Text>
-                                  -{formatCurrency(totalUnitDiscount)}
-                                </Text>
-                              </HStack>
-                            )}
-                            {priceDetails.variantModifierUnit !== 0 && (
-                              <HStack>
-                                <Text minW="70px">Variant:</Text>
-                                <Text>
-                                  {priceDetails.variantModifierUnit > 0
-                                    ? "+"
-                                    : ""}
-                                  {formatCurrency(
-                                    priceDetails.variantModifierUnit
-                                  )}
-                                </Text>
-                              </HStack>
-                            )}
-                            <HStack
-                              borderTopWidth="1px"
-                              borderColor={borderColor}
-                              pt={1}
-                              mt={1}
-                              w="full"
-                            >
-                              <Text minW="70px" fontWeight="medium">
-                                Subtotal:
-                              </Text>
-                              <Text fontWeight="medium">
-                                {formatCurrency(
-                                  priceDetails.effectiveUnitPricePreTax
-                                )}
-                              </Text>
-                            </HStack>
-                            <HStack>
-                              <Text minW="70px">
-                                Tax ({productData.taxRate || 0}%):
-                              </Text>
-                              <Text>
-                                +{formatCurrency(priceDetails.taxAmountUnit)}
-                              </Text>
-                            </HStack>
-                            <HStack
-                              borderTopWidth="1px"
-                              borderColor="whiteAlpha.200"
-                              pt={1}
-                              mt={1}
-                              w="full"
-                            >
-                              <Text
-                                minW="70px"
-                                fontWeight="bold"
-                                color={textColor}
-                              >
-                                Total/unit:
-                              </Text>
-                              <Text fontWeight="bold" color={textColor}>
-                                {formatCurrency(
-                                  priceDetails.finalUnitPriceWithTax
-                                )}{" "}
-                                {productData.priceUnit || ""}
-                              </Text>
-                            </HStack>
-                          </VStack>
-                        </Box>
-
-                        {/* Line Total Display (Dynamic based on billing mode) */}
-                        <Text fontWeight="bold" fontSize="lg" color={highlightColor}>
-                          {formatCurrency(lineTotal)}
-                        </Text>
-                      </Flex>
-
-                      {/* Controls: Quantity & Remove */}
-                      <Flex mt={5} justify="space-between" align="center">
-                        <HStack spacing={0} borderWidth="1px" borderColor={borderColor} borderRadius="xl" overflow="hidden">
-                          <IconButton
-                            icon={<FiMinus />}
-                            size="sm"
-                            aria-label="Decrease quantity"
-                            variant="ghost"
-                            color={textColor}
-                            _hover={{ bg: hoverBg }}
-                            onClick={() =>
-                              updateQuantity(item.cartId, item.quantity - 1)
-                            }
-                            isDisabled={
-                              item.quantity <= 1 &&
-                              item.productData?.minOrderQty <= 1
-                            }
-                          />
-                          <Text fontWeight="bold" w="40px" textAlign="center" color={textColor}>
-                            {item.quantity}
-                          </Text>
-                          <IconButton
-                            icon={<FiPlus />}
-                            size="sm"
-                            aria-label="Increase quantity"
-                            variant="ghost"
-                            color={textColor}
-                            _hover={{ bg: hoverBg }}
-                            onClick={() =>
-                              updateQuantity(item.cartId, item.quantity + 1)
-                            }
-                          />
-                        </HStack>
-                        <Button
-                          leftIcon={<FiTrash2 />}
-                          variant="ghost"
-                          colorScheme="red"
-                          size="sm"
-                          _hover={{ bg: 'red.900', color: 'red.200' }}
-                          onClick={() => handleRemove(item.cartId, item.title)}
-                        >
-                          Remove
-                        </Button>
-                      </Flex>
-                    </Box>
-                  </Flex>
-                </Box>
-              );
-            })}
-          </VStack>
-
-          <Box mt={6} textAlign="right">
-            <Button variant="outline" colorScheme="whiteAlpha" color="gray.300" _hover={{ bg: 'whiteAlpha.100' }} onClick={clearCart}>
-              Clear Cart
-            </Button>
-          </Box>
-        </Box>
-
-        {/* --- RIGHT COLUMN: Order Summary --- */}
-        <Box>
-          <VStack
-            p={8}
-            borderWidth="1px"
-            borderColor={borderColor}
-            borderRadius="2xl"
-            bg={bgCard}
-            spacing={5}
-            align="stretch"
-            position="sticky"
-            top="120px" // Sticky positioning for desktop
-            shadow="xl"
-            backdropFilter="blur(16px)"
-          >
-            <Heading size="md" color={textColor}>Order Summary</Heading>
-
-            <Divider borderColor={borderColor} />
-
-            {/* --- NEW: Billing Preference Toggle --- */}
-            <Box py={2}>
-              <Text fontSize="sm" fontWeight="semibold" mb={3} color={mutedColor}>
-                Billing Preference
-              </Text>
-              <RadioGroup onChange={setBillingMode} value={billingMode}>
-                <Stack direction="column" spacing={3}>
-                  <Radio
-                    value="withBill"
-                    colorScheme="brand"
-                    bg={radioBg}
-                    p={3}
-                    borderRadius="xl"
-                    borderWidth="1px"
-                    borderColor={
-                      billingMode === "withBill" ? "brand.400" : borderColor
-                    }
-                    _hover={{ borderColor: "brand.300", bg: hoverBg }}
-                  >
-                    <HStack justify="space-between" w="100%">
-                      <Text fontSize="sm" color={textColor}>With Bill</Text>
-                      <Badge colorScheme="green" fontSize="0.6em">
-                        Tax Incl.
-                      </Badge>
-                    </HStack>
-                  </Radio>
-                  <Radio
-                    value="withoutBill"
-                    colorScheme="brand"
-                    bg={radioBg}
-                    p={3}
-                    borderRadius="xl"
-                    borderWidth="1px"
-                    borderColor={
-                      billingMode === "withoutBill" ? "brand.400" : borderColor
-                    }
-                    _hover={{ borderColor: "brand.300", bg: hoverBg }}
-                  >
-                    <HStack justify="space-between" w="100%">
-                      <Text fontSize="sm" color={textColor}>Without Bill</Text>
-                      <Badge colorScheme="purple" fontSize="0.6em">
-                        Tax Excl.
-                      </Badge>
-                    </HStack>
-                  </Radio>
-                </Stack>
-              </RadioGroup>
-            </Box>
-
-            <Divider borderColor={borderColor} />
-
-            {/* Totals Section */}
+        <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={{ base: 6, lg: 8 }}>
+          {/* ====== LEFT: Cart Items ====== */}
+          <Box gridColumn={{ lg: "span 2" }}>
             <VStack spacing={3} align="stretch">
-              <Flex justify="space-between">
-                <Text color={mutedColor}>Subtotal</Text>
-                <Text fontWeight="medium" color={textColor}>{formatCurrency(cartSubtotal)}</Text>
-              </Flex>
+              {cartItems.map((item) => {
+                const priceDetails = item.priceDetails || {};
+                const productData = item.productData || {};
+                const lineTotal = billingMode === "withBill" ? priceDetails.lineItemTotal : priceDetails.lineItemSubtotal;
+                const totalUnitDiscount = (priceDetails.discountAmountUnit || 0) + (priceDetails.bulkDiscountAmountUnit || 0);
 
-              <Flex justify="space-between">
-                <Text
-                  color={billingMode === "withBill" ? mutedColor : "gray.600"}
-                >
-                  Tax{" "}
-                  {billingMode === "withoutBill" && (
-                    <Badge ml={1} colorScheme="purple" variant="outline">Excluded</Badge>
-                  )}
-                </Text>
-                <Text
-                  fontWeight="medium"
-                  color={billingMode === "withBill" ? textColor : "gray.600"}
-                  textDecoration={
-                    billingMode === "withoutBill" ? "line-through" : "none"
-                  }
-                >
-                  {formatCurrency(cartTotalTax)}
-                </Text>
-              </Flex>
+                return (
+                  <Box
+                    key={item.cartId}
+                    p={{ base: 4, md: 5 }}
+                    borderWidth="1px"
+                    borderRadius="16px"
+                    bg={cardBg}
+                    borderColor={borderColor}
+                    boxShadow="card"
+                    transition="all 0.2s"
+                    _hover={{ borderColor: 'brand.200' }}
+                  >
+                    <Flex direction={{ base: "column", sm: "row" }} gap={4}>
+                      {/* Image */}
+                      <Box borderRadius="12px" overflow="hidden" w={{ base: "full", sm: "100px" }} h={{ base: "200px", sm: "100px" }} bg={imageBg} flexShrink={0}>
+                        <Image
+                          src={item.imageUrl}
+                          alt={item.title}
+                          w="100%"
+                          h="100%"
+                          objectFit="contain"
+                          fallbackSrc="https://via.placeholder.com/100"
+                        />
+                      </Box>
 
-              <Divider my={2} borderColor={borderColor} />
+                      {/* Info */}
+                      <Box flex="1" w="full">
+                        <Flex justify="space-between" align="start" gap={3}>
+                          <Box flex="1">
+                            <Heading size="sm" noOfLines={2} color={textColor} mb={1} fontWeight="700">
+                              {item.title}
+                            </Heading>
+                            <Text fontSize="xs" color={mutedColor}>
+                              {item.variant ? Object.values(item.variant.options).join(" / ") : "Standard"}
+                            </Text>
 
-              <Flex justify="space-between" align="center">
-                <Text fontSize="lg" fontWeight="bold" color={textColor}>
-                  Grand Total
-                </Text>
-                <Text fontSize="2xl" fontWeight="bold" bgGradient={grandTotalGradient} bgClip="text">
-                  {formatCurrency(displayGrandTotal)}
-                </Text>
-              </Flex>
+                            {/* Compact price breakdown */}
+                            <VStack align="start" spacing={0} mt={2} fontSize="xs" color={mutedColor}>
+                              <HStack spacing={2}>
+                                <Text>Base: {formatCurrency(priceDetails.baseUnitPrice)}</Text>
+                                {totalUnitDiscount > 0 && (
+                                  <Text color="green.500">-{formatCurrency(totalUnitDiscount)}</Text>
+                                )}
+                                {priceDetails.variantModifierUnit !== 0 && (
+                                  <Text>Variant: {priceDetails.variantModifierUnit > 0 ? "+" : ""}{formatCurrency(priceDetails.variantModifierUnit)}</Text>
+                                )}
+                              </HStack>
+                              <Text>
+                                Unit: {formatCurrency(priceDetails.effectiveUnitPricePreTax)} + ₹{priceDetails.taxAmountUnit?.toFixed(2)} tax
+                              </Text>
+                            </VStack>
+                          </Box>
+
+                          {/* Line Total */}
+                          <VStack align="end" spacing={0}>
+                            <Text fontWeight="800" fontSize="lg" color={priceColor}>
+                              {formatCurrency(lineTotal)}
+                            </Text>
+                            <Text fontSize="xs" color={mutedColor}>×{item.quantity}</Text>
+                          </VStack>
+                        </Flex>
+
+                        {/* Controls */}
+                        <Flex mt={3} justify="space-between" align="center">
+                          <HStack
+                            spacing={0}
+                            borderWidth="1px"
+                            borderColor={borderColor}
+                            borderRadius="10px"
+                            overflow="hidden"
+                          >
+                            <IconButton
+                              icon={<FiMinus size="14px" />}
+                              size="sm"
+                              aria-label="Decrease"
+                              variant="ghost"
+                              color={textColor}
+                              _hover={{ bg: hoverBg }}
+                              onClick={() => updateQuantity(item.cartId, item.quantity - 1)}
+                              isDisabled={item.quantity <= 1 && item.productData?.minOrderQty <= 1}
+                              h="32px"
+                              w="32px"
+                            />
+                            <Text fontWeight="700" w="36px" textAlign="center" fontSize="sm" color={textColor}>
+                              {item.quantity}
+                            </Text>
+                            <IconButton
+                              icon={<FiPlus size="14px" />}
+                              size="sm"
+                              aria-label="Increase"
+                              variant="ghost"
+                              color={textColor}
+                              _hover={{ bg: hoverBg }}
+                              onClick={() => updateQuantity(item.cartId, item.quantity + 1)}
+                              h="32px"
+                              w="32px"
+                            />
+                          </HStack>
+                          <IconButton
+                            icon={<FiTrash2 size="15px" />}
+                            variant="ghost"
+                            color="red.400"
+                            size="sm"
+                            aria-label="Remove"
+                            _hover={{ bg: 'red.50', color: 'red.600' }}
+                            onClick={() => handleRemove(item.cartId, item.title)}
+                          />
+                        </Flex>
+                      </Box>
+                    </Flex>
+                  </Box>
+                );
+              })}
             </VStack>
+          </Box>
 
-            <Button
-              colorScheme="brand"
-              size="lg"
-              w="full"
-              mt={4}
-              rightIcon={<FiArrowRight />}
-              onClick={handleCheckout}
-              shadow="lg"
-              _hover={{ transform: 'translateY(-2px)', shadow: 'xl' }}
+          {/* ====== RIGHT: Order Summary ====== */}
+          <Box>
+            <VStack
+              p={6}
+              borderWidth="1px"
+              borderColor={borderColor}
+              borderRadius="20px"
+              bg={cardBg}
+              spacing={5}
+              align="stretch"
+              position="sticky"
+              top="80px"
+              boxShadow="card"
             >
-              Proceed to Checkout
-            </Button>
+              <Heading size="sm" color={textColor} fontWeight="700">Order Summary</Heading>
+              <Divider borderColor={borderColor} />
 
-            <Text fontSize="xs" color="gray.500" textAlign="center">
-              Shipping & taxes calculated at checkout.
-            </Text>
-          </VStack>
-        </Box>
-      </SimpleGrid>
-    </Container>
+              {/* Billing Toggle */}
+              <Box>
+                <Text fontSize="xs" fontWeight="700" mb={2.5} color={mutedColor} textTransform="uppercase" letterSpacing="0.06em">
+                  Billing Preference
+                </Text>
+                <RadioGroup onChange={setBillingMode} value={billingMode}>
+                  <Stack direction="column" spacing={2}>
+                    <Radio
+                      value="withBill"
+                      colorScheme="brand"
+                      size="sm"
+                    >
+                      <HStack spacing={2}>
+                        <Text fontSize="sm" color={textColor} fontWeight="500">With Bill</Text>
+                        <Badge colorScheme="green" fontSize="0.6em" borderRadius="full">Tax Incl.</Badge>
+                      </HStack>
+                    </Radio>
+                    <Radio
+                      value="withoutBill"
+                      colorScheme="brand"
+                      size="sm"
+                    >
+                      <HStack spacing={2}>
+                        <Text fontSize="sm" color={textColor} fontWeight="500">Without Bill</Text>
+                        <Badge colorScheme="purple" fontSize="0.6em" borderRadius="full">Tax Excl.</Badge>
+                      </HStack>
+                    </Radio>
+                  </Stack>
+                </RadioGroup>
+              </Box>
+
+              <Divider borderColor={borderColor} />
+
+              {/* Totals */}
+              <VStack spacing={2.5} align="stretch">
+                <Flex justify="space-between">
+                  <Text fontSize="sm" color={mutedColor}>Subtotal</Text>
+                  <Text fontSize="sm" fontWeight="600" color={textColor}>{formatCurrency(cartSubtotal)}</Text>
+                </Flex>
+                <Flex justify="space-between">
+                  <HStack spacing={1}>
+                    <Text fontSize="sm" color={billingMode === "withBill" ? mutedColor : "gray.400"}>Tax</Text>
+                    {billingMode === "withoutBill" && (
+                      <Badge colorScheme="purple" variant="outline" fontSize="0.5em" borderRadius="full">Excl.</Badge>
+                    )}
+                  </HStack>
+                  <Text
+                    fontSize="sm"
+                    fontWeight="600"
+                    color={billingMode === "withBill" ? textColor : "gray.400"}
+                    textDecoration={billingMode === "withoutBill" ? "line-through" : "none"}
+                  >
+                    {formatCurrency(cartTotalTax)}
+                  </Text>
+                </Flex>
+
+                <Divider borderColor={borderColor} />
+
+                <Flex justify="space-between" align="center" pt={1}>
+                  <Text fontSize="md" fontWeight="700" color={textColor}>Total</Text>
+                  <Text fontSize="xl" fontWeight="800" color={priceColor}>
+                    {formatCurrency(displayGrandTotal)}
+                  </Text>
+                </Flex>
+              </VStack>
+
+              <Button
+                colorScheme="brand"
+                size="lg"
+                w="full"
+                borderRadius="12px"
+                rightIcon={<FiArrowRight />}
+                onClick={handleCheckout}
+                fontWeight="700"
+                h="52px"
+                boxShadow="0 4px 14px rgba(108,92,231,0.3)"
+                _hover={{ transform: 'translateY(-2px)', boxShadow: '0 6px 20px rgba(108,92,231,0.4)' }}
+              >
+                Checkout · {formatCurrency(displayGrandTotal)}
+              </Button>
+
+              {/* Trust */}
+              <HStack justify="center" spacing={2} pt={1}>
+                <Icon as={FiShield} color="green.400" boxSize={3.5} />
+                <Text fontSize="xs" color={mutedColor}>Secure Checkout · Easy Returns</Text>
+              </HStack>
+            </VStack>
+          </Box>
+        </SimpleGrid>
+      </Container>
+    </Box>
   );
 };
 

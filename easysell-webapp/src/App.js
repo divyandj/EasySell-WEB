@@ -50,6 +50,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<LoginPage />} />
           <Route path="/catalogue/:catalogueId" element={<CataloguePage />} />
+          <Route path="/product/:catalogueId/:productId" element={<ProductDetailPage />} />
           <Route path="/product/:productId" element={<ProductDetailPage />} />
 
           {/* --- Protected Routes (Login Required) --- */}

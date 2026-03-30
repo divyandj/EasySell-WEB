@@ -1,182 +1,196 @@
 import React from 'react';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import {
   Box,
   Image,
   Text,
-  Badge,
-  Button,
-  Flex,
-  useToast,
-  AspectRatio,
   VStack,
-  Heading
+  useColorModeValue,
+  Flex,
+  Badge,
+  Icon,
 } from '@chakra-ui/react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { FiShoppingCart, FiClock, FiLock } from 'react-icons/fi';
+import { motion } from 'framer-motion';
+import { FiShoppingCart } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { motion } from 'framer-motion';
 
 const MotionBox = motion(Box);
 
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }
+  }
+};
+
 const ProductCard = ({ product }) => {
-  const { addToCart } = useCart();
-  const { currentUser, userData, storeConfig } = useAuth();
-  const toast = useToast();
-  const navigate = useNavigate();
+  const location = useLocation();
+  const { storeConfig } = useAuth();
 
-  // Stock & Price Logic
-  const qty = product.availableQuantity;
-  const isUnlimited = qty === -1;
-  const effectivelyInStock = isUnlimited || product.inStock;
-  const allowBackorder = product.allowBackorders === true;
+  // Derive catalogue ID from product or current URL
+  const catalogueId = product.catalogueId || location.pathname.split('/catalogue/')?.[1];
 
-  // It is only "Out of Stock" if it's NOT in stock AND backorders are NOT allowed.
-  const isOutOfStock = !effectivelyInStock && !allowBackorder;
-  const isPreOrder = !effectivelyInStock && allowBackorder;
+  // Theme colors
+  const bg = useColorModeValue('white', '#111116');
+  const borderColor = useColorModeValue('gray.100', 'whiteAlpha.100');
+  const textColor = useColorModeValue('gray.800', 'white');
+  const priceColor = useColorModeValue('gray.900', 'white');
+  const originalPriceColor = useColorModeValue('gray.400', 'gray.500');
+  const descColor = useColorModeValue('gray.500', 'gray.400');
+  const imageBg = useColorModeValue('gray.50', '#0D0D12');
 
-  const isPublicStore = storeConfig?.storeMode === 'public';
-  const isApprovedBuyer = currentUser && userData && userData.status === 'approved';
-  const hasAccess = isPublicStore || isApprovedBuyer;
+  // Price calculations
+  const basePrice = product.variants?.[0]?.price || product.price || 0;
+  const displayPrice = product.variants?.[0]?.price || product.price || 0;
+  const discountPercent = product.discount || null;
+  const originalPrice = discountPercent ? (displayPrice / (1 - discountPercent / 100)) : null;
 
-  const handleAddToCart = (e) => {
-    e.preventDefault();
-    if (!hasAccess) return;
-
-    // Enforce login for guests trying to add to cart on public stores
-    if (isPublicStore && !currentUser) {
-      toast({
-        title: "Please login to add to cart.",
-        status: "info",
-        duration: 3000,
-        isClosable: true,
-        position: 'top',
-      });
-      navigate('/login');
-      return;
-    }
-
-    if (product.hasVariants || isOutOfStock) return;
-    addToCart(product, 1);
-    toast({
-      title: `${product.title} added to cart.`,
-      status: 'success',
-      duration: 2000,
-      isClosable: true,
-      position: 'top',
-    });
-  };
-
-  const price = product.discountedPrice > 0 ? product.discountedPrice : product.price;
-  const imageUrl = product.media?.find(m => m.type === 'image')?.url;
+  // Stock status
+  const isOutOfStock = product.variants?.every(v => v.quantity <= 0) || product.stock <= 0;
 
   return (
     <MotionBox
-      position="relative"
-      bg="white" // Clean white card
-      borderRadius="3xl" // Extra rounded premium feel
+      variants={itemVariants}
+      as={RouterLink}
+      to={`/product/${catalogueId}/${product.id}`}
+      display="block"
+      bg={bg}
+      borderWidth="1px"
+      borderColor={borderColor}
+      borderRadius="16px"
       overflow="hidden"
-      boxShadow="lg" // Soft shadow
-      whileHover={{ y: -8, boxShadow: '2xl' }} // Lift effect
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      role="group" // For hover parent
+      boxShadow="card"
+      _hover={{ boxShadow: 'cardHover', transform: 'translateY(-4px)' }}
+      transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+      role="group"
+      position="relative"
     >
-      <RouterLink to={`/product/${product.id}`}>
-        <Box position="relative" overflow="hidden">
-          <AspectRatio ratio={3 / 4}>
-            <Image
-              src={imageUrl}
-              alt={product.title}
-              objectFit="cover"
-              fallbackSrc="https://via.placeholder.com/300"
-              transition="transform 0.4s ease"
-              _groupHover={{ transform: 'scale(1.05)' }} // Zoom image on card hover
-            />
-          </AspectRatio>
+      {/* Image Container — aspect ratio box */}
+      <Box position="relative" overflow="hidden" bg={imageBg} w="full" h="0" pb="100%">
+        <Image
+          src={product.media?.find(m => m.type === 'image')?.url || product.media?.[0]?.url || product.imageUrl || product.images?.[0]}
+          alt={product.title}
+          w="full"
+          h="full"
+          objectFit="cover"
+          objectPosition="center"
+          position="absolute"
+          top="0"
+          left="0"
+          fallbackSrc="https://via.placeholder.com/400x400?text=Product"
+          transition="transform 0.4s ease"
+          _groupHover={{ transform: 'scale(1.06)' }}
+          loading="lazy"
+        />
 
-          {/* Overlays */}
-          {isOutOfStock && (
-            <Box position="absolute" top={0} left={0} w="full" h="full" bg="blackAlpha.600" display="flex" alignItems="center" justifyContent="center">
-              <Badge colorScheme="red" fontSize="md" px={3} py={1} borderRadius="full">Sold Out</Badge>
-            </Box>
-          )}
+        {/* Discount Badge */}
+        {discountPercent && (
+          <Badge
+            position="absolute"
+            top={3}
+            left={3}
+            bg="red.500"
+            color="white"
+            fontSize="xs"
+            fontWeight="700"
+            px={2.5}
+            py={1}
+            borderRadius="full"
+            boxShadow="md"
+          >
+            {discountPercent}% OFF
+          </Badge>
+        )}
 
-          {isPreOrder && (
-            <Box position="absolute" top={4} right={4}>
-              <Badge colorScheme="orange" variant="solid" fontSize="xs" px={2} py={1} borderRadius="full" shadow="md">
-                Pre-Order
-              </Badge>
-            </Box>
-          )}
-
-          {/* Floating Action Button - only if approved or public */}
-          {hasAccess && (
-            <Box
-              position="absolute"
-              bottom="4"
-              right="4"
-              opacity={{ base: 1, md: 0 }}
-              _groupHover={{ opacity: 1 }}
-              transition="opacity 0.2s"
+        {/* Out of Stock Overlay */}
+        {isOutOfStock && (
+          <Flex
+            position="absolute"
+            inset="0"
+            bg="blackAlpha.600"
+            align="center"
+            justify="center"
+            backdropFilter="blur(2px)"
+          >
+            <Badge
+              bg="white"
+              color="gray.800"
+              fontSize="sm"
+              fontWeight="700"
+              px={4}
+              py={2}
+              borderRadius="full"
             >
-              <Button
-                colorScheme={isPreOrder ? "orange" : "brand"}
-                size="md"
-                rounded="full"
-                shadow="xl"
-                w="12"
-                h="12"
-                p={0}
-                isDisabled={isOutOfStock}
-                onClick={(e) => {
-                  e.preventDefault(); // Always prevent default to stop Link bubble
-                  if (product.hasVariants) {
-                    navigate(`/product/${product.id}`);
-                  } else {
-                    handleAddToCart(e);
-                  }
-                }}
-              >
-                {isPreOrder ? <FiClock size={18} /> : <FiShoppingCart size={18} />}
-              </Button>
-            </Box>
-          )}
-        </Box>
-
-        <VStack p="5" align="start" spacing={1}>
-          <Text fontSize="xs" fontWeight="bold" letterSpacing="wider" color="gray.400" textTransform="uppercase">
-            {product.tags?.[0] || 'Exclusive'}
-          </Text>
-
-          <Heading as="h3" size="md" color="gray.800" fontWeight="bold" lineHeight="tall" noOfLines={1} _groupHover={{ color: 'brand.500' }} transition="color 0.2s">
-            {product.title}
-          </Heading>
-
-          <Flex align="baseline" mt={1}>
-            {hasAccess ? (
-              <>
-                <Text fontSize="lg" fontWeight="extrabold" color="gray.900">
-                  ₹{price.toFixed(2)}
-                </Text>
-                {product.discountedPrice > 0 && (
-                  <Text as="s" ml="2" fontSize="sm" color="gray.400">
-                    ₹{product.price.toFixed(2)}
-                  </Text>
-                )}
-              </>
-            ) : (
-              <Flex align="center" color="brand.500" fontSize="sm" fontWeight="bold">
-                <FiLock style={{ marginRight: '6px' }} />
-                <Text>
-                  {currentUser ? (userData ? (userData.status === 'pending' ? "Verification Pending" : (userData.status === 'rejected' ? "Verification Rejected" : "Request Access")) : "Complete Setup") : "Login to View Price"}
-                </Text>
-              </Flex>
-            )}
+              Out of Stock
+            </Badge>
           </Flex>
-        </VStack>
-      </RouterLink>
+        )}
+
+        {/* Quick-add hover indicator */}
+        <Flex
+          position="absolute"
+          bottom={3}
+          right={3}
+          w={9}
+          h={9}
+          bg="brand.500"
+          borderRadius="full"
+          align="center"
+          justify="center"
+          color="white"
+          opacity={0}
+          transform="translateY(8px)"
+          _groupHover={{ opacity: 1, transform: 'translateY(0)' }}
+          transition="all 0.3s ease"
+          boxShadow="0 4px 14px rgba(108,92,231,0.4)"
+        >
+          <Icon as={FiShoppingCart} boxSize={4} />
+        </Flex>
+      </Box>
+
+      {/* Content */}
+      <VStack align="stretch" p={4} spacing={2}>
+        {/* Category */}
+        {product.category && (
+          <Text
+            fontSize="xs"
+            fontWeight="600"
+            color="brand.500"
+            textTransform="uppercase"
+            letterSpacing="0.06em"
+          >
+            {product.category}
+          </Text>
+        )}
+
+        {/* Title */}
+        <Text
+          fontWeight="600"
+          fontSize="sm"
+          noOfLines={2}
+          color={textColor}
+          lineHeight="1.4"
+          _groupHover={{ color: 'brand.500' }}
+          transition="color 0.2s"
+        >
+          {product.title}
+        </Text>
+
+        {/* Price */}
+        <Flex align="center" gap={2} mt={1}>
+          <Text fontWeight="800" fontSize="lg" color={priceColor}>
+            ₹{displayPrice.toLocaleString('en-IN')}
+          </Text>
+          {originalPrice && (
+            <Text fontSize="sm" color={originalPriceColor} textDecoration="line-through">
+              ₹{originalPrice.toLocaleString('en-IN')}
+            </Text>
+          )}
+        </Flex>
+      </VStack>
     </MotionBox>
   );
 };
