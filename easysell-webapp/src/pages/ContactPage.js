@@ -111,6 +111,28 @@ const ContactPage = () => {
               {contactData.address && (
                 <ContactItem icon={FiMapPin} label="Address" value={contactData.address} />
               )}
+
+              {/* WhatsApp CTA Button */}
+              {contactData.whatsapp && (
+                <Button
+                  as="a"
+                  href={`https://wa.me/${contactData.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent('Hi! I visited your store and would like to get in touch.')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  mt={4}
+                  w="full"
+                  h="48px"
+                  bg="#25D366"
+                  color="white"
+                  borderRadius="12px"
+                  fontWeight="700"
+                  leftIcon={<Icon as={FiMessageCircle} />}
+                  _hover={{ bg: '#1DA851', transform: 'translateY(-1px)' }}
+                  transition="all 0.2s"
+                >
+                  Chat on WhatsApp
+                </Button>
+              )}
             </VStack>
           ) : (
             <Center py={10}>
