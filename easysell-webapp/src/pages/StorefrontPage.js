@@ -21,7 +21,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { FiArrowRight, FiShoppingBag, FiShield, FiCheckCircle } from 'react-icons/fi';
+import { FiArrowRight, FiShoppingBag, FiShield, FiCheckCircle, FiPackage, FiMail } from 'react-icons/fi';
 
 const MotionBox = motion(Box);
 
@@ -268,6 +268,40 @@ const StorefrontPage = ({ subdomain }) => {
                 Login to Shop
               </Button>
             )}
+
+            {/* Action Buttons */}
+            <HStack justify="center" spacing={3} mt={5} flexWrap="wrap">
+              {storeOwner.requestProductEnabled && (
+                <Button
+                  as={RouterLink}
+                  to="/request-product"
+                  size="sm"
+                  leftIcon={<Icon as={FiPackage} />}
+                  bg="whiteAlpha.200"
+                  color="white"
+                  borderRadius="full"
+                  fontWeight="600"
+                  backdropFilter="blur(10px)"
+                  _hover={{ bg: 'whiteAlpha.300' }}
+                >
+                  Request a Product
+                </Button>
+              )}
+              <Button
+                as={RouterLink}
+                to="/contact"
+                size="sm"
+                leftIcon={<Icon as={FiMail} />}
+                bg="whiteAlpha.200"
+                color="white"
+                borderRadius="full"
+                fontWeight="600"
+                backdropFilter="blur(10px)"
+                _hover={{ bg: 'whiteAlpha.300' }}
+              >
+                Contact Us
+              </Button>
+            </HStack>
           </MotionBox>
         </Container>
       </Box>

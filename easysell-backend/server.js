@@ -65,6 +65,19 @@ app.post("/api/notify-signup", (req, res) => {
   return res.json({ success: true, message: "User notification queued" });
 });
 
+// 3. Endpoint for Product Requests
+app.post("/api/notify-product-request", (req, res) => {
+  if (!notificationService) {
+    return res.status(500).json({ error: "Notification service not configured properly." });
+  }
+
+  const { productName, buyerName, storeHandle } = req.body;
+
+  notificationService.notifyNewProductRequest(productName, buyerName, storeHandle);
+
+  return res.json({ success: true, message: "Product request notification queued" });
+});
+
 // ==========================================
 //  ANALYTICS API ENDPOINTS
 // ==========================================

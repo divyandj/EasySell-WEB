@@ -88,4 +88,34 @@ async function notifyNewUser(userName, userEmail, storeHandle) {
   }
 }
 
-module.exports = { notifyNewOrder, notifyNewUser };
+/**
+ * Sends a push notification to the 'admin_product_requests_[storeHandle]' topic
+ */
+async function notifyNewProductRequest(productName, buyerName, storeHandle) {
+  if (!serviceAccount) return;
+
+  const topicName = storeHandle ? `admin_product_requests_${storeHandle}` : "admin_product_requests";
+
+  const message = {
+    notification: {
+      title: "📦 New Product Request!",
+      body: `${buyerName} requested: ${productName}`
+    },
+    data: {
+      productName: productName || "",
+      buyerName: buyerName || "",
+      type: "product_request",
+      storeHandle: storeHandle || ""
+    },
+    topic: topicName
+  };
+
+  try {
+    await messaging.send(message);
+    console.log(`🔔 Notification sent: Product Request "${productName}" to topic ${topicName}`);
+  } catch (error) {
+    console.error("❌ FCM Error (Product Request):", error.message);
+  }
+}
+
+module.exports = { notifyNewOrder, notifyNewUser, notifyNewProductRequest };

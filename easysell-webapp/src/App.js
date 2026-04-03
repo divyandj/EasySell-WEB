@@ -12,6 +12,8 @@ import ProfilePage from './pages/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
 import HomePage from './pages/HomePage';
 import StorefrontPage from './pages/StorefrontPage';
+import RequestProductPage from './pages/RequestProductPage';
+import ContactPage from './pages/ContactPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -44,6 +46,12 @@ function App() {
           <Route path="/catalogue/:catalogueId" element={<CataloguePage />} />
           <Route path="/product/:catalogueId/:productId" element={<ProductDetailPage />} />
           <Route path="/product/:productId" element={<ProductDetailPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/request-product" element={
+            <ProtectedRoute>
+              <RequestProductPage />
+            </ProtectedRoute>
+          } />
 
           {/* --- Protected Routes (Login Required) --- */}
           <Route

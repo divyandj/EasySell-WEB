@@ -56,8 +56,8 @@ export default function Footer() {
                         <Link as={RouterLink} to="/" _hover={{ color: 'brand.500' }} transition="color 0.2s">
                             Terms
                         </Link>
-                        <Link as={RouterLink} to="/" _hover={{ color: 'brand.500' }} transition="color 0.2s">
-                            Support
+                        <Link as={RouterLink} to="/contact" _hover={{ color: 'brand.500' }} transition="color 0.2s">
+                            Contact
                         </Link>
                     </HStack>
                 </Flex>
