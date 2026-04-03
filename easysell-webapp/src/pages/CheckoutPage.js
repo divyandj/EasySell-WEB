@@ -13,10 +13,11 @@ import SpinnerComponent from '../components/Spinner';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { FiShield, FiArrowRight, FiMapPin, FiCreditCard, FiShoppingBag, FiMinus, FiPlus } from 'react-icons/fi';
+import { resolveStoreContext } from '../utils/storeResolver';
 
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
-import { resolveStoreContext } from '../utils/storeResolver';
+
 
 const getSubdomain = () => {
   const context = resolveStoreContext();

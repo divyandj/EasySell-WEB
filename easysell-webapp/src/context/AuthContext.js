@@ -3,6 +3,7 @@
 // // import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 // // import { auth, googleProvider, db } from '../firebase';
 // // import { Box, Spinner, Center } from '@chakra-ui/react';
+import { resolveStoreContext } from '../utils/storeResolver';
 
 // // const AuthContext = createContext();
 
@@ -316,7 +317,7 @@ const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 // Helper to extract subdomain
-import { resolveStoreContext } from '../utils/storeResolver';
+
 
 const getSubdomain = () => {
   const context = resolveStoreContext();
