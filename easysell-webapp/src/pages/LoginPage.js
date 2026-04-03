@@ -72,7 +72,7 @@ const LoginPage = () => {
 
   const [viewState, setViewState] = useState('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSignup, setIsSignup] = useState(false);
+  const [isSignup, setIsSignup] = useState(location.pathname === '/signup');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authUser, setAuthUser] = useState(null);
@@ -138,6 +138,10 @@ const LoginPage = () => {
       }
     }
   }, [currentUser, userData, navigate, location, viewState, storeConfig]);
+
+  useEffect(() => {
+    setIsSignup(location.pathname === '/signup');
+  }, [location.pathname]);
 
   // --- VALIDATION ---
   const validateField = (name, value) => {
