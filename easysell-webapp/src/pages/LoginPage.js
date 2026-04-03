@@ -65,13 +65,16 @@ const PageWrapper = ({ children }) => {
 };
 
 const LoginPage = () => {
-  const { googleLogin, getUserProfile, saveUserProfile, currentUser, userData, signOut, storeConfig } = useAuth();
+  const { googleLogin, emailLogin, emailSignup, resetPassword, getUserProfile, saveUserProfile, currentUser, userData, signOut, storeConfig } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
 
   const [viewState, setViewState] = useState('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSignup, setIsSignup] = useState(false);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
   const [authUser, setAuthUser] = useState(null);
   const [formData, setFormData] = useState({ name: '', phone: '', gstPan: '', businessName: '', address: '' });
   const [touched, setTouched] = useState({});
@@ -249,9 +252,51 @@ const LoginPage = () => {
         setViewState('details');
       }
     } catch (error) {
-      toast({ title: "Login Failed", description: error.message, status: "error", duration: 5000, isClosable: true });
+      toast({ title: "Sign In Failed", description: error.message, status: "error", duration: 4000, isClosable: true });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // --- EMAIL SIGN IN/UP ---
+  const handleEmailAuth = async (e) => {
+    e.preventDefault();
+    if (!authEmail || !authPassword) {
+      toast({ title: "Incomplete details", description: "Please enter email and password.", status: "warning", duration: 3000 });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      let user;
+      if (isSignup) {
+        user = await emailSignup(authEmail, authPassword);
+      } else {
+        user = await emailLogin(authEmail, authPassword);
+      }
+      const profile = await getUserProfile(user.uid);
+      if (profile && !isSignup) {
+        toast({ title: "Welcome Back", description: "Signed in successfully.", status: "success", duration: 3000, isClosable: true });
+      } else {
+        setFormData(prev => ({ ...prev, name: user.displayName || '', email: user.email }));
+        setAuthUser(user);
+        setViewState('details');
+      }
+    } catch (error) {
+      toast({ title: "Authentication Failed", description: error.message, status: "error", duration: 4000 });
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!authEmail) {
+      toast({ title: "Missing Email", description: "Please enter your email first to reset your password.", status: "warning", duration: 3000 });
+      return;
+    }
+    try {
+      await resetPassword(authEmail);
+      toast({ title: "Reset Email Sent", description: "Check your inbox for a password reset link.", status: "success", duration: 4000 });
+    } catch (error) {
+       toast({ title: "Error", description: error.message, status: "error", duration: 3000 });
     }
   };
 
@@ -538,9 +583,47 @@ const LoginPage = () => {
             Vyparsetu
           </Text>
           <Text fontSize="sm" color={mutedColor} mt={1}>
-            Sign in to continue
+            {isSignup ? "Create an account" : "Sign in to continue"}
           </Text>
         </Box>
+
+        <form onSubmit={handleEmailAuth} style={{ width: '100%' }}>
+          <VStack spacing={4}>
+            <FormControl>
+              <FormLabel fontSize="sm" color={mutedColor}>Email</FormLabel>
+              <Input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} bg={inputBg} borderColor={inputBorder} borderRadius="12px" h="48px" />
+            </FormControl>
+            <FormControl>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <FormLabel fontSize="sm" color={mutedColor} mb={0}>Password</FormLabel>
+                {!isSignup && (
+                  <Button variant="link" colorScheme="brand" size="xs" onClick={handleForgotPassword}>
+                    Forgot Password?
+                  </Button>
+                )}
+              </Box>
+              <Input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} bg={inputBg} borderColor={inputBorder} borderRadius="12px" h="48px" mt={2} />
+            </FormControl>
+            <Button
+              type="submit"
+              colorScheme="brand"
+              w="full"
+              h="48px"
+              borderRadius="12px"
+              mt={2}
+              isLoading={isSubmitting}
+              fontWeight="700"
+            >
+              {isSignup ? "Sign Up" : "Log In"}
+            </Button>
+          </VStack>
+        </form>
+
+        <HStack w="full">
+          <Divider borderColor={dividerColor} />
+          <Text fontSize="xs" color="gray.400" whiteSpace="nowrap">OR CONTINUE WITH</Text>
+          <Divider borderColor={dividerColor} />
+        </HStack>
 
         {/* Google Button */}
         <Button
@@ -551,32 +634,21 @@ const LoginPage = () => {
           leftIcon={<Icon as={FcGoogle} boxSize={6} />}
           onClick={handleGoogleClick}
           isLoading={isSubmitting}
-          loadingText="Connecting..."
           borderWidth="1.5px"
           borderColor={inputBorder}
           borderRadius="12px"
-          _hover={{ borderColor: 'brand.500', transform: 'translateY(-1px)', boxShadow: 'sm' }}
+          _hover={{ borderColor: 'brand.500', transform: 'translateY(-1px)' }}
           transition="all 0.2s"
           fontWeight="600"
           color={textColor}
         >
-          Continue with Google
+          Google
         </Button>
 
-        <HStack w="full">
-          <Divider borderColor={dividerColor} />
-          <HStack spacing={1.5}>
-            <Icon as={FiShield} boxSize={3} color="gray.400" />
-            <Text fontSize="xs" color="gray.400" whiteSpace="nowrap" fontWeight="500">
-              Secure
-            </Text>
-          </HStack>
-          <Divider borderColor={dividerColor} />
-        </HStack>
+        <Button variant="ghost" size="sm" onClick={() => setIsSignup(!isSignup)} colorScheme="brand">
+          {isSignup ? "Already have an account? Log In" : "Don't have an account? Sign Up"}
+        </Button>
 
-        <Text fontSize="xs" color={mutedColor} textAlign="center" lineHeight="1.6">
-          By continuing, you agree to our Terms of Service and Privacy Policy.
-        </Text>
       </VStack>
     </PageWrapper>
   );

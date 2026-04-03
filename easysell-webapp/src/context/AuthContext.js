@@ -304,6 +304,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut as firebaseSignOut
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
@@ -368,6 +371,36 @@ export const AuthProvider = ({ children }) => {
       return result.user;
     } catch (error) {
       console.error("Google Auth Error:", error);
+      throw error;
+    }
+  };
+
+  // --- 1.1 EMAIL AUTH (Raw) ---
+  const emailLogin = async (email, password) => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      return userCredential.user;
+    } catch (error) {
+      console.error("Email Login Error:", error);
+      throw error;
+    }
+  };
+
+  const emailSignup = async (email, password) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      return userCredential.user;
+    } catch (error) {
+      console.error("Email Signup Error:", error);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      console.error("Password Reset Error:", error);
       throw error;
     }
   };
@@ -493,6 +526,9 @@ export const AuthProvider = ({ children }) => {
     userData,
     storeConfig,
     googleLogin,
+    emailLogin,
+    emailSignup,
+    resetPassword,
     getUserProfile,
     saveUserProfile,
     updateUserProfile,
