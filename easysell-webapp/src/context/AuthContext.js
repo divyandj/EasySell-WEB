@@ -316,15 +316,11 @@ const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 // Helper to extract subdomain
+import { resolveStoreContext } from '../utils/storeResolver';
+
 const getSubdomain = () => {
-  const host = window.location.hostname;
-  const parts = host.split('.');
-  if (host.includes('localhost') && parts.length >= 2) {
-    if (parts[0] !== 'www') return parts[0];
-  } else if (parts.length >= 3) {
-    if (parts[0] !== 'www') return parts[0];
-  }
-  return null;
+  const context = resolveStoreContext();
+  return (context.type === 'subdomain' || context.type === 'customDomain') ? context.handle || context.domain : null;
 };
 
 export const AuthProvider = ({ children }) => {
@@ -411,6 +407,9 @@ export const AuthProvider = ({ children }) => {
       photoURL: details.photoURL || '',
       phoneNumber: details.phone,
       gstPan: details.gstPan,
+      businessName: details.businessName || '',
+      address: details.address || '',
+      cardPhotoUrl: details.cardPhotoUrl || '',
       userType: 'buyer',
       createdAt: serverTimestamp(),
     }, { merge: true });
@@ -427,6 +426,9 @@ export const AuthProvider = ({ children }) => {
         buyerEmail: details.email,
         buyerPhone: details.phone,
         buyerGst: details.gstPan,
+        buyerBusinessName: details.businessName || '',
+        buyerAddress: details.address || '',
+        buyerCardPhotoUrl: details.cardPhotoUrl || '',
         createdAt: serverTimestamp(),
       });
     }

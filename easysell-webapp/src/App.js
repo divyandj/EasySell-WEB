@@ -18,19 +18,11 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop';
 import { Box, Flex } from '@chakra-ui/react';
 
-const getSubdomain = () => {
-  const host = window.location.hostname;
-  const parts = host.split('.');
+import { resolveStoreContext } from './utils/storeResolver';
 
-  // Local testing: store.localhost -> ['store', 'localhost']
-  // Prod: store.mmproperty.in -> ['store', 'mmproperty', 'in']
-  // Ignore 'www' and the root domain
-  if (host.includes('localhost') && parts.length >= 2) {
-    if (parts[0] !== 'www') return parts[0];
-  } else if (parts.length >= 3) {
-    if (parts[0] !== 'www') return parts[0];
-  }
-  return null;
+const getSubdomain = () => {
+  const context = resolveStoreContext();
+  return (context.type === 'subdomain' || context.type === 'customDomain') ? context.handle || context.domain : null;
 };
 
 function App() {

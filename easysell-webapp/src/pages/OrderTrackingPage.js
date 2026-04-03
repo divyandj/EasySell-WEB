@@ -203,6 +203,7 @@ const OrderTrackingPage = () => {
                       <Text fontWeight="600" fontSize="sm" color={textColor} noOfLines={1}>{item.title}</Text>
                       {variantOptions && <Text fontSize="xs" color={mutedColor}>{variantOptions}</Text>}
                       <Text fontSize="xs" color={mutedColor}>Qty: {item.quantity}</Text>
+                      {priceDetails.taxAmountUnit > 0 ? (
                       <Tooltip
                         label={`Unit: ${formatCurrency(priceDetails.effectiveUnitPricePreTax)} + Tax: ${formatCurrency(priceDetails.taxAmountUnit)} = ${formatCurrency(priceDetails.finalUnitPriceWithTax)}`}
                         placement='bottom-start' hasArrow
@@ -211,10 +212,17 @@ const OrderTrackingPage = () => {
                           {formatCurrency(priceDetails.finalUnitPriceWithTax)} / unit
                         </Text>
                       </Tooltip>
+                      ) : (
+                        <Text fontSize="xs" color={mutedColor} mt={0.5}>
+                          {formatCurrency(priceDetails.finalUnitPriceWithTax)} / unit
+                        </Text>
+                      )}
                     </Box>
                     <VStack align="end" spacing={0} flexShrink={0}>
                       <Text fontWeight="700" fontSize="sm" color={priceColor}>{formatCurrency(priceDetails.lineItemTotal)}</Text>
-                      <Text fontSize="xs" color={mutedColor}>Tax: {formatCurrency(priceDetails.lineItemTax)}</Text>
+                      {priceDetails.lineItemTax > 0 && (
+                        <Text fontSize="xs" color={mutedColor}>Tax: {formatCurrency(priceDetails.lineItemTax)}</Text>
+                      )}
                     </VStack>
                   </Flex>
                 );
@@ -234,6 +242,12 @@ const OrderTrackingPage = () => {
                 <Text color={mutedColor}>{shippingAddress.address}</Text>
                 <Text color={mutedColor}>{shippingAddress.city}, {shippingAddress.pincode}</Text>
                 <Text color={mutedColor}>Phone: {shippingAddress.phone}</Text>
+                {order.transportName && (
+                  <Text color={mutedColor} mt={2}>
+                    <Text as="span" fontWeight="600" color={textColor}>Transport: </Text>
+                    {order.transportName}
+                  </Text>
+                )}
               </VStack>
             </Box>
             <Box p={5} borderWidth="1px" borderColor={borderColor} borderRadius="16px" bg={altBg} boxShadow="card">
@@ -242,7 +256,9 @@ const OrderTrackingPage = () => {
               </Text>
               <VStack align="stretch" spacing={2} fontSize="sm">
                 <Flex justify="space-between"><Text color={mutedColor}>Subtotal</Text><Text fontWeight="600" color={textColor}>{formatCurrency(orderSubtotal)}</Text></Flex>
-                <Flex justify="space-between"><Text color={mutedColor}>Tax</Text><Text fontWeight="600" color={textColor}>{formatCurrency(orderTax)}</Text></Flex>
+                {orderTax > 0 && (
+                  <Flex justify="space-between"><Text color={mutedColor}>Tax</Text><Text fontWeight="600" color={textColor}>{formatCurrency(orderTax)}</Text></Flex>
+                )}
                 <Divider borderColor={borderColor} />
                 <Flex justify="space-between" pt={1}>
                   <Text fontWeight="700" color={textColor}>Total</Text>

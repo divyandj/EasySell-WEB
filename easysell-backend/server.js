@@ -29,7 +29,7 @@ app.use(express.json());
 
 
 app.get("/", (req, res) => {
-  res.send("EasySell Backend (Notifications) is running!");
+  res.send("Vyparsetu Backend is running!");
 });
 
 

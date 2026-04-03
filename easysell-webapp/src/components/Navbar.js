@@ -79,7 +79,7 @@ const Navbar = () => {
               _hover={{ opacity: 0.8 }}
               transition="opacity 0.2s"
             >
-              easySell
+              Vyparsetu
             </Heading>
           </HStack>
 
@@ -290,7 +290,7 @@ const Navbar = () => {
               bgClip="text"
               fontWeight="900"
             >
-              easySell
+              Vyparsetu
             </Heading>
           </DrawerHeader>
           <DrawerBody py={6}>

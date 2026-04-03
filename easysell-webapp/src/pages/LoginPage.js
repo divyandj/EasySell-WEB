@@ -19,10 +19,12 @@ import {
   InputLeftElement,
   InputRightElement,
   FormErrorMessage,
+  Textarea,
+  Image,
 } from '@chakra-ui/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
-import { FiUser, FiSmartphone, FiFileText, FiAlertCircle, FiCheckCircle, FiShield } from 'react-icons/fi';
+import { FiUser, FiSmartphone, FiFileText, FiAlertCircle, FiCheckCircle, FiShield, FiBriefcase, FiMapPin, FiCamera, FiX } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 
 const MotionBox = motion(Box);
@@ -71,9 +73,12 @@ const LoginPage = () => {
   const [viewState, setViewState] = useState('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authUser, setAuthUser] = useState(null);
-  const [formData, setFormData] = useState({ name: '', phone: '', gstPan: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', gstPan: '', businessName: '', address: '' });
   const [touched, setTouched] = useState({});
   const [errors, setErrors] = useState({});
+  const [cardPhotoFile, setCardPhotoFile] = useState(null);
+  const [cardPhotoPreview, setCardPhotoPreview] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Theme
   const textColor = useColorModeValue('gray.800', 'white');
@@ -157,7 +162,41 @@ const LoginPage = () => {
         error = "Enter valid PAN (10 chars) or GSTIN (15 chars)";
       }
     }
+    if (name === 'businessName') {
+      if (!isPublicStore && !value.trim()) error = "Business name is required";
+    }
+    if (name === 'address') {
+      if (!isPublicStore && !value.trim()) error = "Address is required";
+    }
     return error;
+  };
+
+  // --- CARD PHOTO UPLOAD ---
+  const handleCardPhotoSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Image must be under 5MB.", status: "error", duration: 3000 });
+      return;
+    }
+    setCardPhotoFile(file);
+    setCardPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const removeCardPhoto = () => {
+    setCardPhotoFile(null);
+    if (cardPhotoPreview) URL.revokeObjectURL(cardPhotoPreview);
+    setCardPhotoPreview(null);
+  };
+
+  const uploadCardPhotoToCloudinary = async (file) => {
+    const data = new FormData();
+    data.append('file', file);
+    data.append('upload_preset', 'easysell_unsigned');
+    const res = await fetch('https://api.cloudinary.com/v1_1/dqplhh4y3/image/upload', { method: 'POST', body: data });
+    const json = await res.json();
+    if (json.secure_url) return json.secure_url;
+    throw new Error(json.error?.message || 'Upload failed');
   };
 
   const handleChange = (e) => {
@@ -181,10 +220,19 @@ const LoginPage = () => {
     const nameErr = validateField('name', formData.name);
     const phoneErr = validateField('phone', formData.phone);
     const gstErr = validateField('gstPan', formData.gstPan);
-    const newErrors = { name: nameErr, phone: phoneErr, gstPan: gstErr };
+    const bizErr = validateField('businessName', formData.businessName);
+    const addrErr = validateField('address', formData.address);
+    const newErrors = { name: nameErr, phone: phoneErr, gstPan: gstErr, businessName: bizErr, address: addrErr };
     setErrors(newErrors);
-    setTouched({ name: true, phone: true, gstPan: true });
-    return !nameErr && !phoneErr && !gstErr;
+    setTouched({ name: true, phone: true, gstPan: true, businessName: true, address: true });
+
+    // Card photo required for private stores
+    let photoValid = true;
+    if (!isPublicStore && !cardPhotoFile && !cardPhotoPreview) {
+      toast({ title: "Photo Required", description: "Please upload a visiting card or board photo.", status: "warning", duration: 3000 });
+      photoValid = false;
+    }
+    return !nameErr && !phoneErr && !gstErr && !bizErr && !addrErr && photoValid;
   };
 
   // --- GOOGLE SIGN IN ---
@@ -218,8 +266,25 @@ const LoginPage = () => {
     try {
       const targetUser = authUser || currentUser;
       if (!targetUser) throw new Error("Session expired. Please sign in again.");
+
+      // Upload card photo if selected
+      let cardPhotoUrl = '';
+      if (cardPhotoFile) {
+        setUploadingPhoto(true);
+        try {
+          cardPhotoUrl = await uploadCardPhotoToCloudinary(cardPhotoFile);
+        } catch (err) {
+          toast({ title: "Photo Upload Failed", description: "Couldn't upload card photo. Please try again.", status: "error", duration: 4000 });
+          setIsSubmitting(false);
+          setUploadingPhoto(false);
+          return;
+        }
+        setUploadingPhoto(false);
+      }
+
       await saveUserProfile(targetUser.uid, {
         ...formData,
+        cardPhotoUrl,
         photoURL: targetUser.photoURL,
         email: targetUser.email
       });
@@ -367,6 +432,75 @@ const LoginPage = () => {
               !isPublicStore
             )}
 
+            {/* --- Business fields (private stores only) --- */}
+            {!isPublicStore && (
+              <>
+                {renderInput("Business Name", "businessName", "Your business or company name", FiBriefcase)}
+
+                <FormControl isRequired={!isPublicStore} isInvalid={!!errors.address && touched.address}>
+                  <FormLabel fontSize="sm" fontWeight="600" color={mutedColor} mb={1}>Address</FormLabel>
+                  <Textarea
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="Shop/office address"
+                    borderColor={errors.address && touched.address ? errorColor : inputBorder}
+                    borderRadius="12px"
+                    minH="80px"
+                    _focus={{ borderColor: errors.address ? errorColor : 'brand.400', boxShadow: `0 0 0 1px ${errors.address ? 'var(--chakra-colors-red-400)' : 'var(--chakra-colors-brand-400)'}` }}
+                    _hover={{ borderColor: 'gray.300' }}
+                    color={textColor}
+                    bg="transparent"
+                    resize="vertical"
+                  />
+                  <FormErrorMessage fontSize="xs" mt={1}>{errors.address}</FormErrorMessage>
+                </FormControl>
+
+                <FormControl isRequired={!isPublicStore}>
+                  <FormLabel fontSize="sm" fontWeight="600" color={mutedColor} mb={1}>Visiting Card / Board Photo</FormLabel>
+                  {cardPhotoPreview ? (
+                    <Box position="relative" borderRadius="12px" overflow="hidden" borderWidth="1px" borderColor={inputBorder}>
+                      <Image src={cardPhotoPreview} alt="Card preview" w="full" maxH="160px" objectFit="cover" />
+                      <Button
+                        position="absolute" top={2} right={2}
+                        size="xs" borderRadius="full" colorScheme="red" onClick={removeCardPhoto}
+                        leftIcon={<Icon as={FiX} />}
+                      >
+                        Remove
+                      </Button>
+                    </Box>
+                  ) : (
+                    <Box
+                      as="label"
+                      display="flex"
+                      flexDirection="column"
+                      alignItems="center"
+                      justifyContent="center"
+                      borderWidth="2px"
+                      borderStyle="dashed"
+                      borderColor={inputBorder}
+                      borderRadius="12px"
+                      py={6}
+                      cursor="pointer"
+                      _hover={{ borderColor: 'brand.400', bg: 'brand.50' }}
+                      transition="all 0.2s"
+                    >
+                      <Icon as={FiCamera} boxSize={6} color="gray.400" mb={2} />
+                      <Text fontSize="sm" color={mutedColor}>Click to upload photo</Text>
+                      <Text fontSize="xs" color="gray.400">Max 5MB · JPG, PNG</Text>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        style={{ display: 'none' }}
+                        onChange={handleCardPhotoSelect}
+                      />
+                    </Box>
+                  )}
+                </FormControl>
+              </>
+            )}
+
             <Button
               type="submit"
               colorScheme="brand"
@@ -375,7 +509,7 @@ const LoginPage = () => {
               borderRadius="12px"
               mt={2}
               isLoading={isSubmitting}
-              loadingText={isPublicStore ? "Saving..." : "Requesting Access..."}
+              loadingText={uploadingPhoto ? "Uploading photo..." : (isPublicStore ? "Saving..." : "Requesting Access...")}
               fontWeight="700"
               boxShadow="0 4px 14px rgba(108,92,231,0.3)"
               _hover={{ transform: 'translateY(-2px)', boxShadow: '0 6px 20px rgba(108,92,231,0.4)' }}
@@ -401,7 +535,7 @@ const LoginPage = () => {
             bgClip="text"
             letterSpacing="-0.03em"
           >
-            easySell
+            Vyparsetu
           </Text>
           <Text fontSize="sm" color={mutedColor} mt={1}>
             Sign in to continue

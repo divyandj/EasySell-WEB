@@ -401,7 +401,7 @@ const calculateItemPriceDetails = (item) => {
 
 
 export const CartProvider = ({ children }) => {
-  const { currentUser } = useAuth(); // Access current user
+  const { currentUser, storeConfig } = useAuth(); // Access current user and store config
   const [cartItems, setCartItems] = useState([]);
   const [loadingProductData, setLoadingProductData] = useState(false);
   const [catalogueSellerCache, setCatalogueSellerCache] = useState({});
@@ -524,23 +524,50 @@ export const CartProvider = ({ children }) => {
           priceUnit: productData.priceUnit || null,
           minOrderQty: productData.minOrderQty || 1,
           catalogueId: currentCatalogueId,
-          sellerId: fetchedSellerId || catalogueSellerCache[currentCatalogueId] || null
+          sellerId: fetchedSellerId || catalogueSellerCache[currentCatalogueId] || null,
+          availableQuantity: productData.availableQuantity ?? -1,
+          allowBackorders: productData.allowBackorders || false,
+          inStock: productData.inStock !== false,
         };
 
         if (existingItemIndex > -1) {
           const updatedItems = [...currentItems];
+          let newTotalQty = updatedItems[existingItemIndex].quantity + validQuantity;
+
+          // Enforce max stock when inventory tracking is ON
+          const inventoryOn = storeConfig?.inventoryTracking !== false;
+          const maxStock = productData.availableQuantity;
+          const minQty = productData.minOrderQty || 1;
+          
+          if (inventoryOn && maxStock > 0 && maxStock !== -1 && !productData.allowBackorders) {
+            // Cannot even meet MOQ, silently reject addition
+            if (maxStock < minQty) return currentItems;
+            newTotalQty = Math.min(newTotalQty, maxStock);
+          }
+
           updatedItems[existingItemIndex] = {
             ...updatedItems[existingItemIndex],
-            quantity: updatedItems[existingItemIndex].quantity + validQuantity,
+            quantity: newTotalQty,
             productData: essentialProductData,
           };
           return updatedItems;
         } else {
+          // Brand new item
+          const inventoryOn = storeConfig?.inventoryTracking !== false;
+          const maxStock = productData.availableQuantity;
+          const minQty = productData.minOrderQty || 1;
+          
+          let initialQty = validQuantity;
+          if (inventoryOn && maxStock > 0 && maxStock !== -1 && !productData.allowBackorders) {
+            if (maxStock < minQty) return currentItems; // Reject addition
+            initialQty = Math.min(initialQty, maxStock);
+          }
+
           const newItem = {
             cartId,
             productId: productData.id,
             title: productData.title,
-            quantity: validQuantity,
+            quantity: initialQty,
             productData: essentialProductData,
             imageUrl: selectedVariant?.imageUrl || productData.media?.find(m => m.type === 'image')?.url || null,
             variant: selectedVariant ? {
@@ -576,6 +603,17 @@ export const CartProvider = ({ children }) => {
       const currentItem = currentItems[itemIndex];
       const minQty = currentItem.productData?.minOrderQty || 1;
       let newQuantity = Math.max(minQty, newQuantityRaw);
+
+      // Enforce max stock when inventory tracking is ON
+      const inventoryOn = storeConfig?.inventoryTracking !== false;
+      const maxStock = currentItem.productData?.availableQuantity;
+      if (inventoryOn && maxStock > -1 && maxStock !== -1 && !currentItem.productData?.allowBackorders) {
+        if (maxStock < minQty) {
+          // If available stock drops below MOQ, the item is unpurchasable. Remove it.
+          return currentItems.filter(item => item.cartId !== cartId);
+        }
+        newQuantity = Math.min(newQuantity, maxStock);
+      }
 
       if (newQuantityRaw <= 0 && minQty <= 1) {
         return currentItems.filter(item => item.cartId !== cartId);

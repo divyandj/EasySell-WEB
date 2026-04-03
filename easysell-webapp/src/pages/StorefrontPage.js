@@ -128,8 +128,8 @@ const StorefrontPage = ({ subdomain }) => {
             </Flex>
             <Heading color={textColor} size="lg">{error || "Store Not Found"}</Heading>
             <Text color={descColor} maxW="400px">The store you are looking for does not exist or has been removed.</Text>
-            <Button as="a" href="https://mmproperty.in" colorScheme="brand" borderRadius="full" px={8}>
-              Go to easySell
+            <Button as="a" href="https://store.bydj.dev" colorScheme="brand" borderRadius="full" px={8}>
+              Go to Vyparsetu
             </Button>
           </VStack>
         </Center>

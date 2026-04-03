@@ -15,11 +15,7 @@ import {
   useToast,
   SimpleGrid,
   AspectRatio,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-  NumberIncrementStepper,
-  NumberDecrementStepper,
+  Input,
   Divider,
   Center,
   Icon,
@@ -44,7 +40,7 @@ import {
   useDisclosure,
   IconButton
 } from '@chakra-ui/react';
-import { FiPlayCircle, FiShoppingCart, FiCheckCircle, FiXCircle, FiClock, FiLock, FiInfo, FiArrowUp, FiMaximize2, FiShield, FiTruck, FiRefreshCw } from 'react-icons/fi';
+import { FiPlayCircle, FiShoppingCart, FiCheckCircle, FiXCircle, FiClock, FiLock, FiInfo, FiArrowUp, FiMaximize2, FiShield, FiTruck, FiRefreshCw, FiMinus, FiPlus } from 'react-icons/fi';
 
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -94,6 +90,7 @@ const ProductDetailPage = () => {
   const imageBg = useColorModeValue('gray.50', '#0D0D12');
   const trustBg = useColorModeValue('gray.50', 'whiteAlpha.50');
   const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.100');
+  const quantityInputBgActive = useColorModeValue('blackAlpha.50', 'whiteAlpha.100');
 
   // --- DATA FETCHING ---
   useEffect(() => {
@@ -207,7 +204,8 @@ const ProductDetailPage = () => {
     if (!product) return {};
 
     const isVariantSelected = product.hasVariants && selectedVariant && selectedVariant !== 'unavailable';
-    const allowBackorder = product.allowBackorders === true;
+    const inventoryOff = storeConfig?.inventoryTracking === false;
+    const allowBackorder = inventoryOff ? false : (product.allowBackorders === true);
 
     const variantQty = isVariantSelected ? (selectedVariant.quantity) : undefined;
     const productQty = product.availableQuantity;
@@ -223,10 +221,16 @@ const ProductDetailPage = () => {
     }
 
     const availableQty = isUnlimitedStock ? Infinity : (relevantQty || 0);
+    const minQty = product.minOrderQty > 0 ? product.minOrderQty : 1;
+    const canMeetMOQ = inventoryOff || allowBackorder || isUnlimitedStock || availableQty >= minQty;
+
+    if (!canMeetMOQ) {
+      effectiveInStock = false;
+    }
 
     let stockStatus, stockColor, stockIcon, buttonText, buttonColorScheme;
 
-    if (effectiveInStock) {
+    if (inventoryOff || effectiveInStock) {
       stockStatus = 'In Stock';
       stockColor = 'green';
       stockIcon = FiCheckCircle;
@@ -241,7 +245,7 @@ const ProductDetailPage = () => {
       buttonColorScheme = 'orange';
     }
     else {
-      stockStatus = 'Out of Stock';
+      stockStatus = (!canMeetMOQ && availableQty > 0) ? `Min order ${minQty}, but only ${availableQty} left` : 'Out of Stock';
       stockColor = 'red';
       stockIcon = FiXCircle;
       buttonText = 'Sold Out';
@@ -262,10 +266,11 @@ const ProductDetailPage = () => {
     const originalPriceWithTax = (basePrice + priceModifier) * (1 + taxRateDecimal);
     const showStrikeThrough = discountedPriceValue !== null;
 
-    const isAddToCartDisabled = (product.hasVariants && !isVariantSelected) || (!effectiveInStock && !allowBackorder);
+    const isAddToCartDisabled = inventoryOff
+      ? (product.hasVariants && !isVariantSelected)
+      : ((product.hasVariants && !isVariantSelected) || (!effectiveInStock && !allowBackorder));
 
-    const minQty = product.minOrderQty > 0 ? product.minOrderQty : 1;
-    const maxQty = (isUnlimitedStock || allowBackorder) ? undefined : (availableQty < minQty ? minQty : availableQty);
+    const maxQty = inventoryOff ? undefined : ((isUnlimitedStock || allowBackorder) ? undefined : (availableQty < minQty ? minQty : availableQty));
 
     return {
       finalPriceWithTax,
@@ -278,15 +283,12 @@ const ProductDetailPage = () => {
       buttonText, buttonColorScheme,
       isAddToCartDisabled,
       minQty, maxQty, availableQty, isUnlimitedStock,
-      isBackorder: !effectiveInStock && allowBackorder
+      isBackorder: !inventoryOff && !effectiveInStock && allowBackorder,
+      inventoryOff
     };
   }, [product, selectedVariant]);
 
-  useEffect(() => {
-    if (displayDetails.minQty && quantity < displayDetails.minQty) {
-      setQuantity(displayDetails.minQty);
-    }
-  }, [displayDetails.minQty, quantity]);
+  // Removed aggressive quantity clamp useEffect here so user can clear the input while typing.
 
   if (loading) return <SpinnerComponent />;
   if (error) return (
@@ -407,6 +409,7 @@ const ProductDetailPage = () => {
               </Heading>
 
               {/* Stock */}
+              {!displayDetails.inventoryOff && (
               <HStack spacing={2}>
                 <Flex
                   w={6}
@@ -423,6 +426,7 @@ const ProductDetailPage = () => {
                   {displayDetails.stockStatus}
                 </Text>
               </HStack>
+              )}
             </Box>
 
             {/* ======== PRICE CARD ======== */}
@@ -437,7 +441,7 @@ const ProductDetailPage = () => {
               {hasAccess ? (
                 <VStack align="start" spacing={1}>
                   <Text fontSize="xs" color={textMuted} fontWeight="600" textTransform="uppercase" letterSpacing="0.06em">
-                    Price (incl. tax)
+                    {displayDetails.taxRatePercent > 0 ? 'Price (incl. tax)' : 'Price'}
                   </Text>
                   <HStack align="baseline" spacing={3}>
                     <Text fontSize={{ base: '2xl', md: '3xl' }} fontWeight="800" color={textPrimary} lineHeight="1">
@@ -454,9 +458,11 @@ const ProductDetailPage = () => {
                       </Badge>
                     )}
                   </HStack>
-                  <Text fontSize="xs" color={textMuted}>
-                    {formatCurrency(displayDetails.effectivePricePreTax)} + ₹{displayDetails.taxAmount?.toFixed(2)} tax ({displayDetails.taxRatePercent}%)
-                  </Text>
+                  {displayDetails.taxRatePercent > 0 && (
+                    <Text fontSize="xs" color={textMuted}>
+                      {formatCurrency(displayDetails.effectivePricePreTax)} + ₹{displayDetails.taxAmount?.toFixed(2)} tax ({displayDetails.taxRatePercent}%)
+                    </Text>
+                  )}
                 </VStack>
               ) : (
                 <HStack spacing={3} color={textMuted} py={2}>
@@ -560,7 +566,7 @@ const ProductDetailPage = () => {
             )}
 
             {/* Backorder Alert */}
-            {displayDetails.isBackorder && (
+            {!displayDetails.inventoryOff && displayDetails.isBackorder && (
               <Alert status="warning" variant="left-accent" borderRadius="12px" py={2.5} fontSize="sm">
                 <AlertIcon />
                 Pre-order item. Shipping may be delayed.
@@ -568,29 +574,86 @@ const ProductDetailPage = () => {
             )}
 
             {/* ======== ACTION BAR ======== */}
-            <Flex gap={3} pt={1}>
+            <Flex gap={3} pt={1} align="stretch" w="full">
               {hasAccess ? (
                 <>
-                  <NumberInput
-                    size="lg"
-                    maxW="110px"
-                    defaultValue={1}
-                    min={displayDetails.minQty}
-                    max={displayDetails.maxQty}
-                    onChange={(val) => setQuantity(parseInt(val) || 1)}
-                    value={quantity}
+                  <HStack
+                    spacing={0}
+                    borderWidth="1px"
+                    borderColor={borderColor}
+                    borderRadius="12px"
+                    overflow="hidden"
+                    h="52px"
+                    w="130px"
+                    flexShrink={0}
                   >
-                    <NumberInputField
-                      borderRadius="12px"
-                      fontWeight="700"
-                      h="52px"
-                      borderColor={borderColor}
+                    <IconButton
+                      icon={<FiMinus size="16px" />}
+                      aria-label="Decrease"
+                      variant="ghost"
+                      color={textPrimary}
+                      h="full"
+                      w="40px"
+                      borderRadius="0"
+                      onClick={() => setQuantity(Math.max(displayDetails.minQty, quantity - 1))}
+                      isDisabled={quantity <= displayDetails.minQty}
+                      _hover={{ bg: hoverBg }}
                     />
-                    <NumberInputStepper>
-                      <NumberIncrementStepper />
-                      <NumberDecrementStepper />
-                    </NumberInputStepper>
-                  </NumberInput>
+                    <Input
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val)) setQuantity(val);
+                        else setQuantity('');
+                      }}
+                      onBlur={() => {
+                        let val = parseInt(quantity, 10);
+                        if (isNaN(val) || val < displayDetails.minQty) {
+                          val = displayDetails.minQty;
+                          toast({
+                            title: `Minimum Order Quantity is ${displayDetails.minQty}`,
+                            status: 'info',
+                            duration: 3000,
+                            isClosable: true,
+                            position: 'top-right'
+                          });
+                        }
+                        if (displayDetails.maxQty && val > displayDetails.maxQty) val = displayDetails.maxQty;
+                        setQuantity(val);
+                      }}
+                      flex="1"
+                      h="full"
+                      textAlign="center"
+                      fontSize="md"
+                      fontWeight="700"
+                      color={textPrimary}
+                      bg="transparent"
+                      border="none"
+                      _focus={{ boxShadow: 'none', bg: quantityInputBgActive }}
+                      px={0}
+                      sx={{
+                        '&::-webkit-inner-spin-button, &::-webkit-outer-spin-button': {
+                          WebkitAppearance: 'none',
+                          margin: 0,
+                        },
+                        MozAppearance: 'textfield',
+                      }}
+                    />
+                    <IconButton
+                      icon={<FiPlus size="16px" />}
+                      aria-label="Increase"
+                      variant="ghost"
+                      color={textPrimary}
+                      h="full"
+                      w="40px"
+                      borderRadius="0"
+                      onClick={() => setQuantity(quantity + 1)}
+                      isDisabled={displayDetails.maxQty && quantity >= displayDetails.maxQty}
+                      _hover={{ bg: hoverBg }}
+                    />
+                  </HStack>
+
                   <Button
                     size="lg"
                     flex="1"
@@ -731,10 +794,12 @@ const ProductDetailPage = () => {
                     <Text fontWeight="700" color={textPrimary} fontSize="sm">{product.weight} {product.weightUnit}</Text>
                   </Flex>
                 )}
+                {!displayDetails.inventoryOff && (
                 <Flex p={4} bg={alternateRowBg} justify="space-between" borderBottomWidth="1px" borderColor={borderColor}>
                   <Text color={textMuted} fontWeight="500" fontSize="sm">Backorders</Text>
                   <Badge colorScheme={product.allowBackorders ? 'green' : 'red'} borderRadius="full" fontSize="xs">{product.allowBackorders ? 'Allowed' : 'No'}</Badge>
                 </Flex>
+                )}
                 {product.customFields && Object.entries(product.customFields).map(([k, v], i) => (
                   <Flex key={k} p={4} bg={i % 2 !== 0 ? alternateRowBg : 'transparent'} justify="space-between" borderBottomWidth="1px" borderColor={borderColor}>
                     <Text color={textMuted} fontWeight="500" fontSize="sm">{k}</Text>

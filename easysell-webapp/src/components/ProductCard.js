@@ -29,6 +29,7 @@ const itemVariants = {
 const ProductCard = ({ product }) => {
   const location = useLocation();
   const { storeConfig } = useAuth();
+  const { billingMode } = useCart();
 
   // Derive catalogue ID from product or current URL
   const catalogueId = product.catalogueId || location.pathname.split('/catalogue/')?.[1];
@@ -43,13 +44,53 @@ const ProductCard = ({ product }) => {
   const imageBg = useColorModeValue('gray.50', '#0D0D12');
 
   // Price calculations
-  const basePrice = product.variants?.[0]?.price || product.price || 0;
-  const displayPrice = product.variants?.[0]?.price || product.price || 0;
-  const discountPercent = product.discount || null;
-  const originalPrice = discountPercent ? (displayPrice / (1 - discountPercent / 100)) : null;
+  const taxMultiplier = billingMode === 'withoutBill' ? 1 : (1 + (product.taxRate || 0) / 100);
+
+  const basePricePreTax = product.price > 0 ? product.price : 0;
+  const discountedPricePreTax = (product.discountedPrice > 0 && product.discountedPrice < basePricePreTax) ? product.discountedPrice : null;
+  
+  // Use variant price if available, otherwise display standard price
+  const variantPricePreTax = product.variants?.[0]?.price;
+
+  const basePrice = Math.round(basePricePreTax * taxMultiplier);
+  const discountedPrice = discountedPricePreTax ? Math.round(discountedPricePreTax * taxMultiplier) : null;
+  const variantPrice = variantPricePreTax ? Math.round(variantPricePreTax * taxMultiplier) : null;
+
+  const displayPrice = variantPrice || discountedPrice || basePrice;
+  const originalPrice = discountedPrice ? basePrice : null;
+  const discountPercent = discountedPricePreTax ? Math.round(((basePricePreTax - discountedPricePreTax) / basePricePreTax) * 100) : null;
 
   // Stock status
-  const isOutOfStock = product.variants?.every(v => v.quantity <= 0) || product.stock <= 0;
+  const inventoryOn = storeConfig?.inventoryTracking !== false;
+  const allowBackorders = product.allowBackorders === true;
+  let isOutOfStock = false;
+  let isLowStock = false;
+
+  if (inventoryOn) {
+    const minQty = product.minOrderQty > 0 ? product.minOrderQty : 1;
+    
+    if (product.variants && product.variants.length > 0) {
+      const anyInStock = product.variants.some(v => v.inStock === true || v.quantity >= minQty || v.quantity === -1);
+      isOutOfStock = !anyInStock && !allowBackorders;
+      if (!isOutOfStock) {
+        const finiteVariants = product.variants.filter(v => v.quantity !== -1 && v.quantity >= minQty);
+        if (finiteVariants.length > 0) {
+          const maxQty = Math.max(...finiteVariants.map(v => v.quantity));
+          if (maxQty <= 5) isLowStock = true;
+        }
+      }
+    } else {
+      const isUnlimited = product.availableQuantity === -1;
+      const effectiveQty = isUnlimited ? Infinity : (product.availableQuantity || 0);
+      const canMeetMOQ = isUnlimited || product.inStock === true || effectiveQty >= minQty;
+      
+      isOutOfStock = !canMeetMOQ && !allowBackorders;
+      
+      if (!isOutOfStock && !isUnlimited && effectiveQty >= minQty && effectiveQty <= 5) {
+        isLowStock = true;
+      }
+    }
+  }
 
   return (
     <MotionBox
@@ -86,24 +127,40 @@ const ProductCard = ({ product }) => {
           loading="lazy"
         />
 
-        {/* Discount Badge */}
-        {discountPercent && (
-          <Badge
-            position="absolute"
-            top={3}
-            left={3}
-            bg="red.500"
-            color="white"
-            fontSize="xs"
-            fontWeight="700"
-            px={2.5}
-            py={1}
-            borderRadius="full"
-            boxShadow="md"
-          >
-            {discountPercent}% OFF
-          </Badge>
-        )}
+        {/* Badges Container */}
+        <Flex position="absolute" top={3} left={3} direction="column" gap={2} alignItems="flex-start" zIndex={2}>
+          {/* Discount Badge */}
+          {discountPercent && (
+            <Badge
+              bg="red.500"
+              color="white"
+              fontSize="xs"
+              fontWeight="700"
+              px={2.5}
+              py={1}
+              borderRadius="full"
+              boxShadow="md"
+            >
+              {discountPercent}% OFF
+            </Badge>
+          )}
+
+          {/* Low Stock Badge */}
+          {isLowStock && (
+            <Badge
+              bg="orange.500"
+              color="white"
+              fontSize="xs"
+              fontWeight="700"
+              px={2.5}
+              py={1}
+              borderRadius="full"
+              boxShadow="md"
+            >
+              Only a few left
+            </Badge>
+          )}
+        </Flex>
 
         {/* Out of Stock Overlay */}
         {isOutOfStock && (
@@ -178,6 +235,22 @@ const ProductCard = ({ product }) => {
         >
           {product.title}
         </Text>
+
+        {/* Tags */}
+        {product.tags && product.tags.length > 0 && (
+          <Flex gap={1} flexWrap="wrap" mt={1}>
+            {product.tags.slice(0, 3).map((tag, i) => (
+              <Badge key={i} colorScheme="brand" variant="subtle" fontSize="5xs" borderRadius="full" px={1.5} py={0.5}>
+                {tag}
+              </Badge>
+            ))}
+            {product.tags.length > 3 && (
+              <Badge colorScheme="gray" variant="subtle" fontSize="5xs" borderRadius="full" px={1.5} py={0.5}>
+                +{product.tags.length - 3}
+              </Badge>
+            )}
+          </Flex>
+        )}
 
         {/* Price */}
         <Flex align="center" gap={2} mt={1}>

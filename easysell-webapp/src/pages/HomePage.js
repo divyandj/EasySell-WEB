@@ -225,7 +225,7 @@ const StoreCard = ({ store }) => {
   const protocol = window.location.protocol;
   const storeUrl = hostname.includes('localhost')
     ? `${protocol}//${store.storeHandle}.localhost${port ? ':' + port : ''}`
-    : `${protocol}//${store.storeHandle}.${hostname.split('.').slice(-2).join('.')}`;
+    : `${protocol}//${store.storeHandle}.store.bydj.dev`;
 
   return (
     <MotionBox
@@ -485,7 +485,7 @@ const HomePage = () => {
             <FeatureCard
               icon={FiShoppingBag}
               title="Custom Storefronts"
-              description="Get your own branded storefront at yourname.mmproperty.in — no website needed."
+              description="Get your own branded storefront at yourname.store.bydj.dev — no website needed."
             />
             <FeatureCard
               icon={FiBarChart2}
@@ -519,7 +519,7 @@ const HomePage = () => {
               Explore seller storefronts
             </Heading>
             <Text color={subtitleColor} fontSize="md" maxW="500px">
-              Browse real stores powered by easySell. Click any store to visit their storefront.
+              Browse real stores powered by Vyparsetu. Click any store to visit their storefront.
             </Text>
           </VStack>
 
@@ -622,7 +622,7 @@ const HomePage = () => {
             <TestimonialCard
               name="Rahul Sharma"
               role="Textile Wholesaler"
-              quote="easySell transformed my business. I went from WhatsApp orders to a proper online store in 10 minutes. My orders doubled in the first month."
+              quote="Vyparsetu transformed my business. I went from WhatsApp orders to a proper online store in 10 minutes. My orders doubled in the first month."
               rating={5}
             />
             <TestimonialCard
@@ -658,7 +658,7 @@ const HomePage = () => {
               Ready to start selling?
             </Heading>
             <Text color="whiteAlpha.800" fontSize="md" maxW="480px" lineHeight="1.7">
-              Join hundreds of sellers who already trust easySell. Set up your store in minutes — no coding, no fees to get started.
+              Join hundreds of sellers who already trust Vyparsetu. Set up your store in minutes — no coding, no fees to get started.
             </Text>
             <HStack spacing={4} flexDir={{ base: 'column', sm: 'row' }} w={{ base: 'full', sm: 'auto' }}>
               <Button

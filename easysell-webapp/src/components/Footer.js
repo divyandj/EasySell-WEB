@@ -44,7 +44,7 @@ export default function Footer() {
                             bgClip="text"
                             letterSpacing="-0.02em"
                         >
-                            easySell
+                            Vyparsetu
                         </Text>
                     </HStack>
 
@@ -65,7 +65,7 @@ export default function Footer() {
                 <Divider my={4} borderColor={borderColor} />
 
                 <Text fontSize="xs" color={textColor} textAlign="center">
-                    © {new Date().getFullYear()} easySell. All rights reserved.
+                    © {new Date().getFullYear()} Vyparsetu. All rights reserved.
                 </Text>
             </Container>
         </Box>

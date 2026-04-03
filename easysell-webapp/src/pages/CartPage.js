@@ -20,9 +20,11 @@ import {
   Icon,
   useColorModeValue,
   Center,
+  Input,
 } from "@chakra-ui/react";
 import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiShield } from "react-icons/fi";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import SpinnerComponent from "../components/Spinner";
 
@@ -43,6 +45,7 @@ const CartPage = () => {
 
   const navigate = useNavigate();
   const toast = useToast();
+  const { storeConfig } = useAuth();
   const [billingMode, setBillingMode] = useState("withBill");
 
   // Theme
@@ -56,6 +59,7 @@ const CartPage = () => {
   const priceColor = useColorModeValue('brand.600', 'brand.300');
   const emptyIconBg = useColorModeValue('gray.100', 'whiteAlpha.100');
   const imageBg = useColorModeValue('gray.50', '#0D0D12');
+  const quantityInputBgActive = useColorModeValue('blackAlpha.50', 'whiteAlpha.100');
 
   const displayTax = billingMode === "withBill" ? cartTotalTax : 0;
   const displayGrandTotal = billingMode === "withBill" ? cartGrandTotal : cartSubtotal;
@@ -72,7 +76,7 @@ const CartPage = () => {
     });
   };
 
-  const handleCheckout = () => navigate("/checkout");
+  const handleCheckout = () => navigate("/checkout", { state: { billingMode } });
 
   if (loadingProductData) return <SpinnerComponent />;
 
@@ -167,9 +171,11 @@ const CartPage = () => {
                                   <Text>Variant: {priceDetails.variantModifierUnit > 0 ? "+" : ""}{formatCurrency(priceDetails.variantModifierUnit)}</Text>
                                 )}
                               </HStack>
-                              <Text>
-                                Unit: {formatCurrency(priceDetails.effectiveUnitPricePreTax)} + ₹{priceDetails.taxAmountUnit?.toFixed(2)} tax
-                              </Text>
+                              {priceDetails.taxAmountUnit > 0 && (
+                                <Text>
+                                  Unit: {formatCurrency(priceDetails.effectiveUnitPricePreTax)} + ₹{priceDetails.taxAmountUnit?.toFixed(2)} tax
+                                </Text>
+                              )}
                             </VStack>
                           </Box>
 
@@ -203,9 +209,48 @@ const CartPage = () => {
                               h="32px"
                               w="32px"
                             />
-                            <Text fontWeight="700" w="36px" textAlign="center" fontSize="sm" color={textColor}>
-                              {item.quantity}
-                            </Text>
+                            <Input
+                              type="number"
+                              key={`qty-${item.cartId}-${item.quantity}`}
+                              defaultValue={item.quantity}
+                              onBlur={(e) => {
+                                let val = parseInt(e.target.value, 10);
+                                const minQty = item.productData?.minOrderQty || 1;
+                                if (isNaN(val) || val < minQty) {
+                                  val = minQty;
+                                  toast({
+                                    title: `Minimum Order Quantity is ${minQty}`,
+                                    status: 'info',
+                                    duration: 3000,
+                                    isClosable: true,
+                                    position: 'top-right'
+                                  });
+                                }
+                                updateQuantity(item.cartId, val);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.target.blur();
+                                }
+                              }}
+                              w="46px"
+                              h="32px"
+                              textAlign="center"
+                              fontSize="sm"
+                              fontWeight="700"
+                              color={textColor}
+                              bg="transparent"
+                              border="none"
+                              _focus={{ boxShadow: 'none', bg: quantityInputBgActive }}
+                              px={0}
+                              sx={{
+                                '&::-webkit-inner-spin-button, &::-webkit-outer-spin-button': {
+                                  WebkitAppearance: 'none',
+                                  margin: 0,
+                                },
+                                MozAppearance: 'textfield',
+                              }}
+                            />
                             <IconButton
                               icon={<FiPlus size="14px" />}
                               size="sm"
@@ -214,6 +259,14 @@ const CartPage = () => {
                               color={textColor}
                               _hover={{ bg: hoverBg }}
                               onClick={() => updateQuantity(item.cartId, item.quantity + 1)}
+                              isDisabled={(() => {
+                                if (storeConfig?.inventoryTracking === false) return false;
+                                const maxStock = item.productData?.availableQuantity;
+                                if (maxStock > 0 && maxStock !== -1 && !item.productData?.allowBackorders) {
+                                  return item.quantity >= maxStock;
+                                }
+                                return false;
+                              })()}
                               h="32px"
                               w="32px"
                             />
@@ -253,6 +306,8 @@ const CartPage = () => {
               <Heading size="sm" color={textColor} fontWeight="700">Order Summary</Heading>
               <Divider borderColor={borderColor} />
 
+              {cartTotalTax > 0 && (
+                <>
               {/* Billing Toggle */}
               <Box>
                 <Text fontSize="xs" fontWeight="700" mb={2.5} color={mutedColor} textTransform="uppercase" letterSpacing="0.06em">
@@ -285,6 +340,8 @@ const CartPage = () => {
               </Box>
 
               <Divider borderColor={borderColor} />
+              </>
+              )}
 
               {/* Totals */}
               <VStack spacing={2.5} align="stretch">
@@ -292,6 +349,7 @@ const CartPage = () => {
                   <Text fontSize="sm" color={mutedColor}>Subtotal</Text>
                   <Text fontSize="sm" fontWeight="600" color={textColor}>{formatCurrency(cartSubtotal)}</Text>
                 </Flex>
+                {cartTotalTax > 0 && (
                 <Flex justify="space-between">
                   <HStack spacing={1}>
                     <Text fontSize="sm" color={billingMode === "withBill" ? mutedColor : "gray.400"}>Tax</Text>
@@ -308,6 +366,7 @@ const CartPage = () => {
                     {formatCurrency(cartTotalTax)}
                   </Text>
                 </Flex>
+                )}
 
                 <Divider borderColor={borderColor} />
 

@@ -2,43 +2,40 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Heading, VStack, FormControl, FormLabel, Input, Button,
   Box, Text, useToast, SimpleGrid, Divider, Alert, AlertIcon,
-  AlertTitle, AlertDescription, HStack, Radio, RadioGroup, Stack, Badge, useColorModeValue, Icon, Flex, Center
+  AlertTitle, AlertDescription, HStack, Radio, RadioGroup, Stack, Badge, useColorModeValue, Icon, Flex, Center, IconButton
 } from '@chakra-ui/react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { collection, Timestamp, runTransaction, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import SpinnerComponent from '../components/Spinner';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
-import { FiShield, FiArrowRight, FiMapPin, FiCreditCard, FiShoppingBag } from 'react-icons/fi';
+import { FiShield, FiArrowRight, FiMapPin, FiCreditCard, FiShoppingBag, FiMinus, FiPlus } from 'react-icons/fi';
 
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
+import { resolveStoreContext } from '../utils/storeResolver';
+
 const getSubdomain = () => {
-  const host = window.location.hostname;
-  const parts = host.split('.');
-  if (host.includes('localhost') && parts.length >= 2) {
-    if (parts[0] !== 'www') return parts[0];
-  } else if (parts.length >= 3) {
-    if (parts[0] !== 'www') return parts[0];
-  }
-  return null;
+  const context = resolveStoreContext();
+  return (context.type === 'subdomain' || context.type === 'customDomain') ? context.handle || context.domain : null;
 };
 
 const CheckoutPage = () => {
   const { currentUser, userData, storeConfig } = useAuth();
-  const { cartItems, cartSubtotal, cartTotalTax, cartGrandTotal, clearCart, itemCount, loadingProductData } = useCart();
+  const { cartItems, cartSubtotal, cartTotalTax, cartGrandTotal, clearCart, itemCount, loadingProductData, updateQuantity } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
 
   const [shippingInfo, setShippingInfo] = useState({
-    name: '', address: '', city: '', pincode: '', phone: '',
+    name: '', address: '', city: '', pincode: '', phone: '', transportName: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [billingMode, setBillingMode] = useState('withBill');
+  const [billingMode, setBillingMode] = useState(location.state?.billingMode || 'withBill');
 
   // Analytics
   const orderPlacedRef = React.useRef(false);
@@ -78,12 +75,16 @@ const CheckoutPage = () => {
   const stepBg = useColorModeValue('brand.50', 'whiteAlpha.100');
   const stepActiveColor = useColorModeValue('brand.600', 'brand.300');
   const selectedBillingBg = useColorModeValue('brand.50', 'whiteAlpha.50');
+  const quantityInputBgActive = useColorModeValue('blackAlpha.50', 'whiteAlpha.100');
 
   useEffect(() => {
     if (currentUser) {
       try {
         const savedInfo = localStorage.getItem(`shipping_${currentUser.uid}`);
-        if (savedInfo) setShippingInfo(JSON.parse(savedInfo));
+        if (savedInfo) {
+          const parsed = JSON.parse(savedInfo);
+          setShippingInfo({ transportName: '', ...parsed });
+        }
       } catch (e) { console.error("Error loading saved shipping info", e); }
     }
   }, [currentUser]);
@@ -190,6 +191,7 @@ const CheckoutPage = () => {
       orderSubtotal: cartSubtotal,
       orderTax: displayTax,
       totalAmount: displayGrandTotal,
+      transportName: shippingInfo.transportName || "",
       shippingAddress: shippingInfo,
       orderDate: Timestamp.fromDate(new Date()),
       status: "Placed",
@@ -198,12 +200,16 @@ const CheckoutPage = () => {
     try {
       const newOrderId = await runTransaction(db, async (transaction) => {
         const productUpdates = [];
+        const inventoryOn = storeConfig?.inventoryTracking !== false;
 
         for (const item of cartItems) {
           const productRef = doc(db, "products", item.productId);
           const productSnap = await transaction.get(productRef);
           if (!productSnap.exists())
             throw new Error(`Product "${item.title}" not found.`);
+
+          // Skip stock validation & decrement when inventory tracking is OFF
+          if (!inventoryOn) continue;
 
           const productData = productSnap.data();
           const allowBackorder = productData.allowBackorders === true;
@@ -339,64 +345,66 @@ const CheckoutPage = () => {
           {/* ====== LEFT: Form (3 cols) ====== */}
           <Box gridColumn={{ lg: "span 3" }}>
             {/* Step 1: Billing */}
-            <Box
-              mb={6}
-              p={6}
-              borderWidth="1px"
-              borderRadius="16px"
-              borderColor={borderColor}
-              bg={cardBg}
-              boxShadow="card"
-            >
-              <HStack spacing={3} mb={4}>
-                <Flex w={8} h={8} bg={stepBg} borderRadius="10px" align="center" justify="center">
-                  <Icon as={FiCreditCard} color={stepActiveColor} boxSize={4} />
-                </Flex>
-                <Text fontSize="sm" fontWeight="700" color={textColor} textTransform="uppercase" letterSpacing="0.06em">
-                  Billing Type
-                </Text>
-              </HStack>
-              <RadioGroup onChange={setBillingMode} value={billingMode}>
-                <Stack direction={{ base: 'column', sm: 'row' }} spacing={3}>
-                  <Box
-                    flex="1"
-                    p={4}
-                    borderWidth="1.5px"
-                    borderRadius="12px"
-                    borderColor={billingMode === 'withBill' ? 'brand.500' : borderColor}
-                    bg={billingMode === 'withBill' ? selectedBillingBg : 'transparent'}
-                    cursor="pointer"
-                    onClick={() => setBillingMode('withBill')}
-                    transition="all 0.2s"
-                  >
-                    <Radio value='withBill' colorScheme='brand' size="sm">
-                      <VStack align="start" spacing={0} ml={1}>
-                        <Text fontWeight="600" fontSize="sm" color={textColor}>With Bill</Text>
-                        <Text fontSize="xs" color={mutedColor}>Tax included in total</Text>
-                      </VStack>
-                    </Radio>
-                  </Box>
-                  <Box
-                    flex="1"
-                    p={4}
-                    borderWidth="1.5px"
-                    borderRadius="12px"
-                    borderColor={billingMode === 'withoutBill' ? 'brand.500' : borderColor}
-                    bg={billingMode === 'withoutBill' ? selectedBillingBg : 'transparent'}
-                    cursor="pointer"
-                    onClick={() => setBillingMode('withoutBill')}
-                    transition="all 0.2s"
-                  >
-                    <Radio value='withoutBill' colorScheme='brand' size="sm">
-                      <VStack align="start" spacing={0} ml={1}>
-                        <Text fontWeight="600" fontSize="sm" color={textColor}>Without Bill</Text>
-                        <Text fontSize="xs" color={mutedColor}>Tax excluded from total</Text>
-                      </VStack>
-                    </Radio>
-                  </Box>
-                </Stack>
-              </RadioGroup>
-            </Box>
+            {cartTotalTax > 0 && (
+              <Box
+                mb={6}
+                p={6}
+                borderWidth="1px"
+                borderRadius="16px"
+                borderColor={borderColor}
+                bg={cardBg}
+                boxShadow="card"
+              >
+                <HStack spacing={3} mb={4}>
+                  <Flex w={8} h={8} bg={stepBg} borderRadius="10px" align="center" justify="center">
+                    <Icon as={FiCreditCard} color={stepActiveColor} boxSize={4} />
+                  </Flex>
+                  <Text fontSize="sm" fontWeight="700" color={textColor} textTransform="uppercase" letterSpacing="0.06em">
+                    Billing Type
+                  </Text>
+                </HStack>
+                <RadioGroup onChange={setBillingMode} value={billingMode}>
+                  <Stack direction={{ base: 'column', sm: 'row' }} spacing={3}>
+                    <Box
+                      flex="1"
+                      p={4}
+                      borderWidth="1.5px"
+                      borderRadius="12px"
+                      borderColor={billingMode === 'withBill' ? 'brand.500' : borderColor}
+                      bg={billingMode === 'withBill' ? selectedBillingBg : 'transparent'}
+                      cursor="pointer"
+                      onClick={() => setBillingMode('withBill')}
+                      transition="all 0.2s"
+                    >
+                      <Radio value='withBill' colorScheme='brand' size="sm">
+                        <VStack align="start" spacing={0} ml={1}>
+                          <Text fontWeight="600" fontSize="sm" color={textColor}>With Bill</Text>
+                          <Text fontSize="xs" color={mutedColor}>Tax included in total</Text>
+                        </VStack>
+                      </Radio>
+                    </Box>
+                    <Box
+                      flex="1"
+                      p={4}
+                      borderWidth="1.5px"
+                      borderRadius="12px"
+                      borderColor={billingMode === 'withoutBill' ? 'brand.500' : borderColor}
+                      bg={billingMode === 'withoutBill' ? selectedBillingBg : 'transparent'}
+                      cursor="pointer"
+                      onClick={() => setBillingMode('withoutBill')}
+                      transition="all 0.2s"
+                    >
+                      <Radio value='withoutBill' colorScheme='brand' size="sm">
+                        <VStack align="start" spacing={0} ml={1}>
+                          <Text fontWeight="600" fontSize="sm" color={textColor}>Without Bill</Text>
+                          <Text fontSize="xs" color={mutedColor}>Tax excluded from total</Text>
+                        </VStack>
+                      </Radio>
+                    </Box>
+                  </Stack>
+                </RadioGroup>
+              </Box>
+            )}
 
             {/* Step 2: Shipping */}
             <Box
@@ -503,6 +511,24 @@ const CheckoutPage = () => {
                     </FormControl>
                   </HStack>
 
+                  <FormControl id="transportName">
+                    <FormLabel fontSize="sm" fontWeight="600" color={mutedColor}>
+                      Preferred Transport Name (Optional)
+                    </FormLabel>
+                    <Input
+                      name="transportName"
+                      borderColor={inputBorder}
+                      borderRadius="12px"
+                      color={textColor}
+                      h="44px"
+                      _focus={{ borderColor: 'brand.400', boxShadow: '0 0 0 1px var(--chakra-colors-brand-400)' }}
+                      _hover={{ borderColor: 'gray.300' }}
+                      onChange={handleInputChange}
+                      value={shippingInfo.transportName}
+                      placeholder="e.g., VRL Logistics, XYZ Cargo"
+                    />
+                  </FormControl>
+
                   <Button
                     type="submit"
                     colorScheme="brand"
@@ -565,12 +591,90 @@ const CheckoutPage = () => {
                     <HStack key={item.cartId} justify="space-between" fontSize="sm" align="start">
                       <Box flex={1}>
                         <Text fontWeight="600" noOfLines={1} color={textColor} fontSize="sm">{item.title}</Text>
-                        <Text fontSize="xs" color={mutedColor}>
-                          {item.variant ? Object.values(item.variant.options).join('/') + ' · ' : ''}
-                          Qty: {item.quantity}
+                        <Text fontSize="xs" color={mutedColor} mb={1}>
+                          {item.variant ? Object.values(item.variant.options).join('/') : ''}
                         </Text>
+                        <HStack
+                          spacing={0}
+                          borderWidth="1px"
+                          borderColor={borderColor}
+                          borderRadius="8px"
+                          overflow="hidden"
+                          w="fit-content"
+                          mt={1}
+                        >
+                          <IconButton
+                            icon={<FiMinus size="12px" />}
+                            size="xs"
+                            aria-label="Decrease"
+                            variant="ghost"
+                            color={textColor}
+                            onClick={() => updateQuantity(item.cartId, item.quantity - 1)}
+                            isDisabled={item.quantity <= 1 && item.productData?.minOrderQty <= 1}
+                            h="24px"
+                            w="28px"
+                          />
+                          <Input
+                            type="number"
+                            key={`qty-${item.cartId}-${item.quantity}`}
+                            defaultValue={item.quantity}
+                            onBlur={(e) => {
+                              let val = parseInt(e.target.value, 10);
+                              const minQty = item.productData?.minOrderQty || 1;
+                              if (isNaN(val) || val < minQty) {
+                                val = minQty;
+                                toast({
+                                  title: `Minimum Order Quantity is ${minQty}`,
+                                  status: 'info',
+                                  duration: 3000,
+                                  isClosable: true,
+                                  position: 'top-right'
+                                });
+                              }
+                              updateQuantity(item.cartId, val);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') e.target.blur();
+                            }}
+                            w="40px"
+                            h="24px"
+                            textAlign="center"
+                            fontSize="xs"
+                            fontWeight="700"
+                            color={textColor}
+                            bg="transparent"
+                            border="none"
+                            _focus={{ boxShadow: 'none', bg: quantityInputBgActive }}
+                            px={0}
+                            sx={{
+                              '&::-webkit-inner-spin-button, &::-webkit-outer-spin-button': {
+                                WebkitAppearance: 'none',
+                                margin: 0,
+                              },
+                              MozAppearance: 'textfield',
+                            }}
+                          />
+                          <IconButton
+                            icon={<FiPlus size="12px" />}
+                            size="xs"
+                            aria-label="Increase"
+                            variant="ghost"
+                            color={textColor}
+                            onClick={() => updateQuantity(item.cartId, item.quantity + 1)}
+                            isDisabled={(() => {
+                              if (storeConfig?.inventoryTracking === false) return false;
+                              const maxStock = item.productData?.availableQuantity;
+                              if (maxStock > 0 && maxStock !== -1 && !item.productData?.allowBackorders) {
+                                return item.quantity >= maxStock;
+                              }
+                              return false;
+                            })()}
+                            h="24px"
+                            w="28px"
+                          />
+                        </HStack>
                       </Box>
-                      <Text fontWeight="700" whiteSpace="nowrap" color={priceColor} fontSize="sm">
+                      <Text fontWeight="700" whiteSpace="nowrap" color={priceColor} fontSize="sm" mt={1}>
                         {formatCurrency(lineTotal)}
                       </Text>
                     </HStack>
@@ -586,6 +690,7 @@ const CheckoutPage = () => {
                   <Text fontSize="sm" color={mutedColor}>Subtotal</Text>
                   <Text fontSize="sm" fontWeight="600" color={textColor}>{formatCurrency(cartSubtotal)}</Text>
                 </Flex>
+                {cartTotalTax > 0 && (
                 <Flex justify="space-between">
                   <HStack spacing={1}>
                     <Text fontSize="sm" color={billingMode === 'withBill' ? mutedColor : "gray.400"}>Tax</Text>
@@ -602,6 +707,7 @@ const CheckoutPage = () => {
                     {formatCurrency(cartTotalTax)}
                   </Text>
                 </Flex>
+                )}
 
                 <Divider borderColor={borderColor} />
 
