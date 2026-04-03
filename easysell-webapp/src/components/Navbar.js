@@ -4,7 +4,7 @@ import {
   Drawer, DrawerBody, DrawerHeader, DrawerOverlay, DrawerContent, DrawerCloseButton, useDisclosure, VStack, Divider
 } from '@chakra-ui/react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { FiShoppingCart, FiLogOut, FiUser, FiSun, FiMoon, FiMenu, FiPackage, FiChevronRight } from 'react-icons/fi';
+import { FiShoppingCart, FiLogOut, FiUser, FiSun, FiMoon, FiMenu, FiPackage, FiChevronRight, FiStar } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,7 +13,7 @@ const MotionBadge = motion(Badge);
 
 const Navbar = () => {
   const { itemCount } = useCart();
-  const { currentUser, userData, signOut } = useAuth();
+  const { currentUser, userData, signOut, storeConfig, buyerPoints } = useAuth();
   const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
@@ -112,6 +112,25 @@ const Navbar = () => {
                 display={{ base: 'none', md: 'flex' }}
               >
                 Complete Setup
+              </Button>
+            )}
+
+            {/* Points Badge */}
+            {currentUser && userData && storeConfig?.rewardsEnabled && (
+              <Button
+                as={RouterLink}
+                to="/rewards"
+                variant="ghost"
+                size="sm"
+                borderRadius="full"
+                leftIcon={<FiStar size="14px" />}
+                color="purple.500"
+                fontWeight="700"
+                fontSize="xs"
+                _hover={{ bg: menuHoverBg }}
+                px={3}
+              >
+                {buyerPoints?.points || 0} pts
               </Button>
             )}
 

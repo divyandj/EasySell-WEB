@@ -333,6 +333,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [storeConfig, setStoreConfig] = useState(null);
   const [storeConfigLoaded, setStoreConfigLoaded] = useState(false);
+  const [buyerPoints, setBuyerPoints] = useState(null);
 
   // --- 0. FETCH STORE CONFIG (Public/Private Mode) ---
   useEffect(() => {
@@ -503,7 +504,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // --- 5. AUTH LISTENER ---
+  // --- 5. FETCH BUYER POINTS ---
+  const fetchBuyerPoints = async (uid) => {
+    const subdomain = getSubdomain();
+    if (!subdomain || !uid) return;
+    try {
+      const pointsRef = doc(db, 'buyer_points', `${uid}__${subdomain}`);
+      const pointsSnap = await getDoc(pointsRef);
+      if (pointsSnap.exists()) {
+        setBuyerPoints(pointsSnap.data());
+      } else {
+        setBuyerPoints({ points: 0, totalEarned: 0, totalRedeemed: 0, transactions: [] });
+      }
+    } catch (err) {
+      console.error("Error fetching buyer points:", err);
+      setBuyerPoints({ points: 0, totalEarned: 0, totalRedeemed: 0, transactions: [] });
+    }
+  };
+
+  // --- 6. AUTH LISTENER ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
       if (userAuth) {
@@ -511,9 +530,12 @@ export const AuthProvider = ({ children }) => {
         // Attempt to fetch profile
         const profile = await getUserProfile(userAuth.uid);
         setUserData(profile); // Will be null if new user
+        // Fetch buyer points
+        fetchBuyerPoints(userAuth.uid);
       } else {
         setCurrentUser(null);
         setUserData(null);
+        setBuyerPoints(null);
       }
       setLoading(false);
     });
@@ -533,6 +555,8 @@ export const AuthProvider = ({ children }) => {
     saveUserProfile,
     updateUserProfile,
     signOut,
+    buyerPoints,
+    fetchBuyerPoints,
   };
 
   if (loading || !storeConfigLoaded) {

@@ -7,12 +7,12 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { collection, Timestamp, runTransaction, doc } from 'firebase/firestore';
+import { collection, Timestamp, runTransaction, doc, getDocs, getDoc, setDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import SpinnerComponent from '../components/Spinner';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
-import { FiShield, FiArrowRight, FiMapPin, FiCreditCard, FiShoppingBag, FiMinus, FiPlus } from 'react-icons/fi';
+import { FiShield, FiArrowRight, FiMapPin, FiCreditCard, FiShoppingBag, FiMinus, FiPlus, FiStar, FiGift } from 'react-icons/fi';
 import { resolveStoreContext } from '../utils/storeResolver';
 
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
@@ -25,7 +25,7 @@ const getSubdomain = () => {
 };
 
 const CheckoutPage = () => {
-  const { currentUser, userData, storeConfig } = useAuth();
+  const { currentUser, userData, storeConfig, buyerPoints, fetchBuyerPoints } = useAuth();
   const { cartItems, cartSubtotal, cartTotalTax, cartGrandTotal, clearCart, itemCount, loadingProductData, updateQuantity } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,6 +37,37 @@ const CheckoutPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [billingMode, setBillingMode] = useState(location.state?.billingMode || 'withBill');
+
+  // --- REWARDS STATE ---
+  const [availableRewards, setAvailableRewards] = useState([]);
+  const [selectedReward, setSelectedReward] = useState(null);
+  const rewardsEnabled = storeConfig?.rewardsEnabled && storeConfig?.rewardsAllowCheckoutRedeem;
+  const currentPoints = buyerPoints?.points || 0;
+
+  useEffect(() => {
+    const fetchRewards = async () => {
+      if (!rewardsEnabled || !storeConfig?.uid) return;
+      try {
+        const itemsRef = collection(db, 'users', storeConfig.uid, 'reward_items');
+        const snap = await getDocs(itemsRef);
+        const items = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(item => item.active !== false);
+        setAvailableRewards(items);
+      } catch (err) { console.error('Failed to fetch rewards:', err); }
+    };
+    fetchRewards();
+  }, [rewardsEnabled, storeConfig?.uid]);
+
+  // Calculate reward discount
+  const getRewardDiscount = () => {
+    if (!selectedReward) return 0;
+    const total = billingMode === 'withBill' ? cartGrandTotal : cartSubtotal;
+    if (selectedReward.type === 'percent_off') return total * ((selectedReward.value || 0) / 100);
+    if (selectedReward.type === 'flat_off') return Math.min(selectedReward.value || 0, total);
+    return 0; // custom / free_shipping are handled differently
+  };
+  const rewardDiscount = getRewardDiscount();
 
   // Analytics
   const orderPlacedRef = React.useRef(false);
@@ -91,7 +122,8 @@ const CheckoutPage = () => {
   }, [currentUser]);
 
   const displayTax = billingMode === 'withBill' ? cartTotalTax : 0;
-  const displayGrandTotal = billingMode === 'withBill' ? cartGrandTotal : cartSubtotal;
+  const preRewardTotal = billingMode === 'withBill' ? cartGrandTotal : cartSubtotal;
+  const displayGrandTotal = Math.max(0, preRewardTotal - rewardDiscount);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -191,6 +223,8 @@ const CheckoutPage = () => {
       }),
       orderSubtotal: cartSubtotal,
       orderTax: displayTax,
+      rewardDiscount: rewardDiscount,
+      rewardRedeemed: selectedReward ? { title: selectedReward.title, type: selectedReward.type, pointsCost: selectedReward.pointsCost } : null,
       totalAmount: displayGrandTotal,
       transportName: shippingInfo.transportName || "",
       shippingAddress: shippingInfo,
@@ -278,6 +312,50 @@ const CheckoutPage = () => {
       }).catch((err) => console.error("Notification Failed:", err));
 
       orderPlacedRef.current = true;
+
+      // --- REWARDS: Earn points & deduct redeemed ---
+      if (storeConfig?.rewardsEnabled && currentUser) {
+        try {
+          const subdomain = getSubdomain();
+          const pointsDocId = `${currentUser.uid}__${subdomain}`;
+          const pointsRef = doc(db, 'buyer_points', pointsDocId);
+          const pointsSnap = await getDoc(pointsRef);
+          const existingData = pointsSnap.exists() ? pointsSnap.data() : { points: 0, totalEarned: 0, totalRedeemed: 0, transactions: [] };
+
+          const ppr = storeConfig.rewardsPointsPerRupee || 1;
+          const earnedPoints = Math.floor(displayGrandTotal * ppr);
+
+          // Welcome bonus for first purchase
+          const isFirstPurchase = existingData.totalEarned === 0;
+          const welcomeBonus = (isFirstPurchase && storeConfig.rewardsWelcomeBonus) ? storeConfig.rewardsWelcomeBonus : 0;
+          const totalEarnedNow = earnedPoints + welcomeBonus;
+
+          const redeemedPoints = selectedReward ? (selectedReward.pointsCost || 0) : 0;
+
+          const newTransactions = [...(existingData.transactions || [])];
+          if (totalEarnedNow > 0) {
+            newTransactions.push({ type: 'earn', amount: totalEarnedNow, orderId: newOrderId, date: Timestamp.fromDate(new Date()) });
+          }
+          if (redeemedPoints > 0) {
+            newTransactions.push({ type: 'redeem', amount: -redeemedPoints, rewardTitle: selectedReward.title, orderId: newOrderId, date: Timestamp.fromDate(new Date()) });
+          }
+
+          await setDoc(pointsRef, {
+            points: existingData.points + totalEarnedNow - redeemedPoints,
+            totalEarned: existingData.totalEarned + totalEarnedNow,
+            totalRedeemed: existingData.totalRedeemed + redeemedPoints,
+            lastEarnedAt: Timestamp.fromDate(new Date()),
+            transactions: newTransactions,
+          });
+
+          if (fetchBuyerPoints) fetchBuyerPoints(currentUser.uid);
+
+          if (totalEarnedNow > 0) {
+            toast({ title: `🎉 You earned ${totalEarnedNow} points!`, status: 'info', duration: 4000, position: 'top' });
+          }
+        } catch (err) { console.error('Failed to update buyer points:', err); }
+      }
+
       axios.post(`${API_BASE_URL}/api/analytics/order`, {
         storeHandle: getSubdomain() || '',
         orderData: {
@@ -685,6 +763,67 @@ const CheckoutPage = () => {
 
               <Divider borderColor={borderColor} />
 
+              {/* Rewards Redemption */}
+              {rewardsEnabled && availableRewards.length > 0 && currentPoints > 0 && (
+                <Box bg="purple.50" borderRadius="12px" p={4} mb={2}>
+                  <HStack mb={2}>
+                    <Icon as={FiGift} color="purple.500" />
+                    <Text fontSize="sm" fontWeight="700" color="purple.700">Redeem a Reward</Text>
+                    <Badge colorScheme="purple" borderRadius="full" fontSize="xs">{currentPoints} pts</Badge>
+                  </HStack>
+                  <VStack align="stretch" spacing={2}>
+                    {availableRewards.filter(r => currentPoints >= r.pointsCost).map(reward => (
+                      <Box
+                        key={reward.id}
+                        p={3}
+                        borderRadius="8px"
+                        bg={selectedReward?.id === reward.id ? 'purple.100' : 'white'}
+                        borderWidth="1px"
+                        borderColor={selectedReward?.id === reward.id ? 'purple.300' : 'gray.200'}
+                        cursor="pointer"
+                        onClick={() => setSelectedReward(selectedReward?.id === reward.id ? null : reward)}
+                        transition="all 0.2s"
+                        _hover={{ borderColor: 'purple.300' }}
+                      >
+                        <Flex justify="space-between" align="center">
+                          <VStack align="start" spacing={0}>
+                            <Text fontSize="sm" fontWeight="600" color="gray.800">{reward.title}</Text>
+                            <Text fontSize="xs" color="gray.500">
+                              {reward.type === 'percent_off' ? `${reward.value}% off` :
+                               reward.type === 'flat_off' ? `₹${reward.value} off` :
+                               reward.type === 'free_shipping' ? 'Free shipping' : 'Custom reward'}
+                            </Text>
+                          </VStack>
+                          <Badge colorScheme="purple" variant="subtle" fontSize="xs">{reward.pointsCost} pts</Badge>
+                        </Flex>
+                      </Box>
+                    ))}
+                  </VStack>
+                  {selectedReward && rewardDiscount > 0 && (
+                    <Text fontSize="xs" color="green.600" fontWeight="600" mt={2}>
+                      🎉 You save {formatCurrency(rewardDiscount)}!
+                    </Text>
+                  )}
+                  {selectedReward && selectedReward.type === 'custom' && (
+                    <Text fontSize="xs" color="purple.600" fontWeight="600" mt={2}>
+                      🎁 "{selectedReward.title}" will be included with your order!
+                    </Text>
+                  )}
+                </Box>
+              )}
+
+              {/* Points Earn Preview */}
+              {storeConfig?.rewardsEnabled && (
+                <Box bg="green.50" borderRadius="8px" px={4} py={2} mb={1}>
+                  <HStack>
+                    <Icon as={FiStar} color="green.500" boxSize={3} />
+                    <Text fontSize="xs" color="green.700" fontWeight="600">
+                      You'll earn ~{Math.floor(displayGrandTotal * (storeConfig.rewardsPointsPerRupee || 1))} points from this order
+                    </Text>
+                  </HStack>
+                </Box>
+              )}
+
               {/* Totals */}
               <VStack spacing={2} align="stretch">
                 <Flex justify="space-between">
@@ -708,6 +847,15 @@ const CheckoutPage = () => {
                     {formatCurrency(cartTotalTax)}
                   </Text>
                 </Flex>
+                )}
+                {rewardDiscount > 0 && (
+                  <Flex justify="space-between">
+                    <HStack spacing={1}>
+                      <Icon as={FiGift} color="green.500" boxSize={3} />
+                      <Text fontSize="sm" color="green.600">Reward Discount</Text>
+                    </HStack>
+                    <Text fontSize="sm" fontWeight="600" color="green.600">-{formatCurrency(rewardDiscount)}</Text>
+                  </Flex>
                 )}
 
                 <Divider borderColor={borderColor} />

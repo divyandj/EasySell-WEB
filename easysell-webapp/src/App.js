@@ -14,6 +14,7 @@ import HomePage from './pages/HomePage';
 import StorefrontPage from './pages/StorefrontPage';
 import RequestProductPage from './pages/RequestProductPage';
 import ContactPage from './pages/ContactPage';
+import RewardsPage from './pages/RewardsPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -47,6 +48,7 @@ function App() {
           <Route path="/product/:catalogueId/:productId" element={<ProductDetailPage />} />
           <Route path="/product/:productId" element={<ProductDetailPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/rewards" element={<RewardsPage />} />
           <Route path="/request-product" element={
             <ProtectedRoute>
               <RequestProductPage />
