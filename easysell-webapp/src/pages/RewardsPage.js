@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container, Heading, VStack, Box, Text, useColorModeValue, Icon, Flex, Center,
-  HStack, Badge, Skeleton, SimpleGrid, Button, Table, Thead, Tbody, Tr, Th, Td
+  HStack, Badge, Skeleton, SimpleGrid, Button, Table, Thead, Tbody, Tr, Th, Td, useToast
 } from '@chakra-ui/react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -17,9 +17,11 @@ const getSubdomain = () => {
 
 const RewardsPage = () => {
   const navigate = useNavigate();
-  const { currentUser, storeConfig, buyerPoints } = useAuth();
+  const toast = useToast();
+  const { currentUser, storeConfig, buyerPoints, createCustomRewardClaim, selectRedeemReward } = useAuth();
   const [rewardItems, setRewardItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submittingRewardId, setSubmittingRewardId] = useState(null);
 
 
   const pageBg = useColorModeValue('#F8F9FC', '#09090B');
@@ -46,7 +48,7 @@ const RewardsPage = () => {
           const itemsRef = collection(db, 'users', merchantDoc.id, 'reward_items');
           const itemsSnap = await getDocs(itemsRef);
           const items = itemsSnap.docs
-            .map(d => ({ id: d.id, ...d.data() }))
+            .map(d => ({ id: d.id, sellerUid: merchantDoc.id, ...d.data() }))
             .filter(item => item.active !== false);
           setRewardItems(items);
         }
@@ -63,6 +65,50 @@ const RewardsPage = () => {
   const transactions = buyerPoints?.transactions || [];
   const rewardsEnabled = storeConfig?.rewardsEnabled;
   const ppr = storeConfig?.rewardsPointsPerRupee || 1;
+
+  const isDiscountType = (type) => type === 'percent_off' || type === 'flat_off';
+
+  const handleRewardClaim = async (reward) => {
+    if (!currentUser) {
+      toast({ title: 'Please sign in first', status: 'warning', duration: 2500, isClosable: true });
+      navigate('/login', { state: { from: { pathname: '/rewards' } } });
+      return;
+    }
+
+    const pointsCost = Number(reward.pointsCost || 0);
+    if (points < pointsCost) {
+      toast({ title: `Need ${pointsCost - points} more points`, status: 'warning', duration: 2500, isClosable: true });
+      return;
+    }
+
+    if (reward.type === 'custom') {
+      setSubmittingRewardId(reward.id);
+      try {
+        await createCustomRewardClaim(reward);
+        toast({
+          title: 'Claim request submitted',
+          description: 'Seller will review and approve this custom reward.',
+          status: 'success',
+          duration: 3500,
+          isClosable: true,
+        });
+      } catch (err) {
+        toast({ title: 'Claim failed', description: err.message, status: 'error', duration: 3500, isClosable: true });
+      } finally {
+        setSubmittingRewardId(null);
+      }
+      return;
+    }
+
+    if (!isDiscountType(reward.type)) {
+      toast({ title: 'This reward can only be handled by seller review.', status: 'info', duration: 3000, isClosable: true });
+      return;
+    }
+
+    selectRedeemReward(reward);
+    toast({ title: 'Reward selected', description: 'You can redeem it in checkout.', status: 'success', duration: 2500, isClosable: true });
+    navigate('/checkout', { state: { preselectedRewardId: reward.id } });
+  };
 
   if (!rewardsEnabled) {
     return (
@@ -149,6 +195,18 @@ const RewardsPage = () => {
                         {!canAfford && (
                           <Text fontSize="xs" color="orange.400" mt={2}>Need {(item.pointsCost || 0) - points} more points</Text>
                         )}
+                        <Button
+                          mt={3}
+                          size="sm"
+                          w="full"
+                          colorScheme={item.type === 'custom' ? 'purple' : 'brand'}
+                          variant={canAfford ? 'solid' : 'outline'}
+                          isDisabled={!canAfford}
+                          isLoading={submittingRewardId === item.id}
+                          onClick={() => handleRewardClaim(item)}
+                        >
+                          {item.type === 'custom' ? 'Send Claim Request' : 'Use in Checkout'}
+                        </Button>
                       </Box>
                     );
                   })}
