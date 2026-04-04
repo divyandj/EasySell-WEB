@@ -309,7 +309,7 @@ import {
   sendPasswordResetEmail,
   signOut as firebaseSignOut
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, addDoc, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, addDoc, limit, runTransaction } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase';
 import { Spinner, Center } from '@chakra-ui/react';
 import axios from 'axios';
@@ -523,13 +523,6 @@ export const AuthProvider = ({ children }) => {
     const pointsRequired = Number(reward?.pointsCost || 0);
     if (pointsRequired <= 0) throw new Error('Invalid reward points requirement.');
 
-    const pointsRef = doc(db, 'buyer_points', `${currentUser.uid}__${subdomain}`);
-    const pointsSnap = await getDoc(pointsRef);
-    const currentBalance = Number(pointsSnap.exists() ? pointsSnap.data()?.points : 0) || 0;
-    if (currentBalance < pointsRequired) {
-      throw new Error(`Need ${pointsRequired - currentBalance} more points.`);
-    }
-
     const pendingClaimsQuery = query(
       collection(db, 'reward_claim_requests'),
       where('buyerUid', '==', currentUser.uid),
@@ -543,6 +536,35 @@ export const AuthProvider = ({ children }) => {
       throw new Error('You already have a pending claim for this reward.');
     }
 
+    const pointsRef = doc(db, 'buyer_points', `${currentUser.uid}__${subdomain}`);
+
+    await runTransaction(db, async (transaction) => {
+      const pointsSnap = await transaction.get(pointsRef);
+      const existingPointsData = pointsSnap.exists() ? pointsSnap.data() : { points: 0, totalEarned: 0, totalRedeemed: 0, transactions: [] };
+      const currentBalance = Number(existingPointsData?.points || 0);
+
+      if (currentBalance < pointsRequired) {
+        throw new Error(`Need ${pointsRequired - currentBalance} more points.`);
+      }
+
+      const newTransactions = [...(existingPointsData.transactions || [])];
+      newTransactions.push({
+        type: 'deduct_on_request',
+        amount: -pointsRequired,
+        rewardTitle: reward.title || 'Custom Reward',
+        rewardId: reward.id,
+        date: new Date(),
+      });
+
+      transaction.set(pointsRef, {
+        points: currentBalance - pointsRequired,
+        totalEarned: Number(existingPointsData?.totalEarned || 0),
+        totalRedeemed: Number(existingPointsData?.totalRedeemed || 0) + pointsRequired,
+        transactions: newTransactions,
+        lastRedeemedAt: serverTimestamp(),
+      }, { merge: true });
+    });
+
     const claimPayload = {
       buyerUid: currentUser.uid,
       buyerName: userData?.displayName || currentUser.displayName || '',
@@ -552,6 +574,7 @@ export const AuthProvider = ({ children }) => {
       rewardType: reward.type || 'custom',
       rewardValue: Number(reward.value || 0),
       pointsCost: pointsRequired,
+      pointsDeductedAtRequest: true,
       status: 'pending',
       storeHandle: subdomain,
       sellerUid: reward.sellerUid || storeConfig?.uid || '',
@@ -559,7 +582,33 @@ export const AuthProvider = ({ children }) => {
     };
 
     await addDoc(collection(db, 'reward_claim_requests'), claimPayload);
+    await fetchBuyerPoints(currentUser.uid);
     return true;
+  };
+
+  const fetchCustomRewardClaimStatusMap = async () => {
+    if (!currentUser) return {};
+    const subdomain = getSubdomain();
+    if (!subdomain) return {};
+
+    const claimsQuery = query(
+      collection(db, 'reward_claim_requests'),
+      where('buyerUid', '==', currentUser.uid),
+      where('storeHandle', '==', subdomain)
+    );
+    const snap = await getDocs(claimsQuery);
+    const statusByRewardId = {};
+
+    snap.docs.forEach((d) => {
+      const data = d.data() || {};
+      if (!data.rewardId) return;
+      statusByRewardId[data.rewardId] = {
+        status: data.status || 'pending',
+        docId: d.id,
+      };
+    });
+
+    return statusByRewardId;
   };
 
   // --- 5. FETCH BUYER POINTS ---
@@ -619,6 +668,7 @@ export const AuthProvider = ({ children }) => {
     selectRedeemReward,
     clearRedeemReward,
     createCustomRewardClaim,
+    fetchCustomRewardClaimStatusMap,
   };
 
   if (loading || !storeConfigLoaded) {
