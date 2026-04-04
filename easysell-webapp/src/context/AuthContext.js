@@ -346,7 +346,7 @@ export const AuthProvider = ({ children }) => {
         try {
           const snap = await getDocs(q);
           if (!snap.empty) {
-            setStoreConfig(snap.docs[0].data());
+            setStoreConfig({ uid: snap.docs[0].id, ...snap.docs[0].data() });
 
             // --- ANALYTICS: Track Unique Daily Visit ---
             const visitKey = `visited_${subdomain}_${new Date().toISOString().split('T')[0]}`;
@@ -610,6 +610,80 @@ export const AuthProvider = ({ children }) => {
     return true;
   };
 
+  const cancelCustomRewardClaim = async (claimDocId, rewardId) => {
+    if (!currentUser) throw new Error('Please sign in to manage reward requests.');
+    if (!claimDocId) throw new Error('Missing claim id.');
+
+    const subdomain = getSubdomain();
+    if (!subdomain) throw new Error('Store context missing. Please open a store URL.');
+
+    const claimRef = doc(db, 'reward_claim_requests', claimDocId);
+    const pointsRef = doc(db, 'buyer_points', `${currentUser.uid}__${subdomain}`);
+
+    await runTransaction(db, async (transaction) => {
+      const claimSnap = await transaction.get(claimRef);
+      if (!claimSnap.exists()) throw new Error('Reward request not found.');
+
+      const claimData = claimSnap.data() || {};
+      if ((claimData.buyerUid || '') !== currentUser.uid) {
+        throw new Error('You are not allowed to cancel this request.');
+      }
+      if ((claimData.storeHandle || '') !== subdomain) {
+        throw new Error('Request does not belong to this store.');
+      }
+
+      const status = String(claimData.status || 'pending').toLowerCase();
+      if (status !== 'pending') {
+        throw new Error('Only pending requests can be cancelled.');
+      }
+
+      const pointsCost = Number(claimData.pointsCost || 0);
+      const deductedAtRequest = Boolean(claimData.pointsDeductedAtRequest);
+      const alreadyRefunded = Boolean(claimData.pointsRefundedOnReject);
+
+      if (deductedAtRequest && pointsCost > 0 && !alreadyRefunded) {
+        const pointsSnap = await transaction.get(pointsRef);
+        const pointsData = pointsSnap.exists() ? (pointsSnap.data() || {}) : {};
+        const currentBalance = Number(pointsData.points || 0);
+        const totalRedeemed = Number(pointsData.totalRedeemed || 0);
+        const transactions = Array.isArray(pointsData.transactions) ? [...pointsData.transactions] : [];
+
+        transactions.push({
+          type: 'refund_on_cancel',
+          amount: pointsCost,
+          rewardTitle: claimData.rewardTitle || 'Custom Reward',
+          rewardId: rewardId || claimData.rewardId || '',
+          date: new Date(),
+        });
+
+        transaction.set(pointsRef, {
+          points: currentBalance + pointsCost,
+          totalEarned: Number(pointsData.totalEarned || 0),
+          totalRedeemed: Math.max(0, totalRedeemed - pointsCost),
+          transactions,
+          lastUpdatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
+
+      const claimUpdate = {
+        status: 'cancelled',
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser.uid,
+        cancelledAt: serverTimestamp(),
+        cancelledBy: currentUser.uid,
+      };
+      if (deductedAtRequest && pointsCost > 0 && !alreadyRefunded) {
+        claimUpdate.pointsRefundedOnReject = true;
+        claimUpdate.pointsRefundedAt = serverTimestamp();
+      }
+
+      transaction.update(claimRef, claimUpdate);
+    });
+
+    await fetchBuyerPoints(currentUser.uid);
+    return true;
+  };
+
   const fetchCustomRewardClaimStatusMap = async () => {
     if (!currentUser) return {};
     const subdomain = getSubdomain();
@@ -626,9 +700,15 @@ export const AuthProvider = ({ children }) => {
     snap.docs.forEach((d) => {
       const data = d.data() || {};
       if (!data.rewardId) return;
+      const createdAt = data.createdAt?.toMillis ? data.createdAt.toMillis() : 0;
+      const existing = statusByRewardId[data.rewardId];
+      const existingCreatedAt = existing?.createdAt || 0;
+      if (existing && existingCreatedAt > createdAt) return;
+
       statusByRewardId[data.rewardId] = {
         status: data.status || 'pending',
         docId: d.id,
+        createdAt,
       };
     });
 
@@ -709,6 +789,7 @@ export const AuthProvider = ({ children }) => {
     selectRedeemReward,
     clearRedeemReward,
     createCustomRewardClaim,
+    cancelCustomRewardClaim,
     fetchCustomRewardClaimStatusMap,
   };
 
