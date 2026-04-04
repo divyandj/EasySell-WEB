@@ -18,10 +18,11 @@ const getSubdomain = () => {
 const RewardsPage = () => {
   const navigate = useNavigate();
   const toast = useToast();
-  const { currentUser, storeConfig, buyerPoints, createCustomRewardClaim, selectRedeemReward } = useAuth();
+  const { currentUser, storeConfig, buyerPoints, createCustomRewardClaim, selectRedeemReward, fetchCustomRewardClaimStatusMap } = useAuth();
   const [rewardItems, setRewardItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submittingRewardId, setSubmittingRewardId] = useState(null);
+  const [claimStatusMap, setClaimStatusMap] = useState({});
 
 
   const pageBg = useColorModeValue('#F8F9FC', '#09090B');
@@ -60,6 +61,22 @@ const RewardsPage = () => {
     fetchRewards();
   }, []);
 
+  useEffect(() => {
+    const loadClaimStatuses = async () => {
+      if (!currentUser) {
+        setClaimStatusMap({});
+        return;
+      }
+      try {
+        const map = await fetchCustomRewardClaimStatusMap();
+        setClaimStatusMap(map || {});
+      } catch (err) {
+        console.error('Error fetching claim statuses:', err);
+      }
+    };
+    loadClaimStatuses();
+  }, [currentUser, fetchCustomRewardClaimStatusMap]);
+
   const points = buyerPoints?.points || 0;
   const totalEarned = buyerPoints?.totalEarned || 0;
   const transactions = buyerPoints?.transactions || [];
@@ -85,6 +102,8 @@ const RewardsPage = () => {
       setSubmittingRewardId(reward.id);
       try {
         await createCustomRewardClaim(reward);
+        const map = await fetchCustomRewardClaimStatusMap();
+        setClaimStatusMap(map || {});
         toast({
           title: 'Claim request submitted',
           description: 'Seller will review and approve this custom reward.',
@@ -162,6 +181,10 @@ const RewardsPage = () => {
                 <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                   {rewardItems.map(item => {
                     const canAfford = points >= (item.pointsCost || 0);
+                    const claimInfo = claimStatusMap[item.id];
+                    const claimStatus = claimInfo?.status;
+                    const isCustom = item.type === 'custom';
+                    const customClaimLocked = isCustom && (claimStatus === 'pending' || claimStatus === 'approved');
                     return (
                       <Box
                         key={item.id}
@@ -195,17 +218,28 @@ const RewardsPage = () => {
                         {!canAfford && (
                           <Text fontSize="xs" color="orange.400" mt={2}>Need {(item.pointsCost || 0) - points} more points</Text>
                         )}
+                        {isCustom && claimStatus && (
+                          <Badge mt={2} colorScheme={
+                            claimStatus === 'approved' ? 'green' :
+                            claimStatus === 'fulfilled' ? 'blue' :
+                            claimStatus === 'rejected' ? 'red' : 'orange'
+                          } variant="subtle" fontSize="xs">
+                            Status: {claimStatus}
+                          </Badge>
+                        )}
                         <Button
                           mt={3}
                           size="sm"
                           w="full"
                           colorScheme={item.type === 'custom' ? 'purple' : 'brand'}
                           variant={canAfford ? 'solid' : 'outline'}
-                          isDisabled={!canAfford}
+                          isDisabled={!canAfford || customClaimLocked}
                           isLoading={submittingRewardId === item.id}
                           onClick={() => handleRewardClaim(item)}
                         >
-                          {item.type === 'custom' ? 'Send Claim Request' : 'Use in Checkout'}
+                          {item.type === 'custom'
+                            ? (customClaimLocked ? 'Claim In Progress' : 'Send Claim Request')
+                            : 'Use in Checkout'}
                         </Button>
                       </Box>
                     );

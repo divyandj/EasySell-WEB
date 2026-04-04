@@ -381,6 +381,14 @@ const CartPage = () => {
                       <Badge colorScheme="purple" borderRadius="full" fontSize="0.65em">{currentPoints} pts</Badge>
                     </HStack>
                     <VStack align="stretch" spacing={2}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        colorScheme="gray"
+                        onClick={clearRedeemReward}
+                      >
+                        Do Not Use Reward Points
+                      </Button>
                       {availableRewards.map((reward) => {
                         const canAfford = currentPoints >= Number(reward.pointsCost || 0);
                         const isSelected = selectedRedeemReward?.id === reward.id;

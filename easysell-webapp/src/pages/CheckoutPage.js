@@ -72,14 +72,14 @@ const CheckoutPage = () => {
       }
       return;
     }
-
-    if (selectedReward?.id) {
-      const refreshed = availableRewards.find(r => r.id === selectedReward.id);
-      if (refreshed) {
-        selectRedeemReward(refreshed);
-      }
-    }
   }, [availableRewards, location.state, selectedReward?.id, selectRedeemReward]);
+
+  useEffect(() => {
+    const hasExplicitSelection = Boolean(location.state?.preselectedRewardId);
+    if (!hasExplicitSelection) {
+      clearRedeemReward();
+    }
+  }, [location.state, clearRedeemReward]);
 
   // Calculate reward discount
   const getRewardDiscount = () => {
@@ -814,6 +814,14 @@ const CheckoutPage = () => {
                     <Badge colorScheme="purple" borderRadius="full" fontSize="xs">{currentPoints} pts</Badge>
                   </HStack>
                   <VStack align="stretch" spacing={2}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      colorScheme="gray"
+                      onClick={clearRedeemReward}
+                    >
+                      Do Not Use Reward Points
+                    </Button>
                     {availableRewards.map(reward => {
                       const canAfford = currentPoints >= (reward.pointsCost || 0);
                       return (
