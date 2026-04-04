@@ -65,6 +65,32 @@ const CartPage = () => {
 
   const displayGrandTotal = billingMode === "withBill" ? cartGrandTotal : cartSubtotal;
   const currentPoints = buyerPoints?.points || 0;
+  const rewardBaseTotal = displayGrandTotal;
+  const getRewardSavings = (reward, total) => {
+    if (!reward || reward.active === false) return 0;
+    if (reward.type === 'percent_off') return total * ((Number(reward.value || 0)) / 100);
+    if (reward.type === 'flat_off') return Math.min(Number(reward.value || 0), total);
+    return 0;
+  };
+
+  const suggestedRewards = availableRewards
+    .filter((reward) => reward.active !== false && currentPoints >= Number(reward.pointsCost || 0))
+    .map((reward) => ({ reward, savings: getRewardSavings(reward, rewardBaseTotal) }))
+    .filter(({ savings }) => savings > 0)
+    .sort((left, right) => right.savings - left.savings)
+    .slice(0, 3);
+
+  const rewardDiscountPreview = (() => {
+    if (!selectedRedeemReward) return 0;
+    const total = billingMode === "withBill" ? cartGrandTotal : cartSubtotal;
+    if (selectedRedeemReward.type === 'percent_off') {
+      return total * ((Number(selectedRedeemReward.value || 0)) / 100);
+    }
+    if (selectedRedeemReward.type === 'flat_off') {
+      return Math.min(Number(selectedRedeemReward.value || 0), total);
+    }
+    return 0;
+  })();
 
   useEffect(() => {
     const fetchRewards = async () => {
@@ -372,6 +398,38 @@ const CartPage = () => {
 
               {/* Totals */}
               <VStack spacing={2.5} align="stretch">
+                {suggestedRewards.length > 0 && (
+                  <Box bg={radioBg} borderWidth="1px" borderColor="purple.100" borderRadius="12px" p={3}>
+                    <HStack justify="space-between" mb={2}>
+                      <Text fontSize="xs" fontWeight="700" color={mutedColor} textTransform="uppercase" letterSpacing="0.06em">
+                        Suggested Rewards
+                      </Text>
+                      <Text fontSize="xs" color={mutedColor}>Best savings first</Text>
+                    </HStack>
+                    <VStack align="stretch" spacing={2}>
+                      {suggestedRewards.map(({ reward, savings }) => {
+                        const isSelected = selectedRedeemReward?.id === reward.id;
+                        return (
+                          <Button
+                            key={reward.id}
+                            size="sm"
+                            justifyContent="space-between"
+                            variant={isSelected ? 'solid' : 'outline'}
+                            colorScheme={isSelected ? 'brand' : 'gray'}
+                            onClick={() => selectRedeemReward(isSelected ? null : reward)}
+                          >
+                            <HStack spacing={2}>
+                              <Text>{reward.title}</Text>
+                              <Badge colorScheme="green" borderRadius="full">Save {formatCurrency(savings)}</Badge>
+                            </HStack>
+                            <Badge ml={2} colorScheme="purple" borderRadius="full">{reward.pointsCost} pts</Badge>
+                          </Button>
+                        );
+                      })}
+                    </VStack>
+                  </Box>
+                )}
+
                 {availableRewards.length > 0 && (
                   <Box bg={radioBg} borderWidth="1px" borderColor={borderColor} borderRadius="12px" p={3}>
                     <HStack justify="space-between" mb={2}>
@@ -421,6 +479,14 @@ const CartPage = () => {
                   <Text fontSize="sm" color={mutedColor}>Subtotal</Text>
                   <Text fontSize="sm" fontWeight="600" color={textColor}>{formatCurrency(cartSubtotal)}</Text>
                 </Flex>
+                {rewardDiscountPreview > 0 && (
+                  <Flex justify="space-between">
+                    <HStack spacing={1}>
+                      <Text fontSize="sm" color="green.600">Reward Discount</Text>
+                    </HStack>
+                    <Text fontSize="sm" fontWeight="600" color="green.600">-{formatCurrency(rewardDiscountPreview)}</Text>
+                  </Flex>
+                )}
                 {cartTotalTax > 0 && (
                 <Flex justify="space-between">
                   <HStack spacing={1}>
@@ -445,7 +511,7 @@ const CartPage = () => {
                 <Flex justify="space-between" align="center" pt={1}>
                   <Text fontSize="md" fontWeight="700" color={textColor}>Total</Text>
                   <Text fontSize="xl" fontWeight="800" color={priceColor}>
-                    {formatCurrency(displayGrandTotal)}
+                    {formatCurrency(Math.max(0, displayGrandTotal - rewardDiscountPreview))}
                   </Text>
                 </Flex>
               </VStack>
@@ -462,7 +528,7 @@ const CartPage = () => {
                 boxShadow="0 4px 14px rgba(108,92,231,0.3)"
                 _hover={{ transform: 'translateY(-2px)', boxShadow: '0 6px 20px rgba(108,92,231,0.4)' }}
               >
-                Checkout · {formatCurrency(displayGrandTotal)}
+                Checkout · {formatCurrency(Math.max(0, displayGrandTotal - rewardDiscountPreview))}
               </Button>
 
               {/* Trust */}

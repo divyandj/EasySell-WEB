@@ -40,23 +40,37 @@ const CheckoutPage = () => {
 
   // --- REWARDS STATE ---
   const [availableRewards, setAvailableRewards] = useState([]);
+  const [rewardsLoading, setRewardsLoading] = useState(false);
   const rewardsEnabled = storeConfig?.rewardsEnabled && (storeConfig?.rewardsAllowCheckoutRedeem !== false);
   const currentPoints = buyerPoints?.points || 0;
   const selectedReward = selectedRedeemReward;
 
   const isDiscountReward = (reward) => reward?.type === 'percent_off' || reward?.type === 'flat_off';
 
+  const getRewardSavings = (reward, total) => {
+    if (!reward || !isDiscountReward(reward)) return 0;
+    if (reward.type === 'percent_off') return total * ((Number(reward.value || 0)) / 100);
+    if (reward.type === 'flat_off') return Math.min(Number(reward.value || 0), total);
+    return 0;
+  };
+
+  const rewardBaseTotal = billingMode === 'withBill' ? cartGrandTotal : cartSubtotal;
+
   useEffect(() => {
     const fetchRewards = async () => {
       if (!rewardsEnabled || !storeConfig?.uid) return;
+      setRewardsLoading(true);
       try {
         const itemsRef = collection(db, 'users', storeConfig.uid, 'reward_items');
         const snap = await getDocs(itemsRef);
         const items = snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
-          .filter(item => item.active !== false);
+          .filter(item => item.active !== false && isDiscountReward(item));
         setAvailableRewards(items);
       } catch (err) { console.error('Failed to fetch rewards:', err); }
+      finally {
+        setRewardsLoading(false);
+      }
     };
     fetchRewards();
   }, [rewardsEnabled, storeConfig?.uid]);
@@ -75,22 +89,28 @@ const CheckoutPage = () => {
   }, [availableRewards, location.state, selectedReward?.id, selectRedeemReward]);
 
   useEffect(() => {
-    const hasExplicitSelection = Boolean(location.state?.preselectedRewardId);
-    if (!hasExplicitSelection) {
-      clearRedeemReward();
+    if (rewardsLoading || !selectedReward?.id) return;
+    const liveReward = availableRewards.find((reward) => reward.id === selectedReward.id);
+    if (liveReward && liveReward.active !== false) {
+      const changed =
+        liveReward.title !== selectedReward.title ||
+        liveReward.type !== selectedReward.type ||
+        Number(liveReward.value || 0) !== Number(selectedReward.value || 0) ||
+        Number(liveReward.pointsCost || 0) !== Number(selectedReward.pointsCost || 0);
+      if (changed) {
+        selectRedeemReward(liveReward);
+      }
     }
-  }, [location.state, clearRedeemReward]);
+  }, [availableRewards, rewardsLoading, selectedReward, selectRedeemReward]);
 
   // Calculate reward discount
-  const getRewardDiscount = () => {
-    if (!selectedReward) return 0;
-    if (!isDiscountReward(selectedReward)) return 0;
-    const total = billingMode === 'withBill' ? cartGrandTotal : cartSubtotal;
-    if (selectedReward.type === 'percent_off') return total * ((selectedReward.value || 0) / 100);
-    if (selectedReward.type === 'flat_off') return Math.min(selectedReward.value || 0, total);
-    return 0;
-  };
-  const rewardDiscount = getRewardDiscount();
+  const rewardDiscount = getRewardSavings(selectedReward, rewardBaseTotal);
+  const suggestedRewards = availableRewards
+    .filter((reward) => reward.active !== false && currentPoints >= Number(reward.pointsCost || 0))
+    .map((reward) => ({ reward, savings: getRewardSavings(reward, rewardBaseTotal) }))
+    .filter(({ savings }) => savings > 0)
+    .sort((left, right) => right.savings - left.savings)
+    .slice(0, 3);
 
   // Analytics
   const orderPlacedRef = React.useRef(false);
@@ -193,7 +213,7 @@ const CheckoutPage = () => {
     const activeReward = selectedReward
       ? availableRewards.find(r => r.id === selectedReward.id && r.active !== false)
       : null;
-    if (selectedReward && !activeReward) {
+    if (selectedReward && !rewardsLoading && !activeReward) {
       toast({ title: 'Selected reward is no longer available.', status: 'warning', duration: 3000, isClosable: true });
       clearRedeemReward();
       return;
@@ -813,6 +833,38 @@ const CheckoutPage = () => {
                     <Text fontSize="sm" fontWeight="700" color="purple.700">Redeem a Reward</Text>
                     <Badge colorScheme="purple" borderRadius="full" fontSize="xs">{currentPoints} pts</Badge>
                   </HStack>
+                  {rewardsLoading && (
+                    <Text fontSize="xs" color="purple.600" mb={2}>Loading available rewards...</Text>
+                  )}
+                  {!rewardsLoading && suggestedRewards.length > 0 && (
+                    <Box mb={3} p={3} borderRadius="10px" bg="white" borderWidth="1px" borderColor="purple.100">
+                      <HStack justify="space-between" mb={2}>
+                        <Text fontSize="xs" fontWeight="700" color="purple.700" textTransform="uppercase" letterSpacing="0.06em">Suggested Rewards</Text>
+                        <Text fontSize="xs" color="gray.500">Best savings first</Text>
+                      </HStack>
+                      <VStack align="stretch" spacing={2}>
+                        {suggestedRewards.map(({ reward, savings }) => {
+                          const isSelected = selectedReward?.id === reward.id;
+                          return (
+                            <Button
+                              key={reward.id}
+                              size="sm"
+                              justifyContent="space-between"
+                              variant={isSelected ? 'solid' : 'outline'}
+                              colorScheme={isSelected ? 'purple' : 'gray'}
+                              onClick={() => selectRedeemReward(isSelected ? null : reward)}
+                            >
+                              <HStack spacing={2}>
+                                <Text>{reward.title}</Text>
+                                <Badge colorScheme="green" borderRadius="full">Save {formatCurrency(savings)}</Badge>
+                              </HStack>
+                              <Badge ml={2} colorScheme="purple" borderRadius="full">{reward.pointsCost} pts</Badge>
+                            </Button>
+                          );
+                        })}
+                      </VStack>
+                    </Box>
+                  )}
                   <VStack align="stretch" spacing={2}>
                     <Button
                       size="sm"

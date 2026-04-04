@@ -497,6 +497,10 @@ export const AuthProvider = ({ children }) => {
   // --- 4. SIGN OUT ---
   const signOut = async () => {
     try {
+      const subdomain = getSubdomain() || 'default';
+      const uid = currentUser?.uid || 'guest';
+      const rewardKey = `selected_redeem_reward_${subdomain}_${uid}`;
+      localStorage.removeItem(rewardKey);
       await firebaseSignOut(auth);
       setCurrentUser(null);
       setUserData(null);
@@ -508,10 +512,30 @@ export const AuthProvider = ({ children }) => {
 
   const selectRedeemReward = (reward) => {
     setSelectedRedeemReward(reward || null);
+    try {
+      const subdomain = getSubdomain() || 'default';
+      const uid = currentUser?.uid || 'guest';
+      const rewardKey = `selected_redeem_reward_${subdomain}_${uid}`;
+      if (reward) {
+        localStorage.setItem(rewardKey, JSON.stringify(reward));
+      } else {
+        localStorage.removeItem(rewardKey);
+      }
+    } catch (err) {
+      console.error('Failed to persist selected reward:', err);
+    }
   };
 
   const clearRedeemReward = () => {
     setSelectedRedeemReward(null);
+    try {
+      const subdomain = getSubdomain() || 'default';
+      const uid = currentUser?.uid || 'guest';
+      const rewardKey = `selected_redeem_reward_${subdomain}_${uid}`;
+      localStorage.removeItem(rewardKey);
+    } catch (err) {
+      console.error('Failed to clear selected reward:', err);
+    }
   };
 
   const createCustomRewardClaim = async (reward) => {
@@ -649,6 +673,23 @@ export const AuthProvider = ({ children }) => {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    try {
+      const subdomain = getSubdomain() || 'default';
+      const uid = currentUser?.uid || 'guest';
+      const rewardKey = `selected_redeem_reward_${subdomain}_${uid}`;
+      const savedReward = localStorage.getItem(rewardKey);
+      if (savedReward) {
+        setSelectedRedeemReward(JSON.parse(savedReward));
+      } else {
+        setSelectedRedeemReward(null);
+      }
+    } catch (err) {
+      console.error('Failed to load selected reward:', err);
+      setSelectedRedeemReward(null);
+    }
+  }, [currentUser?.uid]);
 
   const value = {
     currentUser,
