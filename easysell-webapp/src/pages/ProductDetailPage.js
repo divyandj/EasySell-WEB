@@ -323,7 +323,7 @@ const ProductDetailPage = () => {
                 ) : activeMedia.type === 'video' ? (
                   <Box as="video" src={activeMedia.url} controls autoPlay muted loop playsInline width="100%" height="100%" objectFit="contain" />
                 ) : (
-                  <Image src={activeMedia.url} alt={product.title} objectFit="contain" w="100%" h="100%" fallbackSrc="https://via.placeholder.com/600" cursor="zoom-in" onClick={onOpen} transition="transform 0.3s" _hover={{ transform: 'scale(1.02)' }} />
+                  <Image src={activeMedia.url} alt={product.title} objectFit="contain" w="100%" h="100%" fallbackSrc="https://placehold.co/600x600?text=No+Image" cursor="zoom-in" onClick={onOpen} transition="transform 0.3s" _hover={{ transform: 'scale(1.02)' }} />
                 )}
                 {activeMedia && activeMedia.type !== 'video' && (
                   <IconButton

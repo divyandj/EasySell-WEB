@@ -27,6 +27,7 @@ const OrderTrackingPage = () => {
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
   const priceColor = useColorModeValue('brand.600', 'brand.300');
   const altBg = useColorModeValue('gray.50', 'whiteAlpha.50');
+  const successColor = useColorModeValue('green.600', 'green.300');
 
   useEffect(() => {
     if (!currentUser) { setLoading(false); setError("Please log in to view orders."); return; }
@@ -76,7 +77,17 @@ const OrderTrackingPage = () => {
 
   if (!order) return <Center h="50vh" bg={pageBg}><Text color={mutedColor}>Order not found.</Text></Center>;
 
-  const { shippingAddress = {}, items = [], orderSubtotal = 0, orderTax = 0, totalAmount = 0, status = 'Unknown', orderDate } = order;
+  const {
+    shippingAddress = {},
+    items = [],
+    orderSubtotal = 0,
+    orderTax = 0,
+    rewardDiscount = 0,
+    rewardRedeemed = null,
+    totalAmount = 0,
+    status = 'Unknown',
+    orderDate
+  } = order;
   const steps = ['Placed', 'Processing', 'Shipped', 'Delivered'];
   const currentIdx = steps.indexOf(status);
   const isCancelled = status === 'Cancelled';
@@ -256,6 +267,19 @@ const OrderTrackingPage = () => {
               </Text>
               <VStack align="stretch" spacing={2} fontSize="sm">
                 <Flex justify="space-between"><Text color={mutedColor}>Subtotal</Text><Text fontWeight="600" color={textColor}>{formatCurrency(orderSubtotal)}</Text></Flex>
+                {rewardDiscount > 0 && (
+                  <Box>
+                    <Flex justify="space-between" align="start">
+                      <Text color={mutedColor}>Reward Discount</Text>
+                      <Text fontWeight="700" color={successColor}>-{formatCurrency(rewardDiscount)}</Text>
+                    </Flex>
+                    {rewardRedeemed?.title && (
+                      <Text fontSize="xs" color={mutedColor} mt={1} textAlign="right">
+                        {rewardRedeemed.title}{rewardRedeemed.type ? ` • ${rewardRedeemed.type.replace('_', ' ')}` : ''}
+                      </Text>
+                    )}
+                  </Box>
+                )}
                 {orderTax > 0 && (
                   <Flex justify="space-between"><Text color={mutedColor}>Tax</Text><Text fontWeight="600" color={textColor}>{formatCurrency(orderTax)}</Text></Flex>
                 )}

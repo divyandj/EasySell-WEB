@@ -18,10 +18,11 @@ const getSubdomain = () => {
 const RewardsPage = () => {
   const navigate = useNavigate();
   const toast = useToast();
-  const { currentUser, storeConfig, buyerPoints, createCustomRewardClaim, selectRedeemReward, fetchCustomRewardClaimStatusMap } = useAuth();
+  const { currentUser, storeConfig, buyerPoints, createCustomRewardClaim, cancelCustomRewardClaim, selectRedeemReward, fetchCustomRewardClaimStatusMap } = useAuth();
   const [rewardItems, setRewardItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submittingRewardId, setSubmittingRewardId] = useState(null);
+  const [cancellingRewardId, setCancellingRewardId] = useState(null);
   const [claimStatusMap, setClaimStatusMap] = useState({});
 
 
@@ -129,6 +130,35 @@ const RewardsPage = () => {
     navigate('/checkout', { state: { preselectedRewardId: reward.id } });
   };
 
+  const handleCancelClaim = async (reward, claimInfo) => {
+    if (!currentUser) {
+      toast({ title: 'Please sign in first', status: 'warning', duration: 2500, isClosable: true });
+      return;
+    }
+    if (!claimInfo?.docId) {
+      toast({ title: 'Unable to cancel this request.', status: 'error', duration: 2500, isClosable: true });
+      return;
+    }
+
+    setCancellingRewardId(reward.id);
+    try {
+      await cancelCustomRewardClaim(claimInfo.docId, reward.id);
+      const map = await fetchCustomRewardClaimStatusMap();
+      setClaimStatusMap(map || {});
+      toast({
+        title: 'Claim request cancelled',
+        description: 'Points have been adjusted for this cancelled request.',
+        status: 'success',
+        duration: 3500,
+        isClosable: true,
+      });
+    } catch (err) {
+      toast({ title: 'Cancel failed', description: err.message, status: 'error', duration: 3500, isClosable: true });
+    } finally {
+      setCancellingRewardId(null);
+    }
+  };
+
   if (!rewardsEnabled) {
     return (
       <Box bg={pageBg} minH="100vh" py={{ base: 6, md: 12 }}>
@@ -185,6 +215,7 @@ const RewardsPage = () => {
                     const claimStatus = claimInfo?.status;
                     const isCustom = item.type === 'custom';
                     const customClaimLocked = isCustom && (claimStatus === 'pending' || claimStatus === 'approved');
+                    const canCancelPending = isCustom && claimStatus === 'pending';
                     return (
                       <Box
                         key={item.id}
@@ -222,7 +253,8 @@ const RewardsPage = () => {
                           <Badge mt={2} colorScheme={
                             claimStatus === 'approved' ? 'green' :
                             claimStatus === 'fulfilled' ? 'blue' :
-                            claimStatus === 'rejected' ? 'red' : 'orange'
+                            claimStatus === 'rejected' ? 'red' :
+                            claimStatus === 'cancelled' ? 'gray' : 'orange'
                           } variant="subtle" fontSize="xs">
                             Status: {claimStatus}
                           </Badge>
@@ -241,6 +273,19 @@ const RewardsPage = () => {
                             ? (customClaimLocked ? 'Claim In Progress' : 'Send Claim Request')
                             : 'Use in Checkout'}
                         </Button>
+                        {canCancelPending && (
+                          <Button
+                            mt={2}
+                            size="sm"
+                            w="full"
+                            variant="outline"
+                            colorScheme="red"
+                            isLoading={cancellingRewardId === item.id}
+                            onClick={() => handleCancelClaim(item, claimInfo)}
+                          >
+                            Cancel Pending Request
+                          </Button>
+                        )}
                       </Box>
                     );
                   })}

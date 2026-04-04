@@ -42,8 +42,10 @@ const CheckoutPage = () => {
   const [availableRewards, setAvailableRewards] = useState([]);
   const [rewardsLoading, setRewardsLoading] = useState(false);
   const rewardsEnabled = storeConfig?.rewardsEnabled && (storeConfig?.rewardsAllowCheckoutRedeem !== false);
+  const rewardOwnerUid = storeConfig?.uid || selectedRedeemReward?.sellerUid || null;
   const currentPoints = buyerPoints?.points || 0;
   const selectedReward = selectedRedeemReward;
+  const preselectionAppliedRef = React.useRef(false);
 
   const isDiscountReward = (reward) => reward?.type === 'percent_off' || reward?.type === 'flat_off';
 
@@ -58,10 +60,14 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     const fetchRewards = async () => {
-      if (!rewardsEnabled || !storeConfig?.uid) return;
+      if (!rewardsEnabled || !rewardOwnerUid) {
+        setRewardsLoading(false);
+        setAvailableRewards([]);
+        return;
+      }
       setRewardsLoading(true);
       try {
-        const itemsRef = collection(db, 'users', storeConfig.uid, 'reward_items');
+        const itemsRef = collection(db, 'users', rewardOwnerUid, 'reward_items');
         const snap = await getDocs(itemsRef);
         const items = snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
@@ -73,20 +79,20 @@ const CheckoutPage = () => {
       }
     };
     fetchRewards();
-  }, [rewardsEnabled, storeConfig?.uid]);
+  }, [rewardsEnabled, rewardOwnerUid, selectedRedeemReward?.sellerUid]);
 
   useEffect(() => {
-    if (!availableRewards.length) return;
+    if (preselectionAppliedRef.current || !availableRewards.length) return;
 
+    preselectionAppliedRef.current = true;
     const preselectedRewardId = location.state?.preselectedRewardId;
-    if (preselectedRewardId) {
-      const match = availableRewards.find(r => r.id === preselectedRewardId);
-      if (match && isDiscountReward(match)) {
-        selectRedeemReward(match);
-      }
-      return;
+    if (!preselectedRewardId) return;
+
+    const match = availableRewards.find(r => r.id === preselectedRewardId);
+    if (match && isDiscountReward(match)) {
+      selectRedeemReward(match);
     }
-  }, [availableRewards, location.state, selectedReward?.id, selectRedeemReward]);
+  }, [availableRewards, location.state?.preselectedRewardId, selectRedeemReward]);
 
   useEffect(() => {
     if (rewardsLoading || !selectedReward?.id) return;
@@ -111,6 +117,10 @@ const CheckoutPage = () => {
     .filter(({ savings }) => savings > 0)
     .sort((left, right) => right.savings - left.savings)
     .slice(0, 3);
+  const suggestedRewardById = new Map(
+    suggestedRewards.map(({ reward, savings }) => [reward.id, savings])
+  );
+  const topSuggestedRewardId = suggestedRewards[0]?.reward?.id || null;
 
   // Analytics
   const orderPlacedRef = React.useRef(false);
@@ -145,6 +155,7 @@ const CheckoutPage = () => {
   const textColor = useColorModeValue('gray.800', 'white');
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
   const borderColor = useColorModeValue('gray.100', 'whiteAlpha.100');
+  const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.100');
   const inputBorder = useColorModeValue('gray.200', 'whiteAlpha.200');
   const priceColor = useColorModeValue('brand.600', 'brand.300');
   const stepBg = useColorModeValue('brand.50', 'whiteAlpha.100');
@@ -213,7 +224,11 @@ const CheckoutPage = () => {
     const activeReward = selectedReward
       ? availableRewards.find(r => r.id === selectedReward.id && r.active !== false)
       : null;
-    if (selectedReward && !rewardsLoading && !activeReward) {
+    if (selectedReward && !activeReward) {
+      if (rewardsLoading || availableRewards.length === 0) {
+        toast({ title: 'Loading reward details, please try again in a moment.', status: 'info', duration: 2500, isClosable: true });
+        return;
+      }
       toast({ title: 'Selected reward is no longer available.', status: 'warning', duration: 3000, isClosable: true });
       clearRedeemReward();
       return;
@@ -826,64 +841,47 @@ const CheckoutPage = () => {
               <Divider borderColor={borderColor} />
 
               {/* Rewards Redemption */}
-              {rewardsEnabled && availableRewards.length > 0 && (
-                <Box bg="purple.50" borderRadius="12px" p={4} mb={2}>
-                  <HStack mb={2}>
-                    <Icon as={FiGift} color="purple.500" />
-                    <Text fontSize="sm" fontWeight="700" color="purple.700">Redeem a Reward</Text>
-                    <Badge colorScheme="purple" borderRadius="full" fontSize="xs">{currentPoints} pts</Badge>
+              {rewardsEnabled && (
+                <Box bg={cardBg} borderRadius="12px" p={4} mb={2} borderWidth="1px" borderColor={borderColor}>
+                  <HStack mb={1.5} justify="space-between">
+                    <HStack spacing={2}>
+                    <Icon as={FiGift} color={stepActiveColor} />
+                    <Text fontSize="sm" fontWeight="700" color={textColor}>Rewards & Discounts</Text>
+                    </HStack>
+                    <Badge colorScheme="gray" borderRadius="full" fontSize="xs" px={2.5} py={1}>{currentPoints} pts</Badge>
                   </HStack>
+                  <Text fontSize="xs" color={mutedColor} mb={3}>Choose one reward to apply</Text>
                   {rewardsLoading && (
-                    <Text fontSize="xs" color="purple.600" mb={2}>Loading available rewards...</Text>
+                    <Text fontSize="xs" color={mutedColor} mb={2}>Loading rewards...</Text>
                   )}
-                  {!rewardsLoading && suggestedRewards.length > 0 && (
-                    <Box mb={3} p={3} borderRadius="10px" bg="white" borderWidth="1px" borderColor="purple.100">
-                      <HStack justify="space-between" mb={2}>
-                        <Text fontSize="xs" fontWeight="700" color="purple.700" textTransform="uppercase" letterSpacing="0.06em">Suggested Rewards</Text>
-                        <Text fontSize="xs" color="gray.500">Best savings first</Text>
-                      </HStack>
-                      <VStack align="stretch" spacing={2}>
-                        {suggestedRewards.map(({ reward, savings }) => {
-                          const isSelected = selectedReward?.id === reward.id;
-                          return (
-                            <Button
-                              key={reward.id}
-                              size="sm"
-                              justifyContent="space-between"
-                              variant={isSelected ? 'solid' : 'outline'}
-                              colorScheme={isSelected ? 'purple' : 'gray'}
-                              onClick={() => selectRedeemReward(isSelected ? null : reward)}
-                            >
-                              <HStack spacing={2}>
-                                <Text>{reward.title}</Text>
-                                <Badge colorScheme="green" borderRadius="full">Save {formatCurrency(savings)}</Badge>
-                              </HStack>
-                              <Badge ml={2} colorScheme="purple" borderRadius="full">{reward.pointsCost} pts</Badge>
-                            </Button>
-                          );
-                        })}
-                      </VStack>
-                    </Box>
+                  {!rewardsLoading && availableRewards.length === 0 && (
+                    <VStack align="stretch" spacing={2} mb={3}>
+                      <Text fontSize="xs" color="gray.600">No discount rewards are currently available.</Text>
+                      <Button size="sm" variant="outline" colorScheme="brand" onClick={() => navigate('/rewards')}>Browse Rewards</Button>
+                    </VStack>
                   )}
                   <VStack align="stretch" spacing={2}>
                     <Button
                       size="sm"
                       variant="outline"
                       colorScheme="gray"
+                      borderRadius="10px"
                       onClick={clearRedeemReward}
                     >
                       Do Not Use Reward Points
                     </Button>
                     {availableRewards.map(reward => {
                       const canAfford = currentPoints >= (reward.pointsCost || 0);
+                      const isSelected = selectedReward?.id === reward.id;
+                      const suggestedSavings = suggestedRewardById.get(reward.id);
                       return (
                         <Box
                           key={reward.id}
-                          p={3}
-                          borderRadius="8px"
-                          bg={selectedReward?.id === reward.id ? 'purple.100' : 'white'}
+                          p={2.5}
+                          borderRadius="10px"
+                          bg={isSelected ? stepBg : 'transparent'}
                           borderWidth="1px"
-                          borderColor={selectedReward?.id === reward.id ? 'purple.300' : 'gray.200'}
+                          borderColor={isSelected ? stepActiveColor : inputBorder}
                           cursor={canAfford ? 'pointer' : 'not-allowed'}
                           opacity={canAfford ? 1 : 0.6}
                           onClick={() => {
@@ -892,24 +890,30 @@ const CheckoutPage = () => {
                               toast({ title: 'Custom rewards must be claimed from Rewards page.', status: 'info', duration: 2500, isClosable: true });
                               return;
                             }
-                            selectRedeemReward(selectedReward?.id === reward.id ? null : reward);
+                            selectRedeemReward(reward);
                           }}
                           transition="all 0.2s"
-                          _hover={canAfford ? { borderColor: 'purple.300' } : {}}
+                          _hover={canAfford ? { borderColor: stepActiveColor, bg: isSelected ? stepBg : hoverBg } : {}}
                         >
                           <Flex justify="space-between" align="center">
-                            <VStack align="start" spacing={0}>
-                              <Text fontSize="sm" fontWeight="600" color="gray.800">{reward.title}</Text>
+                            <VStack align="start" spacing={0.5}>
+                              <HStack spacing={2}>
+                                <Text fontSize="sm" fontWeight="600" color={textColor}>{reward.title}</Text>
+                                {topSuggestedRewardId === reward.id && (
+                                  <Badge colorScheme="green" variant="subtle" borderRadius="full" fontSize="0.65rem">Best value</Badge>
+                                )}
+                              </HStack>
                               <Text fontSize="xs" color="gray.500">
                                 {reward.type === 'percent_off' ? `${reward.value}% off` :
                                  reward.type === 'flat_off' ? `₹${reward.value} off` :
                                 reward.type === 'free_shipping' ? 'Free shipping' : 'Custom reward (approval needed)'}
+                                {suggestedSavings ? ` • Save ${formatCurrency(suggestedSavings)}` : ''}
                               </Text>
                               {!canAfford && (
                                 <Text fontSize="xs" color="red.400" mt={1}>Need {reward.pointsCost - currentPoints} more pts</Text>
                               )}
                             </VStack>
-                            <Badge colorScheme="purple" variant="subtle" fontSize="xs">{reward.pointsCost} pts</Badge>
+                            <Badge colorScheme="purple" variant="subtle" borderRadius="full" fontSize="xs" px={2.5} py={1}>{reward.pointsCost} pts</Badge>
                           </Flex>
                         </Box>
                       );
@@ -917,12 +921,7 @@ const CheckoutPage = () => {
                   </VStack>
                   {selectedReward && rewardDiscount > 0 && (
                     <Text fontSize="xs" color="green.600" fontWeight="600" mt={2}>
-                      🎉 You save {formatCurrency(rewardDiscount)}!
-                    </Text>
-                  )}
-                  {selectedReward && selectedReward.type === 'custom' && (
-                    <Text fontSize="xs" color="purple.600" fontWeight="600" mt={2}>
-                      🎁 "{selectedReward.title}" will be included with your order!
+                      Savings applied: {formatCurrency(rewardDiscount)}
                     </Text>
                   )}
                 </Box>
@@ -967,7 +966,7 @@ const CheckoutPage = () => {
                 {rewardDiscount > 0 && (
                   <Flex justify="space-between">
                     <HStack spacing={1}>
-                      <Icon as={FiGift} color="green.500" boxSize={3} />
+                              selectRedeemReward(reward);
                       <Text fontSize="sm" color="green.600">Reward Discount</Text>
                     </HStack>
                     <Text fontSize="sm" fontWeight="600" color="green.600">-{formatCurrency(rewardDiscount)}</Text>

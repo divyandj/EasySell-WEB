@@ -21,7 +21,7 @@ import {
   useColorModeValue,
   Input,
 } from "@chakra-ui/react";
-import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiShield } from "react-icons/fi";
+import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiShield, FiGift } from "react-icons/fi";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
@@ -49,6 +49,7 @@ const CartPage = () => {
   const { storeConfig, buyerPoints, selectedRedeemReward, selectRedeemReward, clearRedeemReward } = useAuth();
   const [billingMode, setBillingMode] = useState("withBill");
   const [availableRewards, setAvailableRewards] = useState([]);
+  const [rewardsLoading, setRewardsLoading] = useState(false);
 
   // Theme
   const pageBg = useColorModeValue('#F8F9FC', '#09090B');
@@ -56,15 +57,19 @@ const CartPage = () => {
   const textColor = useColorModeValue('gray.800', 'white');
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
   const borderColor = useColorModeValue('gray.100', 'whiteAlpha.100');
+  const inputBorder = useColorModeValue('gray.200', 'whiteAlpha.200');
   const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.100');
-  const radioBg = useColorModeValue('gray.50', 'whiteAlpha.50');
   const priceColor = useColorModeValue('brand.600', 'brand.300');
+  const stepBg = useColorModeValue('brand.50', 'whiteAlpha.100');
+  const stepActiveColor = useColorModeValue('brand.600', 'brand.300');
   const emptyIconBg = useColorModeValue('gray.100', 'whiteAlpha.100');
   const imageBg = useColorModeValue('gray.50', '#0D0D12');
   const quantityInputBgActive = useColorModeValue('blackAlpha.50', 'whiteAlpha.100');
 
   const displayGrandTotal = billingMode === "withBill" ? cartGrandTotal : cartSubtotal;
   const currentPoints = buyerPoints?.points || 0;
+  const rewardsEnabled = storeConfig?.rewardsEnabled && (storeConfig?.rewardsAllowCheckoutRedeem !== false);
+  const rewardOwnerUid = storeConfig?.uid || selectedRedeemReward?.sellerUid || null;
   const rewardBaseTotal = displayGrandTotal;
   const getRewardSavings = (reward, total) => {
     if (!reward || reward.active === false) return 0;
@@ -72,6 +77,9 @@ const CartPage = () => {
     if (reward.type === 'flat_off') return Math.min(Number(reward.value || 0), total);
     return 0;
   };
+  const getRewardLabel = (reward) => reward?.type === 'percent_off'
+    ? `${Number(reward.value || 0)}% off`
+    : `₹${Number(reward.value || 0)} off`;
 
   const suggestedRewards = availableRewards
     .filter((reward) => reward.active !== false && currentPoints >= Number(reward.pointsCost || 0))
@@ -79,6 +87,10 @@ const CartPage = () => {
     .filter(({ savings }) => savings > 0)
     .sort((left, right) => right.savings - left.savings)
     .slice(0, 3);
+  const suggestedRewardById = new Map(
+    suggestedRewards.map(({ reward, savings }) => [reward.id, savings])
+  );
+  const topSuggestedRewardId = suggestedRewards[0]?.reward?.id || null;
 
   const rewardDiscountPreview = (() => {
     if (!selectedRedeemReward) return 0;
@@ -94,12 +106,14 @@ const CartPage = () => {
 
   useEffect(() => {
     const fetchRewards = async () => {
-      if (!storeConfig?.rewardsEnabled || storeConfig?.rewardsAllowCheckoutRedeem === false || !storeConfig?.uid) {
+      if (!rewardsEnabled || !rewardOwnerUid) {
+        setRewardsLoading(false);
         setAvailableRewards([]);
         return;
       }
+      setRewardsLoading(true);
       try {
-        const itemsRef = collection(db, 'users', storeConfig.uid, 'reward_items');
+        const itemsRef = collection(db, 'users', rewardOwnerUid, 'reward_items');
         const snap = await getDocs(itemsRef);
         const items = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -108,10 +122,12 @@ const CartPage = () => {
       } catch (err) {
         console.error('Failed to load rewards in cart:', err);
         setAvailableRewards([]);
+      } finally {
+        setRewardsLoading(false);
       }
     };
     fetchRewards();
-  }, [storeConfig]);
+  }, [rewardsEnabled, rewardOwnerUid, selectedRedeemReward?.sellerUid]);
 
   const handleRemove = (cartId, title) => {
     removeFromCart(cartId);
@@ -198,7 +214,7 @@ const CartPage = () => {
                           w="100%"
                           h="100%"
                           objectFit="contain"
-                          fallbackSrc="https://via.placeholder.com/100"
+                          fallbackSrc="https://placehold.co/100x100?text=No+Image"
                         />
                       </Box>
 
@@ -398,51 +414,31 @@ const CartPage = () => {
 
               {/* Totals */}
               <VStack spacing={2.5} align="stretch">
-                {suggestedRewards.length > 0 && (
-                  <Box bg={radioBg} borderWidth="1px" borderColor="purple.100" borderRadius="12px" p={3}>
-                    <HStack justify="space-between" mb={2}>
-                      <Text fontSize="xs" fontWeight="700" color={mutedColor} textTransform="uppercase" letterSpacing="0.06em">
-                        Suggested Rewards
-                      </Text>
-                      <Text fontSize="xs" color={mutedColor}>Best savings first</Text>
+                {rewardsEnabled && (
+                  <Box bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="12px" p={4}>
+                    <HStack justify="space-between" mb={1.5}>
+                      <HStack spacing={2}>
+                        <Icon as={FiGift} color={stepActiveColor} />
+                        <Text fontSize="sm" fontWeight="700" color={textColor}>Rewards & Discounts</Text>
+                      </HStack>
+                      <Badge colorScheme="gray" borderRadius="full" fontSize="xs" px={2.5} py={1}>{currentPoints} pts</Badge>
                     </HStack>
-                    <VStack align="stretch" spacing={2}>
-                      {suggestedRewards.map(({ reward, savings }) => {
-                        const isSelected = selectedRedeemReward?.id === reward.id;
-                        return (
-                          <Button
-                            key={reward.id}
-                            size="sm"
-                            justifyContent="space-between"
-                            variant={isSelected ? 'solid' : 'outline'}
-                            colorScheme={isSelected ? 'brand' : 'gray'}
-                            onClick={() => selectRedeemReward(isSelected ? null : reward)}
-                          >
-                            <HStack spacing={2}>
-                              <Text>{reward.title}</Text>
-                              <Badge colorScheme="green" borderRadius="full">Save {formatCurrency(savings)}</Badge>
-                            </HStack>
-                            <Badge ml={2} colorScheme="purple" borderRadius="full">{reward.pointsCost} pts</Badge>
-                          </Button>
-                        );
-                      })}
-                    </VStack>
-                  </Box>
-                )}
-
-                {availableRewards.length > 0 && (
-                  <Box bg={radioBg} borderWidth="1px" borderColor={borderColor} borderRadius="12px" p={3}>
-                    <HStack justify="space-between" mb={2}>
-                      <Text fontSize="xs" fontWeight="700" color={mutedColor} textTransform="uppercase" letterSpacing="0.06em">
-                        Claim Discount Reward
-                      </Text>
-                      <Badge colorScheme="purple" borderRadius="full" fontSize="0.65em">{currentPoints} pts</Badge>
-                    </HStack>
+                    <Text fontSize="xs" color={mutedColor} mb={3}>Choose one reward to apply</Text>
+                    {rewardsLoading && (
+                      <Text fontSize="xs" color={mutedColor}>Loading rewards...</Text>
+                    )}
+                    {!rewardsLoading && availableRewards.length === 0 && (
+                      <VStack align="stretch" spacing={2}>
+                        <Text fontSize="xs" color={mutedColor}>No discount rewards are currently available.</Text>
+                        <Button size="sm" variant="outline" colorScheme="brand" onClick={() => navigate('/rewards')}>Browse Rewards</Button>
+                      </VStack>
+                    )}
                     <VStack align="stretch" spacing={2}>
                       <Button
                         size="sm"
                         variant="outline"
                         colorScheme="gray"
+                        borderRadius="10px"
                         onClick={clearRedeemReward}
                       >
                         Do Not Use Reward Points
@@ -450,25 +446,45 @@ const CartPage = () => {
                       {availableRewards.map((reward) => {
                         const canAfford = currentPoints >= Number(reward.pointsCost || 0);
                         const isSelected = selectedRedeemReward?.id === reward.id;
+                        const suggestedSavings = suggestedRewardById.get(reward.id);
                         return (
-                          <Button
+                          <Box
                             key={reward.id}
-                            size="sm"
-                            justifyContent="space-between"
-                            variant={isSelected ? 'solid' : 'outline'}
-                            colorScheme={isSelected ? 'brand' : 'gray'}
-                            isDisabled={!canAfford}
+                            p={2.5}
+                            borderRadius="10px"
+                            borderWidth="1px"
+                            bg={isSelected ? stepBg : 'transparent'}
+                            borderColor={isSelected ? stepActiveColor : inputBorder}
+                            color={textColor}
+                            opacity={canAfford ? 1 : 0.6}
+                            cursor={canAfford ? 'pointer' : 'not-allowed'}
                             onClick={() => {
+                              if (!canAfford) return;
                               if (isSelected) {
                                 clearRedeemReward();
                               } else {
                                 selectRedeemReward(reward);
                               }
                             }}
+                            transition="all 0.2s"
+                            _hover={canAfford ? { borderColor: stepActiveColor, bg: isSelected ? stepBg : hoverBg } : {}}
                           >
-                            {reward.title}
-                            <Badge ml={2} colorScheme="purple" borderRadius="full">{reward.pointsCost} pts</Badge>
-                          </Button>
+                            <Flex justify="space-between" align="center">
+                              <VStack align="start" spacing={0.5}>
+                                <HStack spacing={2}>
+                                  <Text fontSize="sm" fontWeight="600" color={textColor}>{reward.title}</Text>
+                                  {topSuggestedRewardId === reward.id && (
+                                    <Badge colorScheme="green" variant="subtle" borderRadius="full" fontSize="0.65rem">Best value</Badge>
+                                  )}
+                                </HStack>
+                                <Text fontSize="xs" color={mutedColor}>
+                                  {getRewardLabel(reward)}
+                                  {suggestedSavings ? ` • Save ${formatCurrency(suggestedSavings)}` : ''}
+                                </Text>
+                              </VStack>
+                              <Badge ml={2} colorScheme="purple" borderRadius="full" fontSize="xs" px={2.5} py={1}>{reward.pointsCost} pts</Badge>
+                            </Flex>
+                          </Box>
                         );
                       })}
                     </VStack>
