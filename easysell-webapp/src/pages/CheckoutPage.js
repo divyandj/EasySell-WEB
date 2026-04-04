@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Heading, VStack, FormControl, FormLabel, Input, Button,
   Box, Text, useToast, SimpleGrid, Divider, Alert, AlertIcon,
-  AlertTitle, AlertDescription, HStack, Radio, RadioGroup, Stack, Badge, useColorModeValue, Icon, Flex, Center, IconButton
+  AlertTitle, AlertDescription, HStack, Radio, RadioGroup, Stack, Badge, useColorModeValue, Icon, Flex, IconButton
 } from '@chakra-ui/react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { collection, Timestamp, runTransaction, doc, getDocs, getDoc, setDoc, query, where } from 'firebase/firestore';
+import { collection, Timestamp, runTransaction, doc, getDocs, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import SpinnerComponent from '../components/Spinner';
 import axios from 'axios';
@@ -25,7 +25,7 @@ const getSubdomain = () => {
 };
 
 const CheckoutPage = () => {
-  const { currentUser, userData, storeConfig, buyerPoints, fetchBuyerPoints } = useAuth();
+  const { currentUser, userData, storeConfig, buyerPoints, fetchBuyerPoints, selectedRedeemReward, selectRedeemReward, clearRedeemReward } = useAuth();
   const { cartItems, cartSubtotal, cartTotalTax, cartGrandTotal, clearCart, itemCount, loadingProductData, updateQuantity } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,9 +40,11 @@ const CheckoutPage = () => {
 
   // --- REWARDS STATE ---
   const [availableRewards, setAvailableRewards] = useState([]);
-  const [selectedReward, setSelectedReward] = useState(null);
   const rewardsEnabled = storeConfig?.rewardsEnabled && (storeConfig?.rewardsAllowCheckoutRedeem !== false);
   const currentPoints = buyerPoints?.points || 0;
+  const selectedReward = selectedRedeemReward;
+
+  const isDiscountReward = (reward) => reward?.type === 'percent_off' || reward?.type === 'flat_off';
 
   useEffect(() => {
     const fetchRewards = async () => {
@@ -59,13 +61,34 @@ const CheckoutPage = () => {
     fetchRewards();
   }, [rewardsEnabled, storeConfig?.uid]);
 
+  useEffect(() => {
+    if (!availableRewards.length) return;
+
+    const preselectedRewardId = location.state?.preselectedRewardId;
+    if (preselectedRewardId) {
+      const match = availableRewards.find(r => r.id === preselectedRewardId);
+      if (match && isDiscountReward(match)) {
+        selectRedeemReward(match);
+      }
+      return;
+    }
+
+    if (selectedReward?.id) {
+      const refreshed = availableRewards.find(r => r.id === selectedReward.id);
+      if (refreshed) {
+        selectRedeemReward(refreshed);
+      }
+    }
+  }, [availableRewards, location.state, selectedReward?.id, selectRedeemReward]);
+
   // Calculate reward discount
   const getRewardDiscount = () => {
     if (!selectedReward) return 0;
+    if (!isDiscountReward(selectedReward)) return 0;
     const total = billingMode === 'withBill' ? cartGrandTotal : cartSubtotal;
     if (selectedReward.type === 'percent_off') return total * ((selectedReward.value || 0) / 100);
     if (selectedReward.type === 'flat_off') return Math.min(selectedReward.value || 0, total);
-    return 0; // custom / free_shipping are handled differently
+    return 0;
   };
   const rewardDiscount = getRewardDiscount();
 
@@ -167,6 +190,24 @@ const CheckoutPage = () => {
       return;
     }
 
+    const activeReward = selectedReward
+      ? availableRewards.find(r => r.id === selectedReward.id && r.active !== false)
+      : null;
+    if (selectedReward && !activeReward) {
+      toast({ title: 'Selected reward is no longer available.', status: 'warning', duration: 3000, isClosable: true });
+      clearRedeemReward();
+      return;
+    }
+    if (activeReward && !isDiscountReward(activeReward)) {
+      toast({ title: 'Custom rewards require seller approval and cannot be redeemed at checkout.', status: 'info', duration: 3500, isClosable: true });
+      clearRedeemReward();
+      return;
+    }
+    if (activeReward && currentPoints < Number(activeReward.pointsCost || 0)) {
+      toast({ title: 'Not enough points for selected reward.', status: 'warning', duration: 3000, isClosable: true });
+      return;
+    }
+
     setIsSubmitting(true);
 
     const catalogueId = cartItems[0].productData.catalogueId;
@@ -224,7 +265,7 @@ const CheckoutPage = () => {
       orderSubtotal: cartSubtotal,
       orderTax: displayTax,
       rewardDiscount: rewardDiscount,
-      rewardRedeemed: selectedReward ? { title: selectedReward.title, type: selectedReward.type, pointsCost: selectedReward.pointsCost } : null,
+      rewardRedeemed: activeReward ? { id: activeReward.id, title: activeReward.title, type: activeReward.type, pointsCost: activeReward.pointsCost } : null,
       totalAmount: displayGrandTotal,
       transportName: shippingInfo.transportName || "",
       shippingAddress: shippingInfo,
@@ -330,14 +371,14 @@ const CheckoutPage = () => {
           const welcomeBonus = (isFirstPurchase && storeConfig.rewardsWelcomeBonus) ? storeConfig.rewardsWelcomeBonus : 0;
           const totalEarnedNow = earnedPoints + welcomeBonus;
 
-          const redeemedPoints = selectedReward ? (selectedReward.pointsCost || 0) : 0;
+          const redeemedPoints = activeReward ? (activeReward.pointsCost || 0) : 0;
 
           const newTransactions = [...(existingData.transactions || [])];
           if (totalEarnedNow > 0) {
             newTransactions.push({ type: 'earn', amount: totalEarnedNow, orderId: newOrderId, date: Timestamp.fromDate(new Date()) });
           }
           if (redeemedPoints > 0) {
-            newTransactions.push({ type: 'redeem', amount: -redeemedPoints, rewardTitle: selectedReward.title, orderId: newOrderId, date: Timestamp.fromDate(new Date()) });
+            newTransactions.push({ type: 'redeem_discount', amount: -redeemedPoints, rewardTitle: activeReward.title, orderId: newOrderId, date: Timestamp.fromDate(new Date()) });
           }
 
           await setDoc(pointsRef, {
@@ -380,6 +421,7 @@ const CheckoutPage = () => {
         position: "top",
       });
       clearCart();
+      clearRedeemReward();
       navigate(`/order-details/${catalogueId}/${newOrderId}`);
     } catch (error) {
       console.error("Transaction failed: ", error);
@@ -784,7 +826,14 @@ const CheckoutPage = () => {
                           borderColor={selectedReward?.id === reward.id ? 'purple.300' : 'gray.200'}
                           cursor={canAfford ? 'pointer' : 'not-allowed'}
                           opacity={canAfford ? 1 : 0.6}
-                          onClick={() => canAfford && setSelectedReward(selectedReward?.id === reward.id ? null : reward)}
+                          onClick={() => {
+                            if (!canAfford) return;
+                            if (!isDiscountReward(reward)) {
+                              toast({ title: 'Custom rewards must be claimed from Rewards page.', status: 'info', duration: 2500, isClosable: true });
+                              return;
+                            }
+                            selectRedeemReward(selectedReward?.id === reward.id ? null : reward);
+                          }}
                           transition="all 0.2s"
                           _hover={canAfford ? { borderColor: 'purple.300' } : {}}
                         >
@@ -794,7 +843,7 @@ const CheckoutPage = () => {
                               <Text fontSize="xs" color="gray.500">
                                 {reward.type === 'percent_off' ? `${reward.value}% off` :
                                  reward.type === 'flat_off' ? `₹${reward.value} off` :
-                                 reward.type === 'free_shipping' ? 'Free shipping' : 'Custom reward'}
+                                reward.type === 'free_shipping' ? 'Free shipping' : 'Custom reward (approval needed)'}
                               </Text>
                               {!canAfford && (
                                 <Text fontSize="xs" color="red.400" mt={1}>Need {reward.pointsCost - currentPoints} more pts</Text>

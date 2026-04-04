@@ -309,7 +309,7 @@ import {
   sendPasswordResetEmail,
   signOut as firebaseSignOut
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, addDoc, limit } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase';
 import { Spinner, Center } from '@chakra-ui/react';
 import axios from 'axios';
@@ -334,6 +334,7 @@ export const AuthProvider = ({ children }) => {
   const [storeConfig, setStoreConfig] = useState(null);
   const [storeConfigLoaded, setStoreConfigLoaded] = useState(false);
   const [buyerPoints, setBuyerPoints] = useState(null);
+  const [selectedRedeemReward, setSelectedRedeemReward] = useState(null);
 
   // --- 0. FETCH STORE CONFIG (Public/Private Mode) ---
   useEffect(() => {
@@ -499,9 +500,66 @@ export const AuthProvider = ({ children }) => {
       await firebaseSignOut(auth);
       setCurrentUser(null);
       setUserData(null);
+      setSelectedRedeemReward(null);
     } catch (error) {
       console.error("Sign Out Error:", error);
     }
+  };
+
+  const selectRedeemReward = (reward) => {
+    setSelectedRedeemReward(reward || null);
+  };
+
+  const clearRedeemReward = () => {
+    setSelectedRedeemReward(null);
+  };
+
+  const createCustomRewardClaim = async (reward) => {
+    if (!currentUser) throw new Error('Please sign in to claim rewards.');
+
+    const subdomain = getSubdomain();
+    if (!subdomain) throw new Error('Store context missing. Please open a store URL.');
+
+    const pointsRequired = Number(reward?.pointsCost || 0);
+    if (pointsRequired <= 0) throw new Error('Invalid reward points requirement.');
+
+    const pointsRef = doc(db, 'buyer_points', `${currentUser.uid}__${subdomain}`);
+    const pointsSnap = await getDoc(pointsRef);
+    const currentBalance = Number(pointsSnap.exists() ? pointsSnap.data()?.points : 0) || 0;
+    if (currentBalance < pointsRequired) {
+      throw new Error(`Need ${pointsRequired - currentBalance} more points.`);
+    }
+
+    const pendingClaimsQuery = query(
+      collection(db, 'reward_claim_requests'),
+      where('buyerUid', '==', currentUser.uid),
+      where('storeHandle', '==', subdomain),
+      where('rewardId', '==', reward.id),
+      where('status', '==', 'pending'),
+      limit(1)
+    );
+    const pendingSnap = await getDocs(pendingClaimsQuery);
+    if (!pendingSnap.empty) {
+      throw new Error('You already have a pending claim for this reward.');
+    }
+
+    const claimPayload = {
+      buyerUid: currentUser.uid,
+      buyerName: userData?.displayName || currentUser.displayName || '',
+      buyerEmail: userData?.email || currentUser.email || '',
+      rewardId: reward.id,
+      rewardTitle: reward.title || 'Custom Reward',
+      rewardType: reward.type || 'custom',
+      rewardValue: Number(reward.value || 0),
+      pointsCost: pointsRequired,
+      status: 'pending',
+      storeHandle: subdomain,
+      sellerUid: reward.sellerUid || storeConfig?.uid || '',
+      createdAt: serverTimestamp(),
+    };
+
+    await addDoc(collection(db, 'reward_claim_requests'), claimPayload);
+    return true;
   };
 
   // --- 5. FETCH BUYER POINTS ---
@@ -557,6 +615,10 @@ export const AuthProvider = ({ children }) => {
     signOut,
     buyerPoints,
     fetchBuyerPoints,
+    selectedRedeemReward,
+    selectRedeemReward,
+    clearRedeemReward,
+    createCustomRewardClaim,
   };
 
   if (loading || !storeConfigLoaded) {

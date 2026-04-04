@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Container,
   Heading,
@@ -19,7 +19,6 @@ import {
   Badge,
   Icon,
   useColorModeValue,
-  Center,
   Input,
 } from "@chakra-ui/react";
 import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiShield } from "react-icons/fi";
@@ -27,6 +26,8 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import SpinnerComponent from "../components/Spinner";
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
@@ -45,8 +46,9 @@ const CartPage = () => {
 
   const navigate = useNavigate();
   const toast = useToast();
-  const { storeConfig } = useAuth();
+  const { storeConfig, buyerPoints, selectedRedeemReward, selectRedeemReward, clearRedeemReward } = useAuth();
   const [billingMode, setBillingMode] = useState("withBill");
+  const [availableRewards, setAvailableRewards] = useState([]);
 
   // Theme
   const pageBg = useColorModeValue('#F8F9FC', '#09090B');
@@ -61,8 +63,29 @@ const CartPage = () => {
   const imageBg = useColorModeValue('gray.50', '#0D0D12');
   const quantityInputBgActive = useColorModeValue('blackAlpha.50', 'whiteAlpha.100');
 
-  const displayTax = billingMode === "withBill" ? cartTotalTax : 0;
   const displayGrandTotal = billingMode === "withBill" ? cartGrandTotal : cartSubtotal;
+  const currentPoints = buyerPoints?.points || 0;
+
+  useEffect(() => {
+    const fetchRewards = async () => {
+      if (!storeConfig?.rewardsEnabled || storeConfig?.rewardsAllowCheckoutRedeem === false || !storeConfig?.uid) {
+        setAvailableRewards([]);
+        return;
+      }
+      try {
+        const itemsRef = collection(db, 'users', storeConfig.uid, 'reward_items');
+        const snap = await getDocs(itemsRef);
+        const items = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((item) => item.active !== false && (item.type === 'percent_off' || item.type === 'flat_off'));
+        setAvailableRewards(items);
+      } catch (err) {
+        console.error('Failed to load rewards in cart:', err);
+        setAvailableRewards([]);
+      }
+    };
+    fetchRewards();
+  }, [storeConfig]);
 
   const handleRemove = (cartId, title) => {
     removeFromCart(cartId);
@@ -76,7 +99,12 @@ const CartPage = () => {
     });
   };
 
-  const handleCheckout = () => navigate("/checkout", { state: { billingMode } });
+  const handleCheckout = () => navigate("/checkout", {
+    state: {
+      billingMode,
+      preselectedRewardId: selectedRedeemReward?.id || null,
+    },
+  });
 
   if (loadingProductData) return <SpinnerComponent />;
 
@@ -120,7 +148,6 @@ const CartPage = () => {
             <VStack spacing={3} align="stretch">
               {cartItems.map((item) => {
                 const priceDetails = item.priceDetails || {};
-                const productData = item.productData || {};
                 const lineTotal = billingMode === "withBill" ? priceDetails.lineItemTotal : priceDetails.lineItemSubtotal;
                 const totalUnitDiscount = (priceDetails.discountAmountUnit || 0) + (priceDetails.bulkDiscountAmountUnit || 0);
 
@@ -345,6 +372,43 @@ const CartPage = () => {
 
               {/* Totals */}
               <VStack spacing={2.5} align="stretch">
+                {availableRewards.length > 0 && (
+                  <Box bg={radioBg} borderWidth="1px" borderColor={borderColor} borderRadius="12px" p={3}>
+                    <HStack justify="space-between" mb={2}>
+                      <Text fontSize="xs" fontWeight="700" color={mutedColor} textTransform="uppercase" letterSpacing="0.06em">
+                        Claim Discount Reward
+                      </Text>
+                      <Badge colorScheme="purple" borderRadius="full" fontSize="0.65em">{currentPoints} pts</Badge>
+                    </HStack>
+                    <VStack align="stretch" spacing={2}>
+                      {availableRewards.map((reward) => {
+                        const canAfford = currentPoints >= Number(reward.pointsCost || 0);
+                        const isSelected = selectedRedeemReward?.id === reward.id;
+                        return (
+                          <Button
+                            key={reward.id}
+                            size="sm"
+                            justifyContent="space-between"
+                            variant={isSelected ? 'solid' : 'outline'}
+                            colorScheme={isSelected ? 'brand' : 'gray'}
+                            isDisabled={!canAfford}
+                            onClick={() => {
+                              if (isSelected) {
+                                clearRedeemReward();
+                              } else {
+                                selectRedeemReward(reward);
+                              }
+                            }}
+                          >
+                            {reward.title}
+                            <Badge ml={2} colorScheme="purple" borderRadius="full">{reward.pointsCost} pts</Badge>
+                          </Button>
+                        );
+                      })}
+                    </VStack>
+                  </Box>
+                )}
+
                 <Flex justify="space-between">
                   <Text fontSize="sm" color={mutedColor}>Subtotal</Text>
                   <Text fontSize="sm" fontWeight="600" color={textColor}>{formatCurrency(cartSubtotal)}</Text>
