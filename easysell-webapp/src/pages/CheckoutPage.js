@@ -41,7 +41,7 @@ const CheckoutPage = () => {
   // --- REWARDS STATE ---
   const [availableRewards, setAvailableRewards] = useState([]);
   const [selectedReward, setSelectedReward] = useState(null);
-  const rewardsEnabled = storeConfig?.rewardsEnabled && storeConfig?.rewardsAllowCheckoutRedeem;
+  const rewardsEnabled = storeConfig?.rewardsEnabled && (storeConfig?.rewardsAllowCheckoutRedeem !== false);
   const currentPoints = buyerPoints?.points || 0;
 
   useEffect(() => {
@@ -764,7 +764,7 @@ const CheckoutPage = () => {
               <Divider borderColor={borderColor} />
 
               {/* Rewards Redemption */}
-              {rewardsEnabled && availableRewards.length > 0 && currentPoints > 0 && (
+              {rewardsEnabled && availableRewards.length > 0 && (
                 <Box bg="purple.50" borderRadius="12px" p={4} mb={2}>
                   <HStack mb={2}>
                     <Icon as={FiGift} color="purple.500" />
@@ -772,32 +772,39 @@ const CheckoutPage = () => {
                     <Badge colorScheme="purple" borderRadius="full" fontSize="xs">{currentPoints} pts</Badge>
                   </HStack>
                   <VStack align="stretch" spacing={2}>
-                    {availableRewards.filter(r => currentPoints >= r.pointsCost).map(reward => (
-                      <Box
-                        key={reward.id}
-                        p={3}
-                        borderRadius="8px"
-                        bg={selectedReward?.id === reward.id ? 'purple.100' : 'white'}
-                        borderWidth="1px"
-                        borderColor={selectedReward?.id === reward.id ? 'purple.300' : 'gray.200'}
-                        cursor="pointer"
-                        onClick={() => setSelectedReward(selectedReward?.id === reward.id ? null : reward)}
-                        transition="all 0.2s"
-                        _hover={{ borderColor: 'purple.300' }}
-                      >
-                        <Flex justify="space-between" align="center">
-                          <VStack align="start" spacing={0}>
-                            <Text fontSize="sm" fontWeight="600" color="gray.800">{reward.title}</Text>
-                            <Text fontSize="xs" color="gray.500">
-                              {reward.type === 'percent_off' ? `${reward.value}% off` :
-                               reward.type === 'flat_off' ? `₹${reward.value} off` :
-                               reward.type === 'free_shipping' ? 'Free shipping' : 'Custom reward'}
-                            </Text>
-                          </VStack>
-                          <Badge colorScheme="purple" variant="subtle" fontSize="xs">{reward.pointsCost} pts</Badge>
-                        </Flex>
-                      </Box>
-                    ))}
+                    {availableRewards.map(reward => {
+                      const canAfford = currentPoints >= (reward.pointsCost || 0);
+                      return (
+                        <Box
+                          key={reward.id}
+                          p={3}
+                          borderRadius="8px"
+                          bg={selectedReward?.id === reward.id ? 'purple.100' : 'white'}
+                          borderWidth="1px"
+                          borderColor={selectedReward?.id === reward.id ? 'purple.300' : 'gray.200'}
+                          cursor={canAfford ? 'pointer' : 'not-allowed'}
+                          opacity={canAfford ? 1 : 0.6}
+                          onClick={() => canAfford && setSelectedReward(selectedReward?.id === reward.id ? null : reward)}
+                          transition="all 0.2s"
+                          _hover={canAfford ? { borderColor: 'purple.300' } : {}}
+                        >
+                          <Flex justify="space-between" align="center">
+                            <VStack align="start" spacing={0}>
+                              <Text fontSize="sm" fontWeight="600" color="gray.800">{reward.title}</Text>
+                              <Text fontSize="xs" color="gray.500">
+                                {reward.type === 'percent_off' ? `${reward.value}% off` :
+                                 reward.type === 'flat_off' ? `₹${reward.value} off` :
+                                 reward.type === 'free_shipping' ? 'Free shipping' : 'Custom reward'}
+                              </Text>
+                              {!canAfford && (
+                                <Text fontSize="xs" color="red.400" mt={1}>Need {reward.pointsCost - currentPoints} more pts</Text>
+                              )}
+                            </VStack>
+                            <Badge colorScheme="purple" variant="subtle" fontSize="xs">{reward.pointsCost} pts</Badge>
+                          </Flex>
+                        </Box>
+                      );
+                    })}
                   </VStack>
                   {selectedReward && rewardDiscount > 0 && (
                     <Text fontSize="xs" color="green.600" fontWeight="600" mt={2}>
