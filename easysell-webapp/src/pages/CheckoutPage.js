@@ -12,6 +12,7 @@ import { db } from '../firebase';
 import SpinnerComponent from '../components/Spinner';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { createPaymentOrder } from '../services/paymentApi';
 import { FiShield, FiArrowRight, FiMapPin, FiCreditCard, FiShoppingBag, FiMinus, FiPlus, FiStar, FiGift } from 'react-icons/fi';
 import { resolveStoreContext } from '../utils/storeResolver';
 
@@ -378,6 +379,32 @@ const CheckoutPage = () => {
         transaction.set(newOrderRef, orderData);
         return newOrderRef.id;
       });
+
+      // Create payment allocation order after main order commit; keep checkout resilient if this step fails.
+      try {
+        const paymentData = await createPaymentOrder(currentUser, {
+          buyerId: currentUser.uid,
+          orderAmount: Number(displayGrandTotal || 0),
+          storeHandle: getSubdomain() || '',
+        });
+
+        if (paymentData?.orderId) {
+          await setDoc(doc(db, 'catalogues', catalogueId, 'orders', newOrderId), {
+            paymentOrderId: paymentData.orderId,
+            paymentStatus: 'PENDING',
+            paymentUniquePayableAmount: paymentData.uniquePayableAmount || null,
+            paymentQrImageUrl: paymentData.qrImageUrl || null,
+            paymentUpiDeepLink: paymentData.upiDeepLink || null,
+            paymentExpiresAtMs: paymentData.expiresAt || null,
+            paymentCreatedAt: Timestamp.fromDate(new Date()),
+          }, { merge: true });
+        }
+      } catch (paymentErr) {
+        console.error('Payment order creation failed:', paymentErr?.response?.data || paymentErr.message || paymentErr);
+        await setDoc(doc(db, 'catalogues', catalogueId, 'orders', newOrderId), {
+          paymentIntegrationError: String(paymentErr?.response?.data?.message || paymentErr.message || 'Payment order creation failed'),
+        }, { merge: true });
+      }
 
       axios.post(`${API_BASE_URL}/api/notify-order`, {
         orderId: newOrderId,

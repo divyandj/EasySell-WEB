@@ -1,0 +1,324 @@
+# Admin Android Payment API Contract
+
+This document defines the API contract for Android admin integration with the B2B payment flow.
+
+Base URL:
+- Production: `https://easysell-backend-aweq.onrender.com`
+- Local: `http://127.0.0.1:3001`
+
+Auth:
+- Header: `Authorization: Bearer <Firebase ID token>`
+- Admin role required for all `/api/admin/payment/*` routes.
+
+Common response envelope:
+
+```json
+{
+  "success": true,
+  "message": "...",
+  "data": {}
+}
+```
+
+Common error envelope:
+
+```json
+{
+  "success": false,
+  "code": "ERROR_CODE",
+  "message": "Human readable message",
+  "details": null
+}
+```
+
+## 1) Confirm Order
+
+Route:
+- `POST /api/admin/payment/orders/:orderId/confirm`
+
+Body:
+
+```json
+{
+  "action": "RECONCILE"
+}
+```
+
+`action` allowed values:
+- `RECONCILE`
+- `DISPUTE`
+
+Success (200):
+
+```json
+{
+  "success": true,
+  "message": "Order confirmation updated",
+  "data": {
+    "orderId": "0ZcRrngzFo4jt0DRimhU",
+    "paymentStatus": "RECONCILED",
+    "bucketStatus": "ACTIVE",
+    "ledgerOverpaid": false,
+    "ledgerId": "GErB1oWqbYOMt2pc634Y",
+    "storeHandle": ""
+  }
+}
+```
+
+Possible errors:
+- `ORDER_NOT_FOUND` (404)
+- `ORDER_EXPIRED` (409)
+- `ORDER_NOT_CONFIRMABLE` (409)
+- `REOPEN_REQUIRED` (409)
+- `BUCKET_NOT_FOUND` (404)
+- `INVALID_INPUT` (400)
+
+## 2) Reopen Disputed Order
+
+Route:
+- `POST /api/admin/payment/orders/:orderId/reopen`
+
+Body:
+- Empty JSON `{}`
+
+Success (200):
+
+```json
+{
+  "success": true,
+  "message": "Order moved to review",
+  "data": {
+    "orderId": "R2yHgbmV3cnaCPlb7a0b",
+    "paymentStatus": "PAYMENT_UNDER_REVIEW"
+  }
+}
+```
+
+Possible errors:
+- `ORDER_NOT_FOUND` (404)
+- `INVALID_INPUT` (400) when status is not `DISPUTED`
+
+## 3) Pending Queue (Action Tab 1)
+
+Route:
+- `GET /api/admin/payment/orders/pending?limit=<n>&cursor=<millis>`
+
+Returns orders in:
+- `UTR_SUBMITTED`
+
+Success (200):
+
+```json
+{
+  "success": true,
+  "message": "Pending orders fetched",
+  "data": {
+    "items": [
+      {
+        "orderId": "0ZcRrngzFo4jt0DRimhU",
+        "orderAmount": 1234,
+        "uniquePayableAmount": 1234.01,
+        "utrNumber": "775412526152",
+        "paymentStatus": "UTR_SUBMITTED",
+        "createdAt": 1775412541602,
+        "cancelledAt": null
+      }
+    ],
+    "nextCursor": null
+  }
+}
+```
+
+## 4) Under Review Queue (Action Tab 2)
+
+Route:
+- `GET /api/admin/payment/orders/review?limit=<n>&cursor=<millis>`
+
+Returns orders in:
+- `PAYMENT_UNDER_REVIEW`
+
+Success schema is same as pending.
+
+## 5) History Queue
+
+Route:
+- `GET /api/admin/payment/orders/history?limit=<n>&cursor=<millis>`
+
+Returns non-action statuses:
+- `RECONCILED`
+- `DISPUTED`
+- `CANCELLED_BY_BUYER`
+- `EXPIRED`
+
+Success schema is same list envelope (`items`, `nextCursor`).
+
+## 6) List Buckets
+
+Route:
+- `GET /api/admin/payment/buckets`
+
+Success (200):
+
+```json
+{
+  "success": true,
+  "message": "Buckets fetched",
+  "data": [
+    {
+      "bucketId": "KwuXoMGceV6oJ2VM3yrZ",
+      "vendorName": "Smoke Vendor",
+      "vendorUpiId": "smoke1775412526152@upi",
+      "status": "ACTIVE",
+      "priority": 1,
+      "limitAmount": 10000,
+      "reservedAmount": 0,
+      "collectedAmount": 1234,
+      "availableAmount": 8766
+    }
+  ]
+}
+```
+
+## 7) Create Bucket
+
+Route:
+- `POST /api/admin/payment/buckets`
+
+Body:
+
+```json
+{
+  "vendorName": "Vendor A",
+  "vendorUpiId": "vendor-a@upi",
+  "qrImageUrl": "https://...",
+  "qrType": "UPI",
+  "priority": 1,
+  "limitAmount": 100000,
+  "debtLedgerId": "ledger_doc_id"
+}
+```
+
+Success (200): returns created bucket record with `bucketId`.
+
+Possible errors:
+- `INVALID_INPUT` (400)
+- `LEDGER_NOT_FOUND` (404)
+- `LEDGER_OVERPAID_BLOCK` (409)
+
+## 8) Update Bucket Status
+
+Route:
+- `PATCH /api/admin/payment/buckets/:bucketId/status`
+
+Body:
+
+```json
+{
+  "status": "ACTIVE"
+}
+```
+
+Allowed target statuses:
+- `ACTIVE`
+- `PAUSED`
+- `CLOSED`
+
+Success (200): returns updated bucket.
+
+Possible errors:
+- `BUCKET_NOT_FOUND` (404)
+- `INVALID_INPUT` (400)
+- `VENDOR_ACTIVE_BUCKET_EXISTS` (409)
+
+## 9) List Debt Ledgers
+
+Route:
+- `GET /api/admin/payment/debt-ledger`
+
+Success (200):
+
+```json
+{
+  "success": true,
+  "message": "Debt ledgers fetched",
+  "data": [
+    {
+      "ledgerId": "GErB1oWqbYOMt2pc634Y",
+      "vendorName": "Smoke Vendor",
+      "totalDebtAmount": 5000,
+      "settledAmount": 1234,
+      "remainingAmount": 3766,
+      "status": "PARTIAL"
+    }
+  ]
+}
+```
+
+## 10) Create Debt Ledger
+
+Route:
+- `POST /api/admin/payment/debt-ledger`
+
+Body:
+
+```json
+{
+  "vendorName": "Vendor A",
+  "totalDebtAmount": 500000,
+  "agreementRef": "AGR-2026-01"
+}
+```
+
+Success (200): returns created ledger with `ledgerId`.
+
+Possible errors:
+- `INVALID_INPUT` (400)
+
+## Cursor Pagination Rules
+
+For list endpoints (`pending`, `review`, `history`):
+- Query params:
+  - `limit`: optional, default `20`, max `100`
+  - `cursor`: optional epoch millis from previous `nextCursor`
+- Response:
+  - `nextCursor`: `null` means no further page
+- Android usage:
+  1. Request first page without cursor
+  2. Append `data.items` to list
+  3. If `data.nextCursor` is not null, request next page with `cursor=data.nextCursor`
+  4. Stop when `nextCursor` is null
+
+## Android Queue Mapping (Locked Behavior)
+
+Action tabs:
+- Pending UTR: source endpoint `GET /orders/pending`
+- Under Review: source endpoint `GET /orders/review`
+
+History tab only:
+- `RECONCILED`
+- `DISPUTED`
+- `CANCELLED_BY_BUYER`
+- `EXPIRED`
+
+Do not include `CANCELLED_BY_BUYER` or `DISPUTED` in action tabs.
+
+## Error Code Mapping Suggestions
+
+Suggested Android message mapping:
+- `UTR_CORRECTION_ALREADY_USED`: "UTR can only be corrected once."
+- `REOPEN_REQUIRED`: "Reopen disputed order before confirming."
+- `ORDER_NOT_CONFIRMABLE`: "Order is not in confirmable state."
+- `ORDER_EXPIRED`: "Order has expired."
+- `VENDOR_ACTIVE_BUCKET_EXISTS`: "This vendor already has an active bucket."
+- `LEDGER_OVERPAID_BLOCK`: "Bucket creation blocked: ledger is overpaid."
+
+## Smoke Verification Command
+
+To verify the backend contract after changes:
+
+```bash
+npm run smoke:payment
+```
+
+From:
+- `EasySell-WEB/easysell-backend`

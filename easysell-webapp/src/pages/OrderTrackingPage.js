@@ -1,15 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import {
   Container, Heading, Text, VStack, Box, Center, Divider,
   SimpleGrid, Image, Flex, Alert, AlertIcon, AlertTitle,
-  AlertDescription, HStack, Tooltip, useColorModeValue, Icon, Badge
+  AlertDescription, HStack, Tooltip, useColorModeValue, Icon, Badge,
+  Button, FormControl, FormLabel, Input, Link, useToast
 } from '@chakra-ui/react';
 import { FiCheck, FiPackage, FiClock, FiTruck, FiCheckCircle, FiMapPin } from 'react-icons/fi';
 import SpinnerComponent from '../components/Spinner';
+import {
+  getPaymentStatus,
+  submitPaymentUtr,
+  correctPaymentUtr,
+  cancelPaymentOrder,
+} from '../services/paymentApi';
 
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
@@ -19,6 +26,10 @@ const OrderTrackingPage = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [paymentInfo, setPaymentInfo] = useState(null);
+  const [utrInput, setUtrInput] = useState('');
+  const [paymentActionLoading, setPaymentActionLoading] = useState(false);
+  const toast = useToast();
 
   const pageBg = useColorModeValue('#F8F9FC', '#09090B');
   const cardBg = useColorModeValue('white', '#111116');
@@ -28,6 +39,31 @@ const OrderTrackingPage = () => {
   const priceColor = useColorModeValue('brand.600', 'brand.300');
   const altBg = useColorModeValue('gray.50', 'whiteAlpha.50');
   const successColor = useColorModeValue('green.600', 'green.300');
+
+  const paymentOrderId = order?.paymentOrderId || null;
+
+  const canSubmitUtr = ['PENDING', 'UTR_SUBMITTED'].includes(paymentInfo?.paymentStatus || '');
+  const canCorrectUtr = ['UTR_SUBMITTED', 'PAYMENT_UNDER_REVIEW'].includes(paymentInfo?.paymentStatus || '');
+  const canCancelPayment = ['PENDING'].includes(paymentInfo?.paymentStatus || '');
+
+  const syncPaymentStatus = useCallback(async (paymentOrderIdValue, orderDocId, orderCatalogueId) => {
+    if (!paymentOrderIdValue || !currentUser) return;
+    try {
+      const statusData = await getPaymentStatus(currentUser, paymentOrderIdValue);
+      setPaymentInfo(statusData);
+      await setDoc(
+        doc(db, 'catalogues', orderCatalogueId, 'orders', orderDocId),
+        {
+          paymentStatus: statusData?.paymentStatus || null,
+          paymentCancelledAtMs: statusData?.cancelledAt || null,
+          paymentExpiresAtMs: statusData?.expiresAt || null,
+        },
+        { merge: true }
+      );
+    } catch (statusError) {
+      console.error('Payment status sync failed:', statusError?.response?.data || statusError.message || statusError);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) { setLoading(false); setError("Please log in to view orders."); return; }
@@ -43,6 +79,9 @@ const OrderTrackingPage = () => {
           const orderData = orderSnap.data();
           if (orderData.userId === currentUser.uid) {
             setOrder({ id: orderSnap.id, ...orderData });
+            if (orderData.paymentOrderId) {
+              await syncPaymentStatus(orderData.paymentOrderId, orderSnap.id, catalogueId);
+            }
           } else {
             setError("Access Denied: You don't have permission to view this order.");
           }
@@ -57,7 +96,7 @@ const OrderTrackingPage = () => {
       }
     };
     fetchOrder();
-  }, [orderId, catalogueId, currentUser]);
+  }, [orderId, catalogueId, currentUser, syncPaymentStatus]);
 
   if (loading) return <SpinnerComponent />;
 
@@ -76,6 +115,38 @@ const OrderTrackingPage = () => {
   }
 
   if (!order) return <Center h="50vh" bg={pageBg}><Text color={mutedColor}>Order not found.</Text></Center>;
+
+  const handlePaymentAction = async (mode) => {
+    if (!paymentOrderId || !currentUser) return;
+    const normalizedUtr = utrInput.trim();
+
+    if ((mode === 'submit' || mode === 'correct') && !/^\d{12}$/.test(normalizedUtr)) {
+      toast({ title: 'UTR must be exactly 12 digits.', status: 'warning', duration: 3000, isClosable: true });
+      return;
+    }
+
+    setPaymentActionLoading(true);
+    try {
+      if (mode === 'submit') {
+        await submitPaymentUtr(currentUser, paymentOrderId, normalizedUtr);
+        toast({ title: 'UTR submitted successfully.', status: 'success', duration: 3000, isClosable: true });
+      } else if (mode === 'correct') {
+        await correctPaymentUtr(currentUser, paymentOrderId, normalizedUtr);
+        toast({ title: 'UTR corrected successfully.', status: 'success', duration: 3000, isClosable: true });
+      } else if (mode === 'cancel') {
+        await cancelPaymentOrder(currentUser, paymentOrderId);
+        toast({ title: 'Payment order cancelled.', status: 'success', duration: 3000, isClosable: true });
+      }
+
+      await syncPaymentStatus(paymentOrderId, order.id, catalogueId);
+      setUtrInput('');
+    } catch (actionErr) {
+      const msg = actionErr?.response?.data?.message || actionErr.message || 'Payment action failed.';
+      toast({ title: msg, status: 'error', duration: 4000, isClosable: true });
+    } finally {
+      setPaymentActionLoading(false);
+    }
+  };
 
   const {
     shippingAddress = {},
@@ -291,6 +362,60 @@ const OrderTrackingPage = () => {
               </VStack>
             </Box>
           </SimpleGrid>
+
+          {/* B2B Payment Panel */}
+          {paymentOrderId && (
+            <Box p={5} borderWidth="1px" borderColor={borderColor} borderRadius="16px" bg={cardBg} boxShadow="card">
+              <VStack align="stretch" spacing={3}>
+                <HStack justify="space-between" align="start">
+                  <Box>
+                    <Text fontSize="xs" fontWeight="700" color={mutedColor} textTransform="uppercase" letterSpacing="0.06em">
+                      Payment Tracking
+                    </Text>
+                    <Text fontSize="xs" color={mutedColor} mt={1}>Payment Order ID: {paymentOrderId}</Text>
+                  </Box>
+                  <Badge colorScheme={paymentInfo?.paymentStatus === 'RECONCILED' ? 'green' : paymentInfo?.paymentStatus === 'DISPUTED' ? 'red' : 'blue'}>
+                    {paymentInfo?.paymentStatus || order.paymentStatus || 'PENDING'}
+                  </Badge>
+                </HStack>
+
+                {order.paymentUniquePayableAmount && (
+                  <Text fontSize="sm" color={textColor}>Payable: {formatCurrency(Number(order.paymentUniquePayableAmount || 0))}</Text>
+                )}
+
+                {order.paymentUpiDeepLink && (
+                  <Link href={order.paymentUpiDeepLink} color="brand.500" fontWeight="600" isExternal>
+                    Open UPI App
+                  </Link>
+                )}
+
+                <FormControl>
+                  <FormLabel fontSize="xs" color={mutedColor}>UTR Number (12 digits)</FormLabel>
+                  <Input
+                    value={utrInput}
+                    onChange={(e) => setUtrInput(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                    placeholder="Enter UTR"
+                    maxLength={12}
+                  />
+                </FormControl>
+
+                <HStack spacing={2} flexWrap="wrap">
+                  <Button size="sm" colorScheme="blue" onClick={() => handlePaymentAction('submit')} isDisabled={!canSubmitUtr} isLoading={paymentActionLoading}>
+                    Submit UTR
+                  </Button>
+                  <Button size="sm" variant="outline" colorScheme="orange" onClick={() => handlePaymentAction('correct')} isDisabled={!canCorrectUtr} isLoading={paymentActionLoading}>
+                    Correct UTR
+                  </Button>
+                  <Button size="sm" variant="outline" colorScheme="red" onClick={() => handlePaymentAction('cancel')} isDisabled={!canCancelPayment} isLoading={paymentActionLoading}>
+                    Cancel Payment
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => syncPaymentStatus(paymentOrderId, order.id, catalogueId)} isLoading={paymentActionLoading}>
+                    Refresh Status
+                  </Button>
+                </HStack>
+              </VStack>
+            </Box>
+          )}
         </VStack>
       </Container>
     </Box>

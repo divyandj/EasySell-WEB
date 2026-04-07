@@ -26,6 +26,8 @@ const itemVariants = {
 
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
+const isCancelledStatus = (status) => ['Cancelled', 'CANCELLED_BY_BUYER'].includes(String(status || ''));
+
 const getStatusConfig = (status) => {
   switch (status) {
     case 'Placed': return { icon: FiPackage, color: 'blue' };
@@ -33,6 +35,7 @@ const getStatusConfig = (status) => {
     case 'Shipped': return { icon: FiTruck, color: 'orange' };
     case 'Delivered': return { icon: FiCheckCircle, color: 'green' };
     case 'Cancelled': return { icon: FiAlertCircle, color: 'red' };
+    case 'CANCELLED_BY_BUYER': return { icon: FiAlertCircle, color: 'gray' };
     default: return { icon: FiShoppingBag, color: 'gray' };
   }
 };
@@ -68,6 +71,19 @@ const OrderHistoryPage = () => {
           const catalogueId = doc.ref.parent.parent?.id;
           return { id: doc.id, catalogueId: catalogueId || 'unknown', ...doc.data() };
         });
+
+        // Keep cancelled orders visible but pushed below active orders.
+        userOrders.sort((a, b) => {
+          const aCancelled = isCancelledStatus(a.status);
+          const bCancelled = isCancelledStatus(b.status);
+          if (aCancelled === bCancelled) {
+            const aMs = a.orderDate?.toMillis ? a.orderDate.toMillis() : 0;
+            const bMs = b.orderDate?.toMillis ? b.orderDate.toMillis() : 0;
+            return bMs - aMs;
+          }
+          return aCancelled ? 1 : -1;
+        });
+
         setOrders(userOrders);
       } catch (err) {
         console.error("Error fetching orders:", err);
@@ -137,6 +153,7 @@ const OrderHistoryPage = () => {
           <MotionVStack spacing={3} align="stretch" variants={containerVariants} initial="hidden" animate="visible">
             {orders.map(order => {
               const { icon: StatusIcon, color: statusColor } = getStatusConfig(order.status);
+              const cancelled = isCancelledStatus(order.status);
               return (
                 <MotionBox
                   key={order.id}
@@ -147,7 +164,8 @@ const OrderHistoryPage = () => {
                   borderWidth="1px"
                   borderColor={borderColor}
                   boxShadow="card"
-                  _hover={{ borderColor: 'brand.200', transform: 'translateY(-2px)', boxShadow: 'cardHover' }}
+                  opacity={cancelled ? 0.72 : 1}
+                  _hover={{ borderColor: cancelled ? borderColor : 'brand.200', transform: cancelled ? 'none' : 'translateY(-2px)', boxShadow: cancelled ? 'card' : 'cardHover' }}
                   transition="all 0.2s"
                   as={RouterLink}
                   to={`/order-details/${order.catalogueId}/${order.id}`}
@@ -164,6 +182,11 @@ const OrderHistoryPage = () => {
                         <Text fontSize="xs" color={mutedColor}>
                           {order.items?.length || 0} items · {order.orderDate?.toDate ? order.orderDate.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                         </Text>
+                        {cancelled && (
+                          <Text fontSize="xs" color={mutedColor}>
+                            Cancelled {order.cancelledAt?.toDate ? order.cancelledAt.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                          </Text>
+                        )}
                       </Box>
                     </HStack>
 

@@ -1,6 +1,10 @@
 
 const express = require("express");
 const cors = require("cors");
+const paymentBuyerRoutes = require("./routes/paymentBuyerRoutes");
+const paymentAdminRoutes = require("./routes/paymentAdminRoutes");
+const { sendError } = require("./constants/paymentErrors");
+const { startOrderExpiryJob } = require("./services/orderExpiryService");
 
 // --- NEW: Import Notification Service safely ---
 // We use try-catch so your server doesn't crash if the notification setup isn't done yet.
@@ -79,6 +83,12 @@ app.post("/api/notify-product-request", (req, res) => {
 });
 
 // ==========================================
+//  PAYMENT API ENDPOINTS
+// ==========================================
+app.use('/api/payment', paymentBuyerRoutes);
+app.use('/api/admin/payment', paymentAdminRoutes);
+
+// ==========================================
 //  ANALYTICS API ENDPOINTS
 // ==========================================
 
@@ -111,6 +121,15 @@ app.post("/api/analytics/abandoned", async (req, res) => {
   await analyticsService.trackAbandonedCart(storeHandle, cartValue);
   return res.json({ success: true });
 });
+
+// Global error handler.
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  return sendError(res, err);
+});
+
+// Start background expiry worker.
+startOrderExpiryJob();
 
 app.listen(PORT, () => {
   console.log(`✅ Server started. Listening on port ${PORT}`);
