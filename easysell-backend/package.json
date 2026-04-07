@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "smoke:payment": "node scripts/paymentSmoke.js"
+    "smoke:payment": "node scripts/paymentSmoke.js",
+    "migrate:collection-accounts:dry": "node scripts/migrateToCollectionAccounts.js",
+    "migrate:collection-accounts:apply": "node scripts/migrateToCollectionAccounts.js --apply",
+    "migrate:collection-accounts:delete-ledgers": "node scripts/migrateToCollectionAccounts.js --apply --delete-ledgers --export"
   },
   "keywords": [],
   "author": "",

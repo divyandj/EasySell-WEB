@@ -19,10 +19,17 @@ function withHandler(fn) {
 }
 
 function getStoreHandle(req) {
+  const profile = String(req.auth?.profile?.storeHandle || '').trim().toLowerCase();
   const fromBody = req.body?.storeHandle;
   const fromQuery = req.query?.storeHandle;
   const fromHeader = req.headers['x-store-handle'];
-  return String(fromBody || fromQuery || fromHeader || '').trim().toLowerCase();
+  const requested = String(fromBody || fromQuery || fromHeader || '').trim().toLowerCase();
+
+  if (profile && requested && profile !== requested) {
+    throw buildError('STORE_SCOPE_MISMATCH');
+  }
+
+  return profile || requested;
 }
 
 router.post('/orders', auth, requireRole('buyer'), withHandler(async (req, res) => {
@@ -35,6 +42,9 @@ router.post('/orders', auth, requireRole('buyer'), withHandler(async (req, res) 
   }
   if (buyerId !== req.auth.uid) {
     throw buildError('FORBIDDEN');
+  }
+  if (!storeHandle) {
+    throw buildError('STORE_SCOPE_REQUIRED');
   }
 
   const data = await createOrder({ buyerId, orderAmount, storeHandle });

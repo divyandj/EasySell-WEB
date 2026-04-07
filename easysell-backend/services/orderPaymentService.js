@@ -49,7 +49,6 @@ async function createOrder({ buyerId, orderAmount, storeHandle }) {
           const orderDoc = {
             buyerId: normalizedBuyerId,
             bucketId: bucket.bucketId,
-            debtLedgerId: bucket.debtLedgerId || '',
             storeHandle: normalizedStoreHandle || bucket.storeHandle || '',
             vendorUpiSnapshot: bucket.vendorUpiId || '',
             qrImageSnapshot: bucket.qrImageUrl || '',

@@ -1,7 +1,6 @@
 const { getDb } = require('../utils/firebaseAdmin');
 const { BUCKET_STATUS } = require('../constants/paymentStatuses');
 const { buildError } = require('../constants/paymentErrors');
-const { assertLedgerCanCreateBucket } = require('./debtLedgerService');
 
 const db = getDb();
 
@@ -29,7 +28,7 @@ async function listBucketsWithComputedAvailable(storeHandle) {
   }).sort((a, b) => Number(a.priority || 9999) - Number(b.priority || 9999));
 }
 
-async function createBucketWithLedgerGuard(payload, storeHandle) {
+async function createBucket(payload, storeHandle) {
   const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
   const vendorName = String(payload.vendorName || '').trim();
   const vendorUpiId = String(payload.vendorUpiId || '').trim();
@@ -37,21 +36,18 @@ async function createBucketWithLedgerGuard(payload, storeHandle) {
   const qrType = String(payload.qrType || '').trim().toUpperCase();
   const priority = Number(payload.priority);
   const limitAmount = Number(payload.limitAmount);
-  const debtLedgerId = String(payload.debtLedgerId || '').trim();
 
   if (!scopedStoreHandle) {
     throw buildError('STORE_SCOPE_REQUIRED');
   }
 
-  if (!vendorName || !vendorUpiId || !qrImageUrl || !debtLedgerId || !Number.isFinite(priority) || limitAmount <= 0) {
-    throw buildError('INVALID_INPUT', { message: 'vendorName, vendorUpiId, qrImageUrl, priority, limitAmount, debtLedgerId are required.' });
+  if (!vendorName || !vendorUpiId || !qrImageUrl || !Number.isFinite(priority) || limitAmount <= 0) {
+    throw buildError('INVALID_INPUT', { message: 'vendorName, vendorUpiId, qrImageUrl, priority and limitAmount are required.' });
   }
 
   if (!['UPI', 'BANK'].includes(qrType)) {
     throw buildError('INVALID_INPUT', { message: 'qrType must be UPI or BANK.' });
   }
-
-  await assertLedgerCanCreateBucket(debtLedgerId, scopedStoreHandle);
 
   const now = new Date();
   const ref = db.collection('buckets').doc();
@@ -65,7 +61,6 @@ async function createBucketWithLedgerGuard(payload, storeHandle) {
     reservedAmount: 0,
     collectedAmount: 0,
     status: BUCKET_STATUS.PAUSED,
-    debtLedgerId,
     storeHandle: scopedStoreHandle,
     createdAt: now,
     updatedAt: now,
@@ -169,7 +164,7 @@ function reserveBucketAmountTx(tx, bucket, orderAmount) {
 module.exports = {
   computeAvailable,
   listBucketsWithComputedAvailable,
-  createBucketWithLedgerGuard,
+  createBucket,
   updateBucketStatus,
   selectBucketForOrderTx,
   reserveBucketAmountTx,

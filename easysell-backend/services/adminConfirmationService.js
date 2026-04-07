@@ -3,7 +3,6 @@ const { ORDER_STATUS, CONFIRM_ACTION, BUCKET_STATUS } = require('../constants/pa
 const { buildError } = require('../constants/paymentErrors');
 const { runWithRetry } = require('./transactionRetry');
 const { suffixToDocId } = require('./suffixEngineService');
-const { applyReconcileToLedgerTx } = require('./debtLedgerService');
 const { sendAlways } = require('./fcmAlertService');
 
 const db = getDb();
@@ -163,16 +162,11 @@ async function confirmOrder(orderId, action, adminUid, storeHandle) {
 
     const nextReserved = Math.max(0, currentReserved - orderAmount);
 
-    let ledgerUpdate = null;
-
     if (normalized === CONFIRM_ACTION.RECONCILE) {
       const nextCollected = currentCollected + orderAmount;
       const nextBucketStatus = nextCollected >= Number(bucket.limitAmount || 0)
         ? BUCKET_STATUS.FULL
         : bucket.status;
-
-      const ledgerRef = db.collection('debtLedger').doc(order.debtLedgerId || bucket.debtLedgerId || '');
-      ledgerUpdate = await applyReconcileToLedgerTx(tx, ledgerRef, orderAmount);
 
       tx.update(bucketRef, {
         reservedAmount: nextReserved,
@@ -199,8 +193,6 @@ async function confirmOrder(orderId, action, adminUid, storeHandle) {
       bucketStatus: normalized === CONFIRM_ACTION.RECONCILE
         ? (currentCollected + orderAmount >= Number(bucket.limitAmount || 0) ? BUCKET_STATUS.FULL : bucket.status)
         : bucket.status,
-      ledgerOverpaid: Boolean(ledgerUpdate?.enteredOverpaid),
-      ledgerId: ledgerUpdate?.ledgerId || null,
       storeHandle: order.storeHandle || '',
     };
   }));
@@ -210,23 +202,9 @@ async function confirmOrder(orderId, action, adminUid, storeHandle) {
       await sendAlways({
         storeHandle: result.storeHandle,
         alertType: 'BUCKET_FULL',
-        title: 'Bucket is full',
-        body: 'A bucket has reached its limit. Activate the next bucket manually.',
+        title: 'Collection account is full',
+        body: 'A collection account has reached its limit. Activate the next account manually.',
         data: { orderId: result.orderId },
-      });
-    } catch (e) {
-      // Non-blocking.
-    }
-  }
-
-  if (result.ledgerOverpaid && result.ledgerId) {
-    try {
-      await sendAlways({
-        storeHandle: result.storeHandle,
-        alertType: 'LEDGER_OVERPAID',
-        title: 'Ledger overpaid',
-        body: `Ledger ${result.ledgerId} is overpaid.`,
-        data: { ledgerId: result.ledgerId, orderId: result.orderId },
       });
     } catch (e) {
       // Non-blocking.

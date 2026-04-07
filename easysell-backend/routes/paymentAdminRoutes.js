@@ -12,10 +12,9 @@ const {
 const { reopenDisputedOrder } = require('../services/reopenService');
 const {
   listBucketsWithComputedAvailable,
-  createBucketWithLedgerGuard,
+  createBucket,
   updateBucketStatus,
 } = require('../services/bucketAllocatorService');
-const { listLedgers, createLedger } = require('../services/debtLedgerService');
 
 const router = express.Router();
 
@@ -57,27 +56,17 @@ router.get('/orders/history', auth, requireRole('admin'), requireStoreScope, wit
 
 router.get('/buckets', auth, requireRole('admin'), requireStoreScope, withHandler(async (req, res) => {
   const data = await listBucketsWithComputedAvailable(req.storeHandleScope);
-  res.json(success({ data }, 'Buckets fetched'));
+  res.json(success({ data }, 'Collection accounts fetched'));
 }));
 
 router.post('/buckets', auth, requireRole('admin'), requireStoreScope, withHandler(async (req, res) => {
-  const data = await createBucketWithLedgerGuard(req.body || {}, req.storeHandleScope);
-  res.json(success({ data }, 'Bucket created'));
+  const data = await createBucket(req.body || {}, req.storeHandleScope);
+  res.json(success({ data }, 'Collection account created'));
 }));
 
 router.patch('/buckets/:bucketId/status', auth, requireRole('admin'), requireStoreScope, withHandler(async (req, res) => {
   const data = await updateBucketStatus(req.params.bucketId, req.body?.status, req.storeHandleScope);
-  res.json(success({ data }, 'Bucket status updated'));
-}));
-
-router.get('/debt-ledger', auth, requireRole('admin'), requireStoreScope, withHandler(async (req, res) => {
-  const data = await listLedgers(req.storeHandleScope);
-  res.json(success({ data }, 'Debt ledgers fetched'));
-}));
-
-router.post('/debt-ledger', auth, requireRole('admin'), requireStoreScope, withHandler(async (req, res) => {
-  const data = await createLedger(req.body || {}, req.storeHandleScope);
-  res.json(success({ data }, 'Debt ledger created'));
+  res.json(success({ data }, 'Collection account status updated'));
 }));
 
 module.exports = router;

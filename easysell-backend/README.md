@@ -16,8 +16,7 @@ npm run smoke:payment
 
 ### What it verifies
 
-- Debt ledger creation
-- Bucket creation and activation
+- Collection account creation and activation
 - Buyer order creation and status fetch
 - UTR submit flow
 - One-time UTR correction rule (`UTR_CORRECTION_ALREADY_USED` on second correction)
@@ -25,8 +24,9 @@ npm run smoke:payment
 - Pending/review/history listing endpoints with cursor parameters
 - Buyer pending cancellation flow
 - Reopen requirement guard (`REOPEN_REQUIRED` path via invalid reconcile on disputed)
-- One ACTIVE bucket uniqueness per vendor UPI (`VENDOR_ACTIVE_BUCKET_EXISTS`)
-- Debt-ledger overpaid protection (`LEDGER_OVERPAID_BLOCK` on new bucket creation)
+- One ACTIVE account uniqueness per vendor UPI (`VENDOR_ACTIVE_BUCKET_EXISTS`)
+- Multi-account behavior (activate/pause transitions, fallback allocation, capacity conflict)
+- Cross-store isolation on admin account routes
 
 ### Prerequisites
 
@@ -45,3 +45,20 @@ npm run smoke:payment
 ```bash
 SMOKE_BASE_URL=http://localhost:4000 npm run smoke:payment
 ```
+
+## Collection Accounts Migration Script
+
+Use this helper to remove legacy `debtLedgerId` references and optionally backup/delete old `debtLedger` docs.
+
+Commands:
+
+```bash
+npm run migrate:collection-accounts:dry
+npm run migrate:collection-accounts:apply
+npm run migrate:collection-accounts:delete-ledgers
+```
+
+Behavior:
+- Dry run reports impacted docs only.
+- Apply mode removes `debtLedgerId` field from `orders` and `buckets`.
+- Delete mode exports `debtLedger` backup JSON to `scripts/exports/` and deletes docs.

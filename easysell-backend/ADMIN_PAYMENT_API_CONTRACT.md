@@ -1,14 +1,15 @@
-# Admin Android Payment API Contract
+# Admin Android Collection Accounts API Contract
 
-This document defines the API contract for Android admin integration with the B2B payment flow.
+This document defines the API contract for Android admin integration with the payment flow using Collection Accounts (no debt-ledger subsystem).
 
 Base URL:
-- Production: `https://easysell-backend-aweq.onrender.com`
-- Local: `http://127.0.0.1:3001`
+- Production: https://easysell-backend-aweq.onrender.com
+- Local: http://127.0.0.1:3001
 
 Auth:
-- Header: `Authorization: Bearer <Firebase ID token>`
-- Admin role required for all `/api/admin/payment/*` routes.
+- Header: Authorization: Bearer <Firebase ID token>
+- Admin role required for all /api/admin/payment/* routes.
+- Strict store scope is enforced server-side.
 
 Common response envelope:
 
@@ -34,7 +35,7 @@ Common error envelope:
 ## 1) Confirm Order
 
 Route:
-- `POST /api/admin/payment/orders/:orderId/confirm`
+- POST /api/admin/payment/orders/:orderId/confirm
 
 Body:
 
@@ -44,9 +45,9 @@ Body:
 }
 ```
 
-`action` allowed values:
-- `RECONCILE`
-- `DISPUTE`
+action allowed values:
+- RECONCILE
+- DISPUTE
 
 Success (200):
 
@@ -58,28 +59,28 @@ Success (200):
     "orderId": "0ZcRrngzFo4jt0DRimhU",
     "paymentStatus": "RECONCILED",
     "bucketStatus": "ACTIVE",
-    "ledgerOverpaid": false,
-    "ledgerId": "GErB1oWqbYOMt2pc634Y",
-    "storeHandle": ""
+    "storeHandle": "my-store"
   }
 }
 ```
 
 Possible errors:
-- `ORDER_NOT_FOUND` (404)
-- `ORDER_EXPIRED` (409)
-- `ORDER_NOT_CONFIRMABLE` (409)
-- `REOPEN_REQUIRED` (409)
-- `BUCKET_NOT_FOUND` (404)
-- `INVALID_INPUT` (400)
+- ORDER_NOT_FOUND (404)
+- ORDER_EXPIRED (409)
+- ORDER_NOT_CONFIRMABLE (409)
+- REOPEN_REQUIRED (409)
+- BUCKET_NOT_FOUND (404)
+- STORE_SCOPE_REQUIRED (403)
+- STORE_SCOPE_MISMATCH (403)
+- INVALID_INPUT (400)
 
 ## 2) Reopen Disputed Order
 
 Route:
-- `POST /api/admin/payment/orders/:orderId/reopen`
+- POST /api/admin/payment/orders/:orderId/reopen
 
 Body:
-- Empty JSON `{}`
+- Empty JSON {}
 
 Success (200):
 
@@ -95,16 +96,18 @@ Success (200):
 ```
 
 Possible errors:
-- `ORDER_NOT_FOUND` (404)
-- `INVALID_INPUT` (400) when status is not `DISPUTED`
+- ORDER_NOT_FOUND (404)
+- STORE_SCOPE_REQUIRED (403)
+- STORE_SCOPE_MISMATCH (403)
+- INVALID_INPUT (400)
 
-## 3) Pending Queue (Action Tab 1)
+## 3) Pending Queue
 
 Route:
-- `GET /api/admin/payment/orders/pending?limit=<n>&cursor=<millis>`
+- GET /api/admin/payment/orders/pending?limit=<n>&cursor=<millis>
 
 Returns orders in:
-- `UTR_SUBMITTED`
+- UTR_SUBMITTED
 
 Success (200):
 
@@ -129,33 +132,33 @@ Success (200):
 }
 ```
 
-## 4) Under Review Queue (Action Tab 2)
+## 4) Under Review Queue
 
 Route:
-- `GET /api/admin/payment/orders/review?limit=<n>&cursor=<millis>`
+- GET /api/admin/payment/orders/review?limit=<n>&cursor=<millis>
 
 Returns orders in:
-- `PAYMENT_UNDER_REVIEW`
+- PAYMENT_UNDER_REVIEW
 
 Success schema is same as pending.
 
 ## 5) History Queue
 
 Route:
-- `GET /api/admin/payment/orders/history?limit=<n>&cursor=<millis>`
+- GET /api/admin/payment/orders/history?limit=<n>&cursor=<millis>
 
 Returns non-action statuses:
-- `RECONCILED`
-- `DISPUTED`
-- `CANCELLED_BY_BUYER`
-- `EXPIRED`
+- RECONCILED
+- DISPUTED
+- CANCELLED_BY_BUYER
+- EXPIRED
 
-Success schema is same list envelope (`items`, `nextCursor`).
+Success schema is same list envelope (items, nextCursor).
 
-## 6) List Buckets
+## 6) List Collection Accounts
 
 Route:
-- `GET /api/admin/payment/buckets`
+- GET /api/admin/payment/buckets
 
 Success (200):
 
@@ -173,16 +176,17 @@ Success (200):
       "limitAmount": 10000,
       "reservedAmount": 0,
       "collectedAmount": 1234,
-      "availableAmount": 8766
+      "availableAmount": 8766,
+      "storeHandle": "my-store"
     }
   ]
 }
 ```
 
-## 7) Create Bucket
+## 7) Create Collection Account
 
 Route:
-- `POST /api/admin/payment/buckets`
+- POST /api/admin/payment/buckets
 
 Body:
 
@@ -193,22 +197,20 @@ Body:
   "qrImageUrl": "https://...",
   "qrType": "UPI",
   "priority": 1,
-  "limitAmount": 100000,
-  "debtLedgerId": "ledger_doc_id"
+  "limitAmount": 100000
 }
 ```
 
-Success (200): returns created bucket record with `bucketId`.
+Success (200): returns created account with bucketId.
 
 Possible errors:
-- `INVALID_INPUT` (400)
-- `LEDGER_NOT_FOUND` (404)
-- `LEDGER_OVERPAID_BLOCK` (409)
+- INVALID_INPUT (400)
+- STORE_SCOPE_REQUIRED (403)
 
-## 8) Update Bucket Status
+## 8) Update Collection Account Status
 
 Route:
-- `PATCH /api/admin/payment/buckets/:bucketId/status`
+- PATCH /api/admin/payment/buckets/:bucketId/status
 
 Body:
 
@@ -219,106 +221,64 @@ Body:
 ```
 
 Allowed target statuses:
-- `ACTIVE`
-- `PAUSED`
-- `CLOSED`
+- ACTIVE
+- PAUSED
+- CLOSED
 
-Success (200): returns updated bucket.
-
-Possible errors:
-- `BUCKET_NOT_FOUND` (404)
-- `INVALID_INPUT` (400)
-- `VENDOR_ACTIVE_BUCKET_EXISTS` (409)
-
-## 9) List Debt Ledgers
-
-Route:
-- `GET /api/admin/payment/debt-ledger`
-
-Success (200):
-
-```json
-{
-  "success": true,
-  "message": "Debt ledgers fetched",
-  "data": [
-    {
-      "ledgerId": "GErB1oWqbYOMt2pc634Y",
-      "vendorName": "Smoke Vendor",
-      "totalDebtAmount": 5000,
-      "settledAmount": 1234,
-      "remainingAmount": 3766,
-      "status": "PARTIAL"
-    }
-  ]
-}
-```
-
-## 10) Create Debt Ledger
-
-Route:
-- `POST /api/admin/payment/debt-ledger`
-
-Body:
-
-```json
-{
-  "vendorName": "Vendor A",
-  "totalDebtAmount": 500000,
-  "agreementRef": "AGR-2026-01"
-}
-```
-
-Success (200): returns created ledger with `ledgerId`.
+Success (200): returns updated account.
 
 Possible errors:
-- `INVALID_INPUT` (400)
+- BUCKET_NOT_FOUND (404)
+- INVALID_INPUT (400)
+- STORE_SCOPE_REQUIRED (403)
+- STORE_SCOPE_MISMATCH (403)
+- VENDOR_ACTIVE_BUCKET_EXISTS (409)
 
 ## Cursor Pagination Rules
 
-For list endpoints (`pending`, `review`, `history`):
+For list endpoints (pending, review, history):
 - Query params:
-  - `limit`: optional, default `20`, max `100`
-  - `cursor`: optional epoch millis from previous `nextCursor`
+  - limit: optional, default 20, max 100
+  - cursor: optional epoch millis from previous nextCursor
 - Response:
-  - `nextCursor`: `null` means no further page
+  - nextCursor: null means no further page
 - Android usage:
   1. Request first page without cursor
-  2. Append `data.items` to list
-  3. If `data.nextCursor` is not null, request next page with `cursor=data.nextCursor`
-  4. Stop when `nextCursor` is null
+  2. Append data.items to list
+  3. If data.nextCursor is not null, request next page with cursor=data.nextCursor
+  4. Stop when nextCursor is null
 
-## Android Queue Mapping (Locked Behavior)
+## Android Queue Mapping
 
 Action tabs:
-- Pending UTR: source endpoint `GET /orders/pending`
-- Under Review: source endpoint `GET /orders/review`
+- Pending Payments: GET /orders/pending
+- Under Review: GET /orders/review
 
-History tab only:
-- `RECONCILED`
-- `DISPUTED`
-- `CANCELLED_BY_BUYER`
-- `EXPIRED`
+History tab:
+- RECONCILED
+- DISPUTED
+- CANCELLED_BY_BUYER
+- EXPIRED
 
-Do not include `CANCELLED_BY_BUYER` or `DISPUTED` in action tabs.
+Do not include cancelled or disputed orders in action tabs.
 
 ## Error Code Mapping Suggestions
 
 Suggested Android message mapping:
-- `UTR_CORRECTION_ALREADY_USED`: "UTR can only be corrected once."
-- `REOPEN_REQUIRED`: "Reopen disputed order before confirming."
-- `ORDER_NOT_CONFIRMABLE`: "Order is not in confirmable state."
-- `ORDER_EXPIRED`: "Order has expired."
-- `VENDOR_ACTIVE_BUCKET_EXISTS`: "This vendor already has an active bucket."
-- `LEDGER_OVERPAID_BLOCK`: "Bucket creation blocked: ledger is overpaid."
+- UTR_CORRECTION_ALREADY_USED: UTR can only be corrected once.
+- REOPEN_REQUIRED: Reopen disputed order before confirming.
+- ORDER_NOT_CONFIRMABLE: Order is not in confirmable state.
+- ORDER_EXPIRED: Order has expired.
+- VENDOR_ACTIVE_BUCKET_EXISTS: This payment handle already has an active collection account.
+- STORE_SCOPE_MISMATCH: You can only manage accounts and orders for your own store.
 
 ## Smoke Verification Command
 
-To verify the backend contract after changes:
+To verify backend contract after changes:
 
 ```bash
 npm run smoke:payment
 ```
 
 From:
-- `EasySell-WEB/easysell-backend`
+- EasySell-WEB/easysell-backend

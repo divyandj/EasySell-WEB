@@ -81,6 +81,18 @@ async function call(base, name, method, route, token, body, expected = [200]) {
   return json;
 }
 
+async function ensureUserProfile(uid, userType, storeHandle) {
+  const db = admin.firestore();
+  const now = new Date();
+  await db.collection('users').doc(uid).set({
+    userType,
+    storeHandle,
+    ownerName: uid,
+    updatedAt: now,
+    createdAt: now,
+  }, { merge: true });
+}
+
 async function main() {
   if (args.has('--help') || args.has('-h')) {
     console.log('Usage: npm run smoke:payment');
@@ -111,49 +123,50 @@ async function main() {
 
   const runId = Date.now();
   const storeHandle = `smoke-${runId}`;
+  const otherStoreHandle = `smoke-other-${runId}`;
   const adminUid = `smoke-admin-${runId}`;
+  const otherAdminUid = `smoke-admin-other-${runId}`;
   const buyerUid = `smoke-buyer-${runId}`;
 
+  await Promise.all([
+    ensureUserProfile(adminUid, 'admin', storeHandle),
+    ensureUserProfile(otherAdminUid, 'admin', otherStoreHandle),
+    ensureUserProfile(buyerUid, 'buyer', storeHandle),
+  ]);
+
   const adminToken = await idToken(adminUid, { role: 'admin', userType: 'admin', storeHandle }, apiKey);
+  const otherAdminToken = await idToken(otherAdminUid, { role: 'admin', userType: 'admin', storeHandle: otherStoreHandle }, apiKey);
   const buyerToken = await idToken(buyerUid, { role: 'buyer', userType: 'buyer', storeHandle }, apiKey);
 
-  const ledger = await call(base, 'create-ledger', 'POST', '/api/admin/payment/debt-ledger', adminToken, {
-    vendorName: 'Smoke Vendor',
-    totalDebtAmount: 5000,
-    agreementRef: `AGR-${runId}`,
-  }, [200]);
-  const ledgerId = ledger?.data?.ledgerId;
-
-  const bucket = await call(base, 'create-bucket', 'POST', '/api/admin/payment/buckets', adminToken, {
-    vendorName: 'Smoke Vendor',
+  const account1 = await call(base, 'create-account-primary', 'POST', '/api/admin/payment/buckets', adminToken, {
+    vendorName: 'Smoke Vendor Primary',
     vendorUpiId: `smoke${runId}@upi`,
-    qrImageUrl: 'https://example.com/qr.png',
+    qrImageUrl: 'https://example.com/qr-primary.png',
     qrType: 'UPI',
     priority: 1,
-    limitAmount: 10000,
-    debtLedgerId: ledgerId,
+    limitAmount: 2000,
   }, [200]);
-  const bucketId = bucket?.data?.bucketId;
+  const account1Id = account1?.data?.bucketId;
+  await call(base, 'activate-account-primary', 'PATCH', `/api/admin/payment/buckets/${account1Id}/status`, adminToken, { status: 'ACTIVE' }, [200]);
 
-  await call(base, 'activate-bucket', 'PATCH', `/api/admin/payment/buckets/${bucketId}/status`, adminToken, { status: 'ACTIVE' }, [200]);
-
-  const order = await call(base, 'create-order', 'POST', '/api/payment/orders', buyerToken, {
+  const order1 = await call(base, 'create-order', 'POST', '/api/payment/orders', buyerToken, {
     buyerId: buyerUid,
     orderAmount: 1234,
   }, [200]);
-  const orderId = order?.data?.orderId;
+  const order1Id = order1?.data?.orderId;
 
-  await call(base, 'get-order-status', 'GET', `/api/payment/orders/${orderId}/status`, buyerToken, null, [200]);
+  await call(base, 'get-order-status', 'GET', `/api/payment/orders/${order1Id}/status`, buyerToken, null, [200]);
 
   const utr1 = String(runId).slice(-12).padStart(12, '1');
   const utr2 = String(runId + 1).slice(-12).padStart(12, '2');
   const utr3 = String(runId + 2).slice(-12).padStart(12, '3');
+  const utr4 = String(runId + 3).slice(-12).padStart(12, '4');
 
-  await call(base, 'submit-utr', 'POST', `/api/payment/orders/${orderId}/submit-utr`, buyerToken, { utrNumber: utr1 }, [200]);
+  await call(base, 'submit-utr', 'POST', `/api/payment/orders/${order1Id}/submit-utr`, buyerToken, { utrNumber: utr1 }, [200]);
   await call(base, 'pending-list-page1', 'GET', '/api/admin/payment/orders/pending?limit=1', adminToken, null, [200]);
-  await call(base, 'correct-utr-once', 'POST', `/api/payment/orders/${orderId}/correct-utr`, buyerToken, { utrNumber: utr2 }, [200]);
-  await call(base, 'correct-utr-second-time', 'POST', `/api/payment/orders/${orderId}/correct-utr`, buyerToken, { utrNumber: '999999999999' }, [409]);
-  await call(base, 'confirm-reconcile', 'POST', `/api/admin/payment/orders/${orderId}/confirm`, adminToken, { action: 'RECONCILE' }, [200]);
+  await call(base, 'correct-utr-once', 'POST', `/api/payment/orders/${order1Id}/correct-utr`, buyerToken, { utrNumber: utr2 }, [200]);
+  await call(base, 'correct-utr-second-time', 'POST', `/api/payment/orders/${order1Id}/correct-utr`, buyerToken, { utrNumber: '999999999999' }, [409]);
+  await call(base, 'confirm-reconcile', 'POST', `/api/admin/payment/orders/${order1Id}/confirm`, adminToken, { action: 'RECONCILE' }, [200]);
   await call(base, 'history-list', 'GET', '/api/admin/payment/orders/history?limit=5', adminToken, null, [200]);
 
   const order2 = await call(base, 'create-order-for-cancel', 'POST', '/api/payment/orders', buyerToken, {
@@ -168,61 +181,49 @@ async function main() {
     orderAmount: 300,
   }, [200]);
   const order3Id = order3?.data?.orderId;
-
   await call(base, 'submit-utr-order3', 'POST', `/api/payment/orders/${order3Id}/submit-utr`, buyerToken, { utrNumber: utr3 }, [200]);
   await call(base, 'confirm-dispute', 'POST', `/api/admin/payment/orders/${order3Id}/confirm`, adminToken, { action: 'DISPUTE' }, [200]);
   await call(base, 'confirm-disputed-without-reopen', 'POST', `/api/admin/payment/orders/${order3Id}/confirm`, adminToken, { action: 'RECONCILE' }, [409]);
   await call(base, 'reopen-disputed', 'POST', `/api/admin/payment/orders/${order3Id}/reopen`, adminToken, {}, [200]);
   await call(base, 'review-list', 'GET', '/api/admin/payment/orders/review?limit=5', adminToken, null, [200]);
 
-  const bucket2 = await call(base, 'create-bucket-same-vendor-upi', 'POST', '/api/admin/payment/buckets', adminToken, {
-    vendorName: 'Smoke Vendor Backup',
+  const sameUpiAccount = await call(base, 'create-account-same-upi', 'POST', '/api/admin/payment/buckets', adminToken, {
+    vendorName: 'Smoke Vendor Duplicate',
     vendorUpiId: `smoke${runId}@upi`,
-    qrImageUrl: 'https://example.com/qr2.png',
-    qrType: 'UPI',
-    priority: 5,
-    limitAmount: 9000,
-    debtLedgerId: ledgerId,
-  }, [200]);
-  const bucket2Id = bucket2?.data?.bucketId;
-  await call(base, 'activate-duplicate-vendor-upi', 'PATCH', `/api/admin/payment/buckets/${bucket2Id}/status`, adminToken, { status: 'ACTIVE' }, [409]);
-
-  const smallLedger = await call(base, 'create-small-ledger', 'POST', '/api/admin/payment/debt-ledger', adminToken, {
-    vendorName: 'Overpaid Vendor',
-    totalDebtAmount: 100,
-    agreementRef: `AGR-OVERPAID-${runId}`,
-  }, [200]);
-  const smallLedgerId = smallLedger?.data?.ledgerId;
-
-  const overpaidBucket = await call(base, 'create-overpaid-bucket', 'POST', '/api/admin/payment/buckets', adminToken, {
-    vendorName: 'Overpaid Vendor',
-    vendorUpiId: `overpaid${runId}@upi`,
-    qrImageUrl: 'https://example.com/qr-overpaid.png',
-    qrType: 'UPI',
-    priority: 0,
-    limitAmount: 2000000,
-    debtLedgerId: smallLedgerId,
-  }, [200]);
-  const overpaidBucketId = overpaidBucket?.data?.bucketId;
-  await call(base, 'activate-overpaid-bucket', 'PATCH', `/api/admin/payment/buckets/${overpaidBucketId}/status`, adminToken, { status: 'ACTIVE' }, [200]);
-
-  const order4 = await call(base, 'create-order-for-ledger-overpaid', 'POST', '/api/payment/orders', buyerToken, {
-    buyerId: buyerUid,
-    orderAmount: 1500000,
-  }, [200]);
-  const order4Id = order4?.data?.orderId;
-  const utr4 = String(runId + 3).slice(-12).padStart(12, '4');
-  await call(base, 'submit-utr-order4', 'POST', `/api/payment/orders/${order4Id}/submit-utr`, buyerToken, { utrNumber: utr4 }, [200]);
-  await call(base, 'confirm-reconcile-overpaid-ledger', 'POST', `/api/admin/payment/orders/${order4Id}/confirm`, adminToken, { action: 'RECONCILE' }, [200]);
-
-  await call(base, 'create-bucket-overpaid-ledger-blocked', 'POST', '/api/admin/payment/buckets', adminToken, {
-    vendorName: 'Overpaid Vendor 2',
-    vendorUpiId: `overpaid2${runId}@upi`,
-    qrImageUrl: 'https://example.com/qr-overpaid2.png',
+    qrImageUrl: 'https://example.com/qr-duplicate.png',
     qrType: 'UPI',
     priority: 3,
-    limitAmount: 7000,
-    debtLedgerId: smallLedgerId,
+    limitAmount: 4000,
+  }, [200]);
+  const sameUpiAccountId = sameUpiAccount?.data?.bucketId;
+  await call(base, 'activate-same-upi-account-blocked', 'PATCH', `/api/admin/payment/buckets/${sameUpiAccountId}/status`, adminToken, { status: 'ACTIVE' }, [409]);
+
+  const account2 = await call(base, 'create-account-secondary', 'POST', '/api/admin/payment/buckets', adminToken, {
+    vendorName: 'Smoke Vendor Secondary',
+    vendorUpiId: `smoke-secondary-${runId}@upi`,
+    qrImageUrl: 'https://example.com/qr-secondary.png',
+    qrType: 'UPI',
+    priority: 2,
+    limitAmount: 5000,
+  }, [200]);
+  const account2Id = account2?.data?.bucketId;
+  await call(base, 'activate-account-secondary', 'PATCH', `/api/admin/payment/buckets/${account2Id}/status`, adminToken, { status: 'ACTIVE' }, [200]);
+
+  await call(base, 'cross-store-update-blocked', 'PATCH', `/api/admin/payment/buckets/${account1Id}/status`, otherAdminToken, { status: 'PAUSED' }, [403]);
+  await call(base, 'pause-primary-account', 'PATCH', `/api/admin/payment/buckets/${account1Id}/status`, adminToken, { status: 'PAUSED' }, [200]);
+  await call(base, 'reactivate-primary-account', 'PATCH', `/api/admin/payment/buckets/${account1Id}/status`, adminToken, { status: 'ACTIVE' }, [200]);
+
+  const order4 = await call(base, 'create-fallback-order', 'POST', '/api/payment/orders', buyerToken, {
+    buyerId: buyerUid,
+    orderAmount: 900,
+  }, [200]);
+  const order4Id = order4?.data?.orderId;
+  await call(base, 'submit-utr-order4', 'POST', `/api/payment/orders/${order4Id}/submit-utr`, buyerToken, { utrNumber: utr4 }, [200]);
+  await call(base, 'confirm-reconcile-order4', 'POST', `/api/admin/payment/orders/${order4Id}/confirm`, adminToken, { action: 'RECONCILE' }, [200]);
+
+  await call(base, 'create-too-large-order', 'POST', '/api/payment/orders', buyerToken, {
+    buyerId: buyerUid,
+    orderAmount: 999999,
   }, [409]);
 
   console.log('\nSMOKE TEST COMPLETED');

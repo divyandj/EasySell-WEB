@@ -6,7 +6,6 @@ const ERROR_DEFS = {
   STORE_SCOPE_MISMATCH: { httpStatus: 403, code: 'STORE_SCOPE_MISMATCH', message: 'Resource does not belong to your store scope.' },
   ORDER_NOT_FOUND: { httpStatus: 404, code: 'ORDER_NOT_FOUND', message: 'Order not found.' },
   BUCKET_NOT_FOUND: { httpStatus: 404, code: 'BUCKET_NOT_FOUND', message: 'Bucket not found.' },
-  LEDGER_NOT_FOUND: { httpStatus: 404, code: 'LEDGER_NOT_FOUND', message: 'Debt ledger not found.' },
 
   NO_BUCKET_AVAILABLE: { httpStatus: 409, code: 'NO_BUCKET_AVAILABLE', message: 'No active bucket can absorb this order.' },
   ORDER_TOO_LARGE_FOR_BUCKETS: { httpStatus: 409, code: 'ORDER_TOO_LARGE_FOR_BUCKETS', message: 'Order amount is too large for available buckets.' },
@@ -25,7 +24,6 @@ const ERROR_DEFS = {
   BUCKET_INVARIANT_VIOLATION: { httpStatus: 500, code: 'BUCKET_INVARIANT_VIOLATION', message: 'Bucket accounting invariant failed.' },
   ORDER_CREATE_ATOMICITY_FAILED: { httpStatus: 500, code: 'ORDER_CREATE_ATOMICITY_FAILED', message: 'Failed to create order atomically.' },
   TRANSACTION_RETRY_EXHAUSTED: { httpStatus: 503, code: 'TRANSACTION_RETRY_EXHAUSTED', message: 'High contention, please retry.' },
-  LEDGER_OVERPAID_BLOCK: { httpStatus: 409, code: 'LEDGER_OVERPAID_BLOCK', message: 'Cannot create bucket: debt ledger is OVERPAID.' },
   VENDOR_ACTIVE_BUCKET_EXISTS: { httpStatus: 409, code: 'VENDOR_ACTIVE_BUCKET_EXISTS', message: 'Vendor already has an active bucket.' },
 };
 
