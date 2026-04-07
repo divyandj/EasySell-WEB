@@ -12,8 +12,13 @@ function computeAvailable(bucket) {
   return limitAmount - reservedAmount - collectedAmount;
 }
 
-async function listBucketsWithComputedAvailable() {
-  const snap = await db.collection('buckets').orderBy('priority', 'asc').get();
+async function listBucketsWithComputedAvailable(storeHandle) {
+  const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
+  if (!scopedStoreHandle) throw buildError('STORE_SCOPE_REQUIRED');
+
+  const snap = await db.collection('buckets')
+    .where('storeHandle', '==', scopedStoreHandle)
+    .get();
   return snap.docs.map((d) => {
     const data = d.data() || {};
     return {
@@ -21,10 +26,11 @@ async function listBucketsWithComputedAvailable() {
       ...data,
       availableAmount: computeAvailable(data),
     };
-  });
+  }).sort((a, b) => Number(a.priority || 9999) - Number(b.priority || 9999));
 }
 
-async function createBucketWithLedgerGuard(payload) {
+async function createBucketWithLedgerGuard(payload, storeHandle) {
+  const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
   const vendorName = String(payload.vendorName || '').trim();
   const vendorUpiId = String(payload.vendorUpiId || '').trim();
   const qrImageUrl = String(payload.qrImageUrl || '').trim();
@@ -32,6 +38,10 @@ async function createBucketWithLedgerGuard(payload) {
   const priority = Number(payload.priority);
   const limitAmount = Number(payload.limitAmount);
   const debtLedgerId = String(payload.debtLedgerId || '').trim();
+
+  if (!scopedStoreHandle) {
+    throw buildError('STORE_SCOPE_REQUIRED');
+  }
 
   if (!vendorName || !vendorUpiId || !qrImageUrl || !debtLedgerId || !Number.isFinite(priority) || limitAmount <= 0) {
     throw buildError('INVALID_INPUT', { message: 'vendorName, vendorUpiId, qrImageUrl, priority, limitAmount, debtLedgerId are required.' });
@@ -41,7 +51,7 @@ async function createBucketWithLedgerGuard(payload) {
     throw buildError('INVALID_INPUT', { message: 'qrType must be UPI or BANK.' });
   }
 
-  await assertLedgerCanCreateBucket(debtLedgerId);
+  await assertLedgerCanCreateBucket(debtLedgerId, scopedStoreHandle);
 
   const now = new Date();
   const ref = db.collection('buckets').doc();
@@ -56,6 +66,7 @@ async function createBucketWithLedgerGuard(payload) {
     collectedAmount: 0,
     status: BUCKET_STATUS.PAUSED,
     debtLedgerId,
+    storeHandle: scopedStoreHandle,
     createdAt: now,
     updatedAt: now,
   };
@@ -64,8 +75,11 @@ async function createBucketWithLedgerGuard(payload) {
   return { bucketId: ref.id, ...doc };
 }
 
-async function updateBucketStatus(bucketId, status) {
+async function updateBucketStatus(bucketId, status, storeHandle) {
   const nextStatus = String(status || '').toUpperCase();
+  const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
+  if (!scopedStoreHandle) throw buildError('STORE_SCOPE_REQUIRED');
+
   if (!Object.values(BUCKET_STATUS).includes(nextStatus) || nextStatus === BUCKET_STATUS.FULL) {
     throw buildError('INVALID_INPUT', { message: 'Invalid bucket status transition.' });
   }
@@ -77,9 +91,14 @@ async function updateBucketStatus(bucketId, status) {
     if (!bucketSnap.exists) throw buildError('BUCKET_NOT_FOUND');
 
     const bucket = bucketSnap.data() || {};
+    if (String(bucket.storeHandle || '').trim().toLowerCase() !== scopedStoreHandle) {
+      throw buildError('STORE_SCOPE_MISMATCH');
+    }
+
     if (nextStatus === BUCKET_STATUS.ACTIVE) {
       const activeSnap = await tx.get(
         db.collection('buckets')
+          .where('storeHandle', '==', scopedStoreHandle)
           .where('vendorUpiId', '==', bucket.vendorUpiId)
           .where('status', '==', BUCKET_STATUS.ACTIVE)
       );

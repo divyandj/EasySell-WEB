@@ -2,6 +2,8 @@ const ERROR_DEFS = {
   INVALID_INPUT: { httpStatus: 400, code: 'INVALID_INPUT', message: 'Invalid request input.' },
   UNAUTHORIZED: { httpStatus: 401, code: 'UNAUTHORIZED', message: 'Authentication required.' },
   FORBIDDEN: { httpStatus: 403, code: 'FORBIDDEN', message: 'You are not allowed to perform this action.' },
+  STORE_SCOPE_REQUIRED: { httpStatus: 403, code: 'STORE_SCOPE_REQUIRED', message: 'Store context is required for this operation.' },
+  STORE_SCOPE_MISMATCH: { httpStatus: 403, code: 'STORE_SCOPE_MISMATCH', message: 'Resource does not belong to your store scope.' },
   ORDER_NOT_FOUND: { httpStatus: 404, code: 'ORDER_NOT_FOUND', message: 'Order not found.' },
   BUCKET_NOT_FOUND: { httpStatus: 404, code: 'BUCKET_NOT_FOUND', message: 'Bucket not found.' },
   LEDGER_NOT_FOUND: { httpStatus: 404, code: 'LEDGER_NOT_FOUND', message: 'Debt ledger not found.' },

@@ -6,13 +6,19 @@ const { runWithRetry } = require('./transactionRetry');
 const db = getDb();
 const admin = getAdmin();
 
-async function reopenDisputedOrder(orderId, adminUid) {
+async function reopenDisputedOrder(orderId, adminUid, storeHandle) {
+  const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
+  if (!scopedStoreHandle) throw buildError('STORE_SCOPE_REQUIRED');
+
   await runWithRetry(() => db.runTransaction(async (tx) => {
     const orderRef = db.collection('orders').doc(orderId);
     const orderSnap = await tx.get(orderRef);
     if (!orderSnap.exists) throw buildError('ORDER_NOT_FOUND');
 
     const order = orderSnap.data() || {};
+    if (String(order.storeHandle || '').trim().toLowerCase() !== scopedStoreHandle) {
+      throw buildError('STORE_SCOPE_MISMATCH');
+    }
     if (order.paymentStatus !== ORDER_STATUS.DISPUTED) {
       throw buildError('INVALID_INPUT', { message: 'Only disputed orders can be reopened.' });
     }

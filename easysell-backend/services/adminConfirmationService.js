@@ -26,7 +26,10 @@ function toMillis(ts) {
   return ts?.toMillis ? ts.toMillis() : null;
 }
 
-async function listByStatusesScan(statuses, reqQuery, includeStatus = false, fallbackStatus = null) {
+async function listByStatusesScan(statuses, reqQuery, storeHandle, includeStatus = false, fallbackStatus = null) {
+  const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
+  if (!scopedStoreHandle) throw buildError('STORE_SCOPE_REQUIRED');
+
   const limit = parseLimit(reqQuery.limit);
   let scanCursor = parseCursor(reqQuery.cursor);
 
@@ -52,6 +55,7 @@ async function listByStatusesScan(statuses, reqQuery, includeStatus = false, fal
     for (const d of snap.docs) {
       const o = d.data() || {};
       if (!wanted.has(o.paymentStatus)) continue;
+      if (String(o.storeHandle || '').trim().toLowerCase() !== scopedStoreHandle) continue;
       matched.push({ id: d.id, ...o });
       if (matched.length >= (limit + 1)) break;
     }
@@ -85,32 +89,36 @@ async function listByStatusesScan(statuses, reqQuery, includeStatus = false, fal
   return { items, nextCursor };
 }
 
-async function listByStatus(status, reqQuery, includeStatus = false) {
-  return listByStatusesScan([status], reqQuery, includeStatus, status);
+async function listByStatus(status, reqQuery, storeHandle, includeStatus = false) {
+  return listByStatusesScan([status], reqQuery, storeHandle, includeStatus, status);
 }
 
-async function listPendingUtrOrders(query) {
-  return listByStatus(ORDER_STATUS.UTR_SUBMITTED, query);
+async function listPendingUtrOrders(query, storeHandle) {
+  return listByStatus(ORDER_STATUS.UTR_SUBMITTED, query, storeHandle);
 }
 
-async function listReviewOrders(query) {
-  return listByStatus(ORDER_STATUS.PAYMENT_UNDER_REVIEW, query);
+async function listReviewOrders(query, storeHandle) {
+  return listByStatus(ORDER_STATUS.PAYMENT_UNDER_REVIEW, query, storeHandle);
 }
 
-async function listHistoryOrders(query) {
+async function listHistoryOrders(query, storeHandle) {
   const historyStatuses = [
     ORDER_STATUS.RECONCILED,
     ORDER_STATUS.DISPUTED,
     ORDER_STATUS.CANCELLED_BY_BUYER,
     ORDER_STATUS.EXPIRED,
   ];
-  return listByStatusesScan(historyStatuses, query, true);
+  return listByStatusesScan(historyStatuses, query, storeHandle, true);
 }
 
-async function confirmOrder(orderId, action, adminUid) {
+async function confirmOrder(orderId, action, adminUid, storeHandle) {
   const normalized = String(action || '').toUpperCase();
+  const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
   if (![CONFIRM_ACTION.RECONCILE, CONFIRM_ACTION.DISPUTE].includes(normalized)) {
     throw buildError('INVALID_INPUT', { message: 'action must be RECONCILE or DISPUTE.' });
+  }
+  if (!scopedStoreHandle) {
+    throw buildError('STORE_SCOPE_REQUIRED');
   }
 
   const result = await runWithRetry(() => db.runTransaction(async (tx) => {
@@ -119,6 +127,9 @@ async function confirmOrder(orderId, action, adminUid) {
     if (!orderSnap.exists) throw buildError('ORDER_NOT_FOUND');
 
     const order = orderSnap.data() || {};
+    if (String(order.storeHandle || '').trim().toLowerCase() !== scopedStoreHandle) {
+      throw buildError('STORE_SCOPE_MISMATCH');
+    }
     if (order.paymentStatus === ORDER_STATUS.EXPIRED) {
       throw buildError('ORDER_EXPIRED');
     }
@@ -136,6 +147,9 @@ async function confirmOrder(orderId, action, adminUid) {
     if (!bucketSnap.exists) throw buildError('BUCKET_NOT_FOUND');
 
     const bucket = bucketSnap.data() || {};
+    if (String(bucket.storeHandle || '').trim().toLowerCase() !== scopedStoreHandle) {
+      throw buildError('STORE_SCOPE_MISMATCH');
+    }
     const orderAmount = Number(order.orderAmount || 0);
     const currentReserved = Number(bucket.reservedAmount || 0);
     const currentCollected = Number(bucket.collectedAmount || 0);

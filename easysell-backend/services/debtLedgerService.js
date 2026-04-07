@@ -11,15 +11,31 @@ function computeLedgerStatus(totalDebtAmount, settledAmount) {
   return LEDGER_STATUS.OPEN;
 }
 
-async function listLedgers() {
-  const snap = await db.collection('debtLedger').orderBy('createdAt', 'desc').get();
-  return snap.docs.map((d) => ({ ledgerId: d.id, ...d.data() }));
+async function listLedgers(storeHandle) {
+  const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
+  if (!scopedStoreHandle) throw buildError('STORE_SCOPE_REQUIRED');
+
+  const snap = await db.collection('debtLedger')
+    .where('storeHandle', '==', scopedStoreHandle)
+    .get();
+  return snap.docs
+    .map((d) => ({ ledgerId: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      return bTime - aTime;
+    });
 }
 
-async function createLedger(payload) {
+async function createLedger(payload, storeHandle) {
+  const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
   const vendorName = String(payload.vendorName || '').trim();
   const totalDebtAmount = Number(payload.totalDebtAmount || 0);
   const agreementRef = String(payload.agreementRef || '').trim();
+
+  if (!scopedStoreHandle) {
+    throw buildError('STORE_SCOPE_REQUIRED');
+  }
 
   if (!vendorName || totalDebtAmount <= 0) {
     throw buildError('INVALID_INPUT', { message: 'vendorName and positive totalDebtAmount are required.' });
@@ -33,6 +49,7 @@ async function createLedger(payload) {
     settledAmount: 0,
     remainingAmount: totalDebtAmount,
     agreementRef,
+    storeHandle: scopedStoreHandle,
     status: LEDGER_STATUS.OPEN,
     createdAt: now,
     updatedAt: now,
@@ -42,12 +59,18 @@ async function createLedger(payload) {
   return { ledgerId: ref.id, ...doc };
 }
 
-async function assertLedgerCanCreateBucket(ledgerId) {
+async function assertLedgerCanCreateBucket(ledgerId, storeHandle) {
+  const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
+  if (!scopedStoreHandle) throw buildError('STORE_SCOPE_REQUIRED');
+
   const ref = db.collection('debtLedger').doc(ledgerId);
   const snap = await ref.get();
   if (!snap.exists) throw buildError('LEDGER_NOT_FOUND');
 
   const data = snap.data() || {};
+  if (String(data.storeHandle || '').trim().toLowerCase() !== scopedStoreHandle) {
+    throw buildError('STORE_SCOPE_MISMATCH');
+  }
   if (data.status === LEDGER_STATUS.OVERPAID) {
     throw buildError('LEDGER_OVERPAID_BLOCK');
   }
