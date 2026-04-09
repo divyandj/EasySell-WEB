@@ -17,6 +17,12 @@ export async function createPaymentOrder(currentUser, payload) {
   return data?.data || null;
 }
 
+export async function checkPaymentReadiness(currentUser, payload) {
+  const headers = await authHeaders(currentUser);
+  const { data } = await axios.post(`${API_BASE_URL}/api/payment/readiness`, payload, { headers });
+  return data?.data || null;
+}
+
 export async function getPaymentStatus(currentUser, paymentOrderId) {
   const headers = await authHeaders(currentUser);
   const { data } = await axios.get(`${API_BASE_URL}/api/payment/orders/${paymentOrderId}/status`, { headers });
@@ -51,4 +57,18 @@ export async function cancelPaymentOrder(currentUser, paymentOrderId) {
     { headers }
   );
   return data?.data || null;
+}
+
+export function getPaymentApiErrorDetails(error) {
+  const code = String(error?.response?.data?.code || '').trim();
+  const message = String(
+    error?.response?.data?.message ||
+    error?.message ||
+    'Payment setup failed. Please try again.'
+  ).trim();
+
+  return {
+    code: code || 'PAYMENT_SETUP_FAILED',
+    message,
+  };
 }

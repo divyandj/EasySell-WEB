@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +22,7 @@ const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
 const OrderTrackingPage = () => {
   const { catalogueId, orderId } = useParams();
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,10 @@ const OrderTrackingPage = () => {
   const successColor = useColorModeValue('green.600', 'green.300');
 
   const paymentOrderId = order?.paymentOrderId || null;
+  const effectivePaymentStatus = String(paymentInfo?.paymentStatus || order?.paymentStatus || '').toUpperCase();
+  const hasPaymentSetupFailure = Boolean(order?.paymentIntegrationError);
+  const hasPendingPayment = Boolean(paymentOrderId) && !['RECONCILED'].includes(effectivePaymentStatus);
+  const showCompletePaymentCta = hasPaymentSetupFailure || hasPendingPayment;
 
   const canSubmitUtr = ['PENDING', 'UTR_SUBMITTED'].includes(paymentInfo?.paymentStatus || '');
   const canCorrectUtr = ['UTR_SUBMITTED', 'PAYMENT_UNDER_REVIEW'].includes(paymentInfo?.paymentStatus || '');
@@ -190,6 +195,11 @@ const OrderTrackingPage = () => {
               >
                 {status}
               </Badge>
+              {showCompletePaymentCta && (
+                <Button size="sm" colorScheme="brand" onClick={() => navigate(`/order-payment/${catalogueId}/${orderId}`)}>
+                  Complete Payment
+                </Button>
+              )}
             </Flex>
           </Box>
 
@@ -415,6 +425,21 @@ const OrderTrackingPage = () => {
                 </HStack>
               </VStack>
             </Box>
+          )}
+
+          {!paymentOrderId && hasPaymentSetupFailure && (
+            <Alert status="warning" borderRadius="12px">
+              <AlertIcon />
+              <Box>
+                <AlertTitle>Payment setup pending</AlertTitle>
+                <AlertDescription>
+                  {order.paymentIntegrationError || 'Payment is not set up for this order yet.'}
+                </AlertDescription>
+                <Button mt={3} size="sm" colorScheme="brand" onClick={() => navigate(`/order-payment/${catalogueId}/${orderId}`)}>
+                  Open Payment Screen
+                </Button>
+              </Box>
+            </Alert>
           )}
         </VStack>
       </Container>

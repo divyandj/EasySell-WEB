@@ -1,5 +1,28 @@
 # EasySell Web Backend
 
+## Start Backend
+
+```bash
+npm start
+```
+
+Server default URL:
+- http://127.0.0.1:3001
+
+### Local credential quick setup (PowerShell)
+
+If you do not want to create `serviceAccountKey.json`, export credentials for the current shell session:
+
+```powershell
+$env:FIREBASE_SERVICE_ACCOUNT = Get-Content easysell-hashu-firebase-adminsdk-fbsvc-bc4364e9c6.json -Raw
+npm start
+```
+
+Accepted credential sources at startup:
+- `FIREBASE_SERVICE_ACCOUNT` env var (JSON string)
+- `serviceAccountKey.json` in this folder
+- `easysell-hashu-firebase-adminsdk-fbsvc-bc4364e9c6.json` in this folder
+
 ## Admin Android Integration Contract
 
 - See `ADMIN_PAYMENT_API_CONTRACT.md` for endpoint payloads, response examples, error codes, and cursor pagination usage for the Android admin app.
@@ -62,3 +85,15 @@ Behavior:
 - Dry run reports impacted docs only.
 - Apply mode removes `debtLedgerId` field from `orders` and `buckets`.
 - Delete mode exports `debtLedger` backup JSON to `scripts/exports/` and deletes docs.
+
+## Troubleshooting
+
+### Error: Firebase Admin credentials not configured
+
+This means the backend could not find valid Firebase Admin JSON from any accepted source.
+
+Checklist:
+1. Ensure `FIREBASE_SERVICE_ACCOUNT` is set in the same shell where you run `npm start`.
+2. If using local file fallback, verify either `serviceAccountKey.json` or `easysell-hashu-firebase-adminsdk-fbsvc-bc4364e9c6.json` exists in this folder.
+3. Ensure the JSON is valid and not truncated.
+4. Restart the backend process after fixing credentials.

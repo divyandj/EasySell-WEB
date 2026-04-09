@@ -8,6 +8,7 @@ import CheckoutPage from './pages/CheckoutPage';
 import LoginPage from './pages/LoginPage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
 import OrderTrackingPage from './pages/OrderTrackingPage';
+import OrderPaymentPage from './pages/OrderPaymentPage';
 import ProfilePage from './pages/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
 import HomePage from './pages/HomePage';
@@ -88,6 +89,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <OrderTrackingPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/order-payment/:catalogueId/:orderId"
+            element={
+              <ProtectedRoute>
+                <OrderPaymentPage />
               </ProtectedRoute>
             }
           />

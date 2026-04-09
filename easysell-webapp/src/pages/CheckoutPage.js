@@ -12,7 +12,7 @@ import { db } from '../firebase';
 import SpinnerComponent from '../components/Spinner';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
-import { createPaymentOrder } from '../services/paymentApi';
+import { createPaymentOrder, checkPaymentReadiness, getPaymentApiErrorDetails } from '../services/paymentApi';
 import { FiShield, FiArrowRight, FiMapPin, FiCreditCard, FiShoppingBag, FiMinus, FiPlus, FiStar, FiGift } from 'react-icons/fi';
 import { resolveStoreContext } from '../utils/storeResolver';
 
@@ -38,6 +38,14 @@ const CheckoutPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [billingMode, setBillingMode] = useState(location.state?.billingMode || 'withBill');
+  const [paymentReadiness, setPaymentReadiness] = useState(null);
+  const [paymentReadinessLoading, setPaymentReadinessLoading] = useState(false);
+
+  const resolveStoreHandleForPayment = React.useCallback(() => {
+    const fromConfig = String(storeConfig?.storeHandle || '').trim().toLowerCase();
+    const fromContext = String(getSubdomain() || '').trim().toLowerCase();
+    return fromConfig || fromContext;
+  }, [storeConfig?.storeHandle]);
 
   // --- REWARDS STATE ---
   const [availableRewards, setAvailableRewards] = useState([]);
@@ -180,6 +188,48 @@ const CheckoutPage = () => {
   const preRewardTotal = billingMode === 'withBill' ? cartGrandTotal : cartSubtotal;
   const displayGrandTotal = Math.max(0, preRewardTotal - rewardDiscount);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const runReadiness = async () => {
+      const storeHandle = resolveStoreHandleForPayment();
+      const orderAmount = Number(displayGrandTotal || 0);
+
+      if (!currentUser || orderAmount <= 0 || !storeHandle) {
+        setPaymentReadiness(null);
+        return;
+      }
+
+      setPaymentReadinessLoading(true);
+      try {
+        const readiness = await checkPaymentReadiness(currentUser, {
+          orderAmount,
+          storeHandle,
+        });
+        if (!cancelled) setPaymentReadiness(readiness);
+      } catch (readinessError) {
+        const { code, message } = getPaymentApiErrorDetails(readinessError);
+        if (!cancelled) {
+          setPaymentReadiness({
+            ready: false,
+            retryable: true,
+            code,
+            message,
+          });
+        }
+      } finally {
+        if (!cancelled) setPaymentReadinessLoading(false);
+      }
+    };
+
+    const timer = setTimeout(runReadiness, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [currentUser, displayGrandTotal, resolveStoreHandleForPayment]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let newValue = value;
@@ -248,6 +298,34 @@ const CheckoutPage = () => {
 
     const catalogueId = cartItems[0].productData.catalogueId;
     const sellerId = cartItems[0].productData.sellerId;
+    const scopedStoreHandle = resolveStoreHandleForPayment();
+
+    try {
+      const readiness = await checkPaymentReadiness(currentUser, {
+        orderAmount: Number(displayGrandTotal || 0),
+        storeHandle: scopedStoreHandle,
+      });
+      setPaymentReadiness(readiness);
+
+      if (readiness && readiness.ready === false) {
+        toast({
+          title: 'Payment may be delayed',
+          description: readiness.message || 'Payment route is currently unavailable. You can still place the order and retry payment setup.',
+          status: readiness.retryable ? 'warning' : 'info',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    } catch (readinessError) {
+      const { message } = getPaymentApiErrorDetails(readinessError);
+      toast({
+        title: 'Could not verify payment readiness',
+        description: message,
+        status: 'warning',
+        duration: 4000,
+        isClosable: true,
+      });
+    }
 
     if (!catalogueId || !sellerId) {
       setError("Critical Error: Catalogue or Seller ID is missing.");
@@ -259,6 +337,7 @@ const CheckoutPage = () => {
       userId: currentUser.uid,
       catalogueId: catalogueId,
       sellerId: sellerId,
+      storeHandle: scopedStoreHandle,
       billingType: billingMode,
       items: cartItems.map(item => {
         const details = item.priceDetails;
@@ -307,6 +386,8 @@ const CheckoutPage = () => {
       shippingAddress: shippingInfo,
       orderDate: Timestamp.fromDate(new Date()),
       status: "Placed",
+      paymentSetupStatus: 'PENDING',
+      paymentStoreHandle: scopedStoreHandle || null,
     };
 
     try {
@@ -380,30 +461,66 @@ const CheckoutPage = () => {
         return newOrderRef.id;
       });
 
+      let paymentOrderReady = false;
+      const orderRef = doc(db, 'catalogues', catalogueId, 'orders', newOrderId);
+      const retryableErrorCodes = new Set([
+        'NO_BUCKET_AVAILABLE',
+        'ORDER_TOO_LARGE_FOR_BUCKETS',
+        'TRANSACTION_RETRY_EXHAUSTED',
+        'SUFFIX_POOL_EXHAUSTED',
+        'ORDER_CREATE_ATOMICITY_FAILED',
+      ]);
+
       // Create payment allocation order after main order commit; keep checkout resilient if this step fails.
       try {
         const paymentData = await createPaymentOrder(currentUser, {
           buyerId: currentUser.uid,
           orderAmount: Number(displayGrandTotal || 0),
-          storeHandle: getSubdomain() || '',
+          storeHandle: scopedStoreHandle,
         });
 
-        if (paymentData?.orderId) {
-          await setDoc(doc(db, 'catalogues', catalogueId, 'orders', newOrderId), {
-            paymentOrderId: paymentData.orderId,
-            paymentStatus: 'PENDING',
-            paymentUniquePayableAmount: paymentData.uniquePayableAmount || null,
-            paymentQrImageUrl: paymentData.qrImageUrl || null,
-            paymentUpiDeepLink: paymentData.upiDeepLink || null,
-            paymentExpiresAtMs: paymentData.expiresAt || null,
-            paymentCreatedAt: Timestamp.fromDate(new Date()),
-          }, { merge: true });
+        if (!paymentData?.orderId) {
+          throw new Error('Payment setup did not return an order id.');
         }
-      } catch (paymentErr) {
-        console.error('Payment order creation failed:', paymentErr?.response?.data || paymentErr.message || paymentErr);
-        await setDoc(doc(db, 'catalogues', catalogueId, 'orders', newOrderId), {
-          paymentIntegrationError: String(paymentErr?.response?.data?.message || paymentErr.message || 'Payment order creation failed'),
+
+        await setDoc(orderRef, {
+          paymentOrderId: paymentData.orderId,
+          paymentStatus: 'PENDING',
+          paymentUniquePayableAmount: paymentData.uniquePayableAmount || null,
+          paymentQrImageUrl: paymentData.qrImageUrl || null,
+          paymentUpiDeepLink: paymentData.upiDeepLink || null,
+          paymentExpiresAtMs: paymentData.expiresAt || null,
+          paymentCreatedAt: Timestamp.fromDate(new Date()),
+          paymentSetupStatus: 'READY',
+          paymentIntegrationError: null,
+          paymentIntegrationErrorCode: null,
+          paymentIntegrationRetryable: false,
+          paymentSetupLastAttemptAt: Timestamp.fromDate(new Date()),
+          paymentStoreHandle: scopedStoreHandle || null,
         }, { merge: true });
+
+        paymentOrderReady = true;
+      } catch (paymentErr) {
+        const { code, message } = getPaymentApiErrorDetails(paymentErr);
+        const retryable = retryableErrorCodes.has(code);
+        console.error('Payment order creation failed:', paymentErr?.response?.data || paymentErr.message || paymentErr);
+        await setDoc(orderRef, {
+          paymentSetupStatus: 'FAILED',
+          paymentIntegrationError: String(message),
+          paymentIntegrationErrorCode: code,
+          paymentIntegrationRetryable: retryable,
+          paymentSetupLastAttemptAt: Timestamp.fromDate(new Date()),
+          paymentStoreHandle: scopedStoreHandle || null,
+        }, { merge: true });
+
+        toast({
+          title: 'Payment setup pending',
+          description: `Order placed. ${message}`,
+          status: retryable ? 'warning' : 'info',
+          duration: 7000,
+          isClosable: true,
+          position: 'top',
+        });
       }
 
       axios.post(`${API_BASE_URL}/api/notify-order`, {
@@ -411,7 +528,7 @@ const CheckoutPage = () => {
         catalogueId: catalogueId,
         amount: displayGrandTotal,
         customerName: shippingInfo.name,
-        storeHandle: getSubdomain() || ''
+        storeHandle: scopedStoreHandle || getSubdomain() || ''
       }).catch((err) => console.error("Notification Failed:", err));
 
       orderPlacedRef.current = true;
@@ -460,7 +577,7 @@ const CheckoutPage = () => {
       }
 
       axios.post(`${API_BASE_URL}/api/analytics/order`, {
-        storeHandle: getSubdomain() || '',
+        storeHandle: scopedStoreHandle || getSubdomain() || '',
         orderData: {
           gmv: displayGrandTotal,
           buyerName: shippingInfo.name,
@@ -476,7 +593,9 @@ const CheckoutPage = () => {
 
       toast({
         title: "Order placed successfully!",
-        description: `Order ID: ${newOrderId}`,
+        description: paymentOrderReady
+          ? `Order ID: ${newOrderId}. Redirecting to payment.`
+          : `Order ID: ${newOrderId}. Payment setup is pending.`,
         status: "success",
         duration: 5000,
         isClosable: true,
@@ -484,7 +603,7 @@ const CheckoutPage = () => {
       });
       clearCart();
       clearRedeemReward();
-      navigate(`/order-details/${catalogueId}/${newOrderId}`);
+      navigate(`/order-payment/${catalogueId}/${newOrderId}`);
     } catch (error) {
       console.error("Transaction failed: ", error);
       setError(`Order failed: ${error.message}`);
@@ -765,6 +884,35 @@ const CheckoutPage = () => {
               </HStack>
 
               <Divider borderColor={borderColor} />
+
+              <Box>
+                {paymentReadinessLoading && (
+                  <Alert status="info" borderRadius="10px" mb={2}>
+                    <AlertIcon />
+                    <AlertDescription fontSize="sm">Checking payment route availability...</AlertDescription>
+                  </Alert>
+                )}
+
+                {!paymentReadinessLoading && paymentReadiness?.ready === true && (
+                  <Alert status="success" borderRadius="10px" mb={2}>
+                    <AlertIcon />
+                    <AlertDescription fontSize="sm">Instant payment route is available for this order amount.</AlertDescription>
+                  </Alert>
+                )}
+
+                {!paymentReadinessLoading && paymentReadiness?.ready === false && (
+                  <Alert status={paymentReadiness.retryable ? 'warning' : 'info'} borderRadius="10px" mb={2}>
+                    <AlertIcon />
+                    <Box>
+                      <AlertTitle fontSize="sm">Payment route currently limited</AlertTitle>
+                      <AlertDescription fontSize="sm">
+                        {paymentReadiness.message || 'Payment setup may need retry after order placement.'}
+                        {paymentReadiness.code ? ` (${paymentReadiness.code})` : ''}
+                      </AlertDescription>
+                    </Box>
+                  </Alert>
+                )}
+              </Box>
 
               {/* Items */}
               <VStack spacing={3} align="stretch">

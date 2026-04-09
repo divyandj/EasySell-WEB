@@ -1,31 +1,11 @@
-const admin = require("firebase-admin");
-const path = require("path");
+const { getMessaging } = require('./firebaseAdmin');
 
-// 1. Load the Service Account Key
-// Priority:
-// 1. Environment Variable (FIREBASE_SERVICE_ACCOUNT) - for Production (Render)
-// 2. Local File (serviceAccountKey.json) - for Development
-let serviceAccount;
-
+let messaging = null;
 try {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-  } else {
-    serviceAccount = require(path.join(__dirname, "../serviceAccountKey.json"));
-  }
+  messaging = getMessaging();
 } catch (error) {
-  console.error("⚠️ WARNING: Firebase Credentials not found (Enable FIREBASE_SERVICE_ACCOUNT env var or add serviceAccountKey.json).");
+  console.error('⚠️ WARNING: Firebase Credentials not found (set FIREBASE_SERVICE_ACCOUNT or local service account JSON).');
 }
-
-// 2. Initialize Firebase Admin
-if (serviceAccount && !admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
-  console.log("✅ Firebase Admin Initialized");
-}
-
-const messaging = admin.messaging();
 
 // --- Helper Functions ---
 
@@ -33,7 +13,7 @@ const messaging = admin.messaging();
  * Sends a push notification to the 'admin_orders_[storeHandle]' topic
  */
 async function notifyNewOrder(orderId, catalogueId, amount, customerName, storeHandle) {
-  if (!serviceAccount) return;
+  if (!messaging) return;
 
   const topicName = storeHandle ? `admin_orders_${storeHandle}` : "admin_orders";
 
@@ -63,7 +43,7 @@ async function notifyNewOrder(orderId, catalogueId, amount, customerName, storeH
  * Sends a push notification to the 'admin_new_users_[storeHandle]' topic
  */
 async function notifyNewUser(userName, userEmail, storeHandle) {
-  if (!serviceAccount) return;
+  if (!messaging) return;
 
   const topicName = storeHandle ? `admin_new_users_${storeHandle}` : "admin_new_users";
 
@@ -92,7 +72,7 @@ async function notifyNewUser(userName, userEmail, storeHandle) {
  * Sends a push notification to the 'admin_product_requests_[storeHandle]' topic
  */
 async function notifyNewProductRequest(productName, buyerName, storeHandle) {
-  if (!serviceAccount) return;
+  if (!messaging) return;
 
   const topicName = storeHandle ? `admin_product_requests_${storeHandle}` : "admin_product_requests";
 

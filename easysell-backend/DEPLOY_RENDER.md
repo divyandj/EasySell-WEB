@@ -11,11 +11,11 @@
     *   **Root Directory**: `.` (leave empty or dot)
     *   **Runtime**: `Node`
     *   **Build Command**: `npm install`
-    *   **Start Command**: `node server.js`
+    *   **Start Command**: `npm start`
 5.  **Environment Variables** (Advanced Settings):
     *   Key: `FIREBASE_SERVICE_ACCOUNT`
-    *   Value: *[Paste the entire content of your `serviceAccountKey.json` file here as a single line]*
-        *   *Tip*: Open your local `serviceAccountKey.json`, copy all text, and paste it.
+    *   Value: *[Paste the entire content of your Firebase Admin service account JSON as a single line]*
+        *   *Tip*: You can use `serviceAccountKey.json` or `easysell-hashu-firebase-adminsdk-fbsvc-bc4364e9c6.json` locally, but Render should always use the env var.
     *   Key: `PORT`
     *   Value: `3001` (Optional, Render sets this automatically usually, but good to be explicit)
 6.  Click **Create Web Service**.
@@ -23,4 +23,4 @@
 ## Verification
 Once deployed, Render will give you a URL (e.g., `https://easysell-backend.onrender.com`).
 Visit that URL. You should see:
-`"EasySell Backend (Notifications) is running!"`
+`"Vyparsetu Backend is running!"`

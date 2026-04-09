@@ -2,7 +2,7 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 const { buildError, success } = require('../constants/paymentErrors');
-const { createOrder, getOrderStatus } = require('../services/orderPaymentService');
+const { createOrder, getOrderStatus, getPaymentReadiness } = require('../services/orderPaymentService');
 const { submitUtr, correctUtrOnce } = require('../services/utrService');
 const { cancelPendingOrder } = require('../services/buyerCancelService');
 
@@ -49,6 +49,14 @@ router.post('/orders', auth, requireRole('buyer'), withHandler(async (req, res) 
 
   const data = await createOrder({ buyerId, orderAmount, storeHandle });
   res.json(success({ data }, 'Order created'));
+}));
+
+router.post('/readiness', auth, requireRole('buyer'), withHandler(async (req, res) => {
+  const orderAmount = Number(req.body?.orderAmount || 0);
+  const storeHandle = getStoreHandle(req);
+
+  const data = await getPaymentReadiness({ orderAmount, storeHandle });
+  res.json(success({ data }, 'Payment readiness checked'));
 }));
 
 router.get('/orders/:orderId/status', auth, requireRole('buyer'), withHandler(async (req, res) => {

@@ -154,6 +154,13 @@ const OrderHistoryPage = () => {
             {orders.map(order => {
               const { icon: StatusIcon, color: statusColor } = getStatusConfig(order.status);
               const cancelled = isCancelledStatus(order.status);
+              const paymentStatus = String(order.paymentStatus || '').toUpperCase();
+              const hasPaymentSetupFailure = Boolean(order.paymentIntegrationError);
+              const hasPendingPayment = Boolean(order.paymentOrderId) && !['RECONCILED'].includes(paymentStatus);
+              const paymentActionRequired = hasPaymentSetupFailure || hasPendingPayment;
+              const orderTarget = paymentActionRequired
+                ? `/order-payment/${order.catalogueId}/${order.id}`
+                : `/order-details/${order.catalogueId}/${order.id}`;
               return (
                 <MotionBox
                   key={order.id}
@@ -168,7 +175,7 @@ const OrderHistoryPage = () => {
                   _hover={{ borderColor: cancelled ? borderColor : 'brand.200', transform: cancelled ? 'none' : 'translateY(-2px)', boxShadow: cancelled ? 'card' : 'cardHover' }}
                   transition="all 0.2s"
                   as={RouterLink}
-                  to={`/order-details/${order.catalogueId}/${order.id}`}
+                  to={orderTarget}
                 >
                   <Flex justify="space-between" align="center" wrap="wrap" gap={3}>
                     <HStack spacing={3}>
@@ -191,6 +198,11 @@ const OrderHistoryPage = () => {
                     </HStack>
 
                     <HStack spacing={4}>
+                      {paymentActionRequired && (
+                        <Badge borderRadius="full" colorScheme="orange" px={3} py={1} fontSize="xs" fontWeight="700">
+                          {hasPaymentSetupFailure ? 'Payment Setup Pending' : 'Payment Due'}
+                        </Badge>
+                      )}
                       <Badge borderRadius="full" colorScheme={statusColor} px={3} py={1} fontSize="xs" fontWeight="600">
                         {order.status || 'Pending'}
                       </Badge>

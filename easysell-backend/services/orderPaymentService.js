@@ -20,6 +20,78 @@ function isSuffixCollision(error) {
   return msg.includes('already exists') || msg.includes('suffix');
 }
 
+function isReadinessRetryable(code) {
+  return [
+    'NO_BUCKET_AVAILABLE',
+    'ORDER_TOO_LARGE_FOR_BUCKETS',
+    'SUFFIX_POOL_EXHAUSTED',
+    'TRANSACTION_RETRY_EXHAUSTED',
+    'ORDER_CREATE_ATOMICITY_FAILED',
+  ].includes(String(code || '').trim().toUpperCase());
+}
+
+async function getPaymentReadiness({ orderAmount, storeHandle }) {
+  const amount = Number(orderAmount || 0);
+  const normalizedStoreHandle = String(storeHandle || '').trim().toLowerCase();
+
+  if (!normalizedStoreHandle) {
+    return {
+      ready: false,
+      retryable: false,
+      code: 'STORE_SCOPE_REQUIRED',
+      message: 'Store context is required for payment readiness.',
+      storeHandle: '',
+      orderAmount: amount,
+    };
+  }
+
+  if (amount <= 0) {
+    return {
+      ready: false,
+      retryable: false,
+      code: 'INVALID_INPUT',
+      message: 'Positive orderAmount is required for payment readiness.',
+      storeHandle: normalizedStoreHandle,
+      orderAmount: amount,
+    };
+  }
+
+  try {
+    const probe = await runWithRetry(() => db.runTransaction(async (tx) => {
+      const bucket = await selectBucketForOrderTx(tx, amount, normalizedStoreHandle);
+      const suffix = await allocateSuffixTx(tx, bucket.bucketId);
+
+      return {
+        bucketId: bucket.bucketId,
+        availableAmount: Number(bucket.availableAmount || 0),
+        estimatedSuffix: suffix,
+      };
+    }));
+
+    return {
+      ready: true,
+      retryable: false,
+      code: null,
+      message: 'Payment route is ready.',
+      storeHandle: normalizedStoreHandle,
+      orderAmount: amount,
+      ...probe,
+    };
+  } catch (error) {
+    const code = String(error?.code || 'ORDER_CREATE_ATOMICITY_FAILED');
+    const message = String(error?.message || 'Payment route is currently unavailable.');
+
+    return {
+      ready: false,
+      retryable: isReadinessRetryable(code),
+      code,
+      message,
+      storeHandle: normalizedStoreHandle,
+      orderAmount: amount,
+    };
+  }
+}
+
 async function createOrder({ buyerId, orderAmount, storeHandle }) {
   const normalizedBuyerId = String(buyerId || '').trim();
   const normalizedStoreHandle = String(storeHandle || '').trim().toLowerCase();
@@ -149,4 +221,5 @@ async function getOrderStatus(orderId, buyerId) {
 module.exports = {
   createOrder,
   getOrderStatus,
+  getPaymentReadiness,
 };

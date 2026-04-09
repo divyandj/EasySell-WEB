@@ -1,26 +1,13 @@
-const admin = require("firebase-admin");
-const path = require("path");
+const { getAdmin, getDb } = require('./firebaseAdmin');
 
-// Safely initialize Firebase Admin if not already initialized by notificationService
-let serviceAccount;
+let admin = null;
+let db = null;
 try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    } else {
-        serviceAccount = require(path.join(__dirname, "../serviceAccountKey.json"));
-    }
+    admin = getAdmin();
+    db = getDb();
 } catch (error) {
-    console.error("⚠️ WARNING: Firebase Credentials not found for Analytics Service.");
+    console.error('⚠️ WARNING: Firebase Credentials not found for Analytics Service.');
 }
-
-if (serviceAccount && !admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-    });
-    console.log("✅ Firebase Admin Initialized (Analytics Service)");
-}
-
-const db = admin.apps.length ? admin.firestore() : null;
 
 /**
  * Helper to get today's date string (YYYY-MM-DD)
