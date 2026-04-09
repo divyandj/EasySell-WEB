@@ -25,11 +25,9 @@ function getStoreHandle(req) {
   const fromHeader = req.headers['x-store-handle'];
   const requested = String(fromBody || fromQuery || fromHeader || '').trim().toLowerCase();
 
-  if (profile && requested && profile !== requested) {
-    throw buildError('STORE_SCOPE_MISMATCH');
-  }
-
-  return profile || requested;
+  // Buyer traffic is storefront-scoped; profile.storeHandle can be stale or tied
+  // to a different store from previous sessions. Prefer the explicit request scope.
+  return requested || profile;
 }
 
 router.post('/orders', auth, requireRole('buyer'), withHandler(async (req, res) => {
