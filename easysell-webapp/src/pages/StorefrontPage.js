@@ -25,8 +25,10 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import {
   FiArrowRight,
-  FiMail,
+  FiCheckCircle,
+  FiLock,
   FiShoppingBag,
+  FiTruck,
 } from 'react-icons/fi';
 
 const formatStoreHandle = (value = 'store') => (
@@ -108,6 +110,7 @@ const StorefrontPage = ({ subdomain }) => {
   const accentColor = useColorModeValue('var(--store-accent)', 'var(--store-accent)');
   const accentColorHover = useColorModeValue('var(--store-primary)', '#1d1b33');
   const accentSoft = useColorModeValue('rgba(37, 99, 235, 0.08)', 'rgba(255,255,255,0.08)');
+    const accentSoftHover = useColorModeValue('rgba(37, 99, 235, 0.15)', 'rgba(37, 99, 235, 0.2)');
   const heroGlow = useColorModeValue('radial-gradient(circle at top left, rgba(37,99,235,0.10), transparent 42%)', 'radial-gradient(circle at top left, rgba(37,99,235,0.24), transparent 42%)');
   const heroGlowSecondary = useColorModeValue('radial-gradient(circle at bottom right, rgba(15,23,42,0.05), transparent 38%)', 'radial-gradient(circle at bottom right, rgba(255,255,255,0.08), transparent 38%)');
 
@@ -208,43 +211,38 @@ const StorefrontPage = ({ subdomain }) => {
                   {storeDescription}
                 </Text>
 
-                <HStack spacing={2.5} flexWrap="wrap" mt={3}>
-                  <Button
-                    as="a"
-                    href="#store-collections"
-                    bg={accentColor}
-                    color="white"
-                    borderRadius="full"
-                    px={7}
-                    rightIcon={<Icon as={FiArrowRight} />}
-                    _hover={{ bg: accentColorHover, transform: 'translateY(-1px)' }}
-                    _active={{ transform: 'translateY(0)' }}
-                  >
-                    Browse collections
-                  </Button>
-                  <Button
-                    as={RouterLink}
-                    to="/contact"
-                    variant="outline"
-                    borderRadius="full"
-                    px={7}
-                    borderColor={borderColor}
-                    color={textColor}
-                    leftIcon={<Icon as={FiMail} />}
-                  >
-                    Contact store
-                  </Button>
-                  <Button
-                    as={RouterLink}
-                    to="/about-us"
-                    variant="ghost"
-                    borderRadius="full"
-                    px={6}
-                    color={textColor}
-                    _hover={{ bg: mutedSurface }}
-                  >
-                    About this store
-                  </Button>
+                <HStack
+                  spacing={{ base: 2, md: 3 }}
+                  flexWrap="wrap"
+                  mt={5}
+                  pt={2}
+                >
+                  {[
+                    { icon: FiCheckCircle, label: 'Verified Seller' },
+                    { icon: FiLock, label: 'Secure Checkout' },
+                    { icon: FiTruck, label: 'Fast Delivery' },
+                  ].map((feature, idx) => (
+                    <HStack
+                      key={idx}
+                      px={3}
+                      py={2}
+                      bg={accentSoft}
+                      borderRadius="full"
+                      spacing={2}
+                      fontSize="xs"
+                      fontWeight="600"
+                      color={accentColor}
+                      transition="all 0.3s ease"
+                      _hover={{
+                        bg: accentSoftHover,
+                        transform: 'translateY(-2px)',
+                      }}
+                      cursor="default"
+                    >
+                      <Icon as={feature.icon} boxSize="14px" />
+                      <Text>{feature.label}</Text>
+                    </HStack>
+                  ))}
                 </HStack>
 
                 {/* removed duplicate chips to reduce redundancy with quick-access panel */}
