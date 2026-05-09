@@ -18,6 +18,8 @@ function validateUtr(utrNumber) {
 async function submitUtr(orderId, buyerId, utrNumber, paymentProofUrl = null) {
   validateUtr(utrNumber);
 
+  let idempotentReplay = false;
+
   await runWithRetry(() => db.runTransaction(async (tx) => {
     const orderRef = db.collection('orders').doc(orderId);
     const orderSnap = await tx.get(orderRef);
@@ -38,7 +40,23 @@ async function submitUtr(orderId, buyerId, utrNumber, paymentProofUrl = null) {
 
     const utrRef = db.collection('utrIndex').doc(String(utrNumber));
     const utrSnap = await tx.get(utrRef);
-    if (utrSnap.exists) throw buildError('DUPLICATE_UTR');
+    if (utrSnap.exists) {
+      const utrData = utrSnap.data() || {};
+      const indexedOrderId = String(utrData.orderId || '').trim();
+      const currentOrderUtr = String(order.utrNumber || '').trim();
+
+      // Allow safe retries when the exact same order and UTR were already persisted.
+      if (
+        indexedOrderId === orderId
+        && currentOrderUtr === String(utrNumber)
+        && order.paymentStatus === ORDER_STATUS.UTR_SUBMITTED
+      ) {
+        idempotentReplay = true;
+        return;
+      }
+
+      throw buildError('DUPLICATE_UTR');
+    }
 
     tx.set(utrRef, {
       orderId,
@@ -53,6 +71,10 @@ async function submitUtr(orderId, buyerId, utrNumber, paymentProofUrl = null) {
       updatedAt: now,
     });
   }));
+
+  if (idempotentReplay) {
+    return { orderId, utrNumber: String(utrNumber), paymentStatus: ORDER_STATUS.UTR_SUBMITTED };
+  }
 
   try {
     const orderDoc = await db.collection('orders').doc(orderId).get();

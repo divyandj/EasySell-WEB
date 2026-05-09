@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Heading, Text, Button, Center, VStack, Flex, Icon, useColorModeValue } from '@chakra-ui/react';
+import { Heading, Text, Button, Center, VStack, useColorModeValue } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
 import { FiHome } from 'react-icons/fi';
 

@@ -4,7 +4,7 @@ import { mode } from '@chakra-ui/theme-tools';
 const styles = {
     global: (props) => ({
         body: {
-            bg: mode('#F8FAFC', '#090B12')(props),
+            bg: mode('linear-gradient(180deg, #F8FAFC 0%, #EEF4FB 100%)', '#090B12')(props),
             color: mode('gray.800', 'whiteAlpha.900')(props),
             transition: 'background-color 0.2s ease',
         },
@@ -62,7 +62,7 @@ const components = {
     Button: {
         baseStyle: {
             fontWeight: '600',
-            borderRadius: '12px',
+            borderRadius: '999px',
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         },
         variants: {

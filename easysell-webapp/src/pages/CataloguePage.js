@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   useParams,
-  useNavigate,
-  useLocation,
 } from "react-router-dom";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
@@ -23,11 +21,9 @@ import {
   useColorModeValue,
   Skeleton,
   Badge,
-  HStack,
   Center,
 } from "@chakra-ui/react";
-import { FiSearch, FiShoppingBag } from "react-icons/fi";
-import { useAuth } from "../context/AuthContext";
+import { FiSearch } from "react-icons/fi";
 import { motion } from "framer-motion";
 import ProductCard from '../components/ProductCard';
 
@@ -44,9 +40,6 @@ const MotionSimpleGrid = motion(SimpleGrid);
 
 const CataloguePage = () => {
   const { catalogueId } = useParams();
-  const { currentUser } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
   const toast = useToast();
 
   const [catalogue, setCatalogue] = useState(null);
@@ -58,6 +51,7 @@ const CataloguePage = () => {
   // Theme
   const pageBg = useColorModeValue('#F8F9FC', '#09090B');
   const searchBg = useColorModeValue('white', '#111116');
+  const searchIconColor = useColorModeValue('gray.400', 'gray.400');
   const searchBorder = useColorModeValue('gray.100', 'whiteAlpha.100');
   const chipActiveBg = useColorModeValue('brand.500', 'brand.400');
   const chipInactiveBg = useColorModeValue('white', 'whiteAlpha.100');
@@ -228,7 +222,7 @@ const CataloguePage = () => {
         >
           <InputGroup size="lg">
             <InputLeftElement pointerEvents="none" h="full">
-              <FiSearch color="#9ca3af" fontSize="1.1em" />
+              <FiSearch color={searchIconColor} fontSize="1.1em" />
             </InputLeftElement>
             <Input
               placeholder="Search products..."

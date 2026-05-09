@@ -26,6 +26,8 @@ import {
   VStack,
   Divider,
 } from '@chakra-ui/react';
+import { useColorMode } from '@chakra-ui/react';
+import { FiSun, FiMoon } from 'react-icons/fi';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   FiShoppingCart,
@@ -78,7 +80,7 @@ const Navbar = ({ storeContext }) => {
     }
   };
 
-  const navBg = useColorModeValue('white', '#111827');
+  const navSurface = useColorModeValue('rgba(255,255,255,0.84)', 'rgba(17,24,39,0.92)');
   const borderColor = useColorModeValue('#E2E8F0', 'whiteAlpha.200');
   const textColor = useColorModeValue('#334155', 'gray.200');
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
@@ -90,7 +92,10 @@ const Navbar = ({ storeContext }) => {
   const storeBadgeBg = useColorModeValue('blue.50', 'blue.900');
   const storeBadgeColor = useColorModeValue('blue.700', 'blue.100');
   const defaultBrandColor = useColorModeValue('brand.700', 'brand.300');
-  const brandColor = isStorefront ? '#0F172A' : defaultBrandColor;
+  // For storefronts we prefer the store primary in light mode and high-contrast in dark mode
+  const storefrontBrandColor = useColorModeValue('var(--store-primary)', 'whiteAlpha.900');
+  const brandColor = isStorefront ? storefrontBrandColor : defaultBrandColor;
+  const { colorMode, toggleColorMode } = useColorMode();
 
   return (
     <Box
@@ -98,9 +103,11 @@ const Navbar = ({ storeContext }) => {
       position="sticky"
       top="0"
       zIndex="sticky"
-      bg={navBg}
+      bg={navSurface}
       borderBottomWidth="1px"
       borderColor={borderColor}
+      backdropFilter="blur(18px)"
+      boxShadow="sm"
     >
       <Container maxW="container.xl" px={{ base: 4, md: 6 }}>
         <Flex h={{ base: 14, md: 16 }} align="center" justify="space-between">
@@ -155,6 +162,7 @@ const Navbar = ({ storeContext }) => {
                   variant="ghost"
                   color={textColor}
                   fontWeight="600"
+                  borderRadius="full"
                   _hover={{ bg: menuHoverBg, color: brandColor }}
                 >
                   {link.label}
@@ -164,6 +172,14 @@ const Navbar = ({ storeContext }) => {
           )}
 
           <HStack align="center" spacing={1.5}>
+            <IconButton
+              aria-label="Toggle theme"
+              variant="ghost"
+              size="sm"
+              onClick={toggleColorMode}
+              icon={colorMode === 'light' ? <FiMoon /> : <FiSun />}
+              _hover={{ bg: menuHoverBg }}
+            />
             {currentUser && !userData && (
               <Button
                 as={RouterLink}
@@ -178,7 +194,7 @@ const Navbar = ({ storeContext }) => {
               </Button>
             )}
 
-            {currentUser && userData && storeConfig?.rewardsEnabled && !isStorefront && (
+            {storeConfig?.rewardsEnabled && (
               <Button
                 as={RouterLink}
                 to="/rewards"
@@ -186,14 +202,47 @@ const Navbar = ({ storeContext }) => {
                 size="sm"
                 borderRadius="full"
                 leftIcon={<FiStar size="14px" />}
-                color="accent.700"
+                color={buyerPoints ? 'accent.700' : textColor}
                 fontWeight="700"
                 fontSize="xs"
                 _hover={{ bg: menuHoverBg }}
                 px={3}
               >
-                {buyerPoints?.points || 0} pts
+                {currentUser && buyerPoints ? `${buyerPoints?.points || 0} pts` : 'Rewards'}
               </Button>
+            )}
+
+            {isStorefront && (
+              <HStack spacing={1} display={{ base: 'none', lg: 'flex' }}>
+                <Button
+                  as="a"
+                  href="/#store-collections"
+                  variant="ghost"
+                  size="sm"
+                  borderRadius="full"
+                  color={textColor}
+                  fontWeight="500"
+                  fontSize="xs"
+                  _hover={{ bg: menuHoverBg }}
+                >
+                  Browse
+                </Button>
+                {storeConfig?.requestProductEnabled && (
+                  <Button
+                    as={RouterLink}
+                    to="/request-product"
+                    variant="ghost"
+                    size="sm"
+                    borderRadius="full"
+                    color={textColor}
+                    fontWeight="500"
+                    fontSize="xs"
+                    _hover={{ bg: menuHoverBg }}
+                  >
+                    Request
+                  </Button>
+                )}
+              </HStack>
             )}
 
             {currentUser && userData && (
@@ -375,6 +424,72 @@ const Navbar = ({ storeContext }) => {
               ))}
 
               {desktopLinks.length > 0 && <Divider my={3} borderColor={borderColor} />}
+
+              {isStorefront && (
+                <>
+                  <Text fontSize="xs" color={mutedColor} fontWeight="700" letterSpacing="0.08em" textTransform="uppercase" px={3} pt={2}>
+                    Quick Access
+                  </Text>
+                  <Button
+                    as="a"
+                    href="/#store-collections"
+                    variant="ghost"
+                    justifyContent="space-between"
+                    rightIcon={<FiChevronRight />}
+                    fontWeight="500"
+                    size="lg"
+                    color={textColor}
+                    _hover={{ bg: menuHoverBg }}
+                  >
+                    Browse collections
+                  </Button>
+                  {storeConfig?.requestProductEnabled && (
+                    <Button
+                      as={RouterLink}
+                      to="/request-product"
+                      variant="ghost"
+                      justifyContent="space-between"
+                      rightIcon={<FiChevronRight />}
+                      onClick={onClose}
+                      fontWeight="500"
+                      size="lg"
+                      color={textColor}
+                      _hover={{ bg: menuHoverBg }}
+                    >
+                      Request product
+                    </Button>
+                  )}
+                  <Button
+                    as={RouterLink}
+                    to="/contact"
+                    variant="ghost"
+                    justifyContent="space-between"
+                    rightIcon={<FiChevronRight />}
+                    onClick={onClose}
+                    fontWeight="500"
+                    size="lg"
+                    color={textColor}
+                    _hover={{ bg: menuHoverBg }}
+                  >
+                    Contact store
+                  </Button>
+                  <Button
+                    as={RouterLink}
+                    to="/about-us"
+                    variant="ghost"
+                    justifyContent="space-between"
+                    rightIcon={<FiChevronRight />}
+                    onClick={onClose}
+                    fontWeight="500"
+                    size="lg"
+                    color={textColor}
+                    _hover={{ bg: menuHoverBg }}
+                  >
+                    About this store
+                  </Button>
+                  <Divider my={3} borderColor={borderColor} />
+                </>
+              )}
 
               {currentUser && userData && (
                 <>

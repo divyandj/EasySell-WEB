@@ -12,8 +12,6 @@ import {
   VStack,
   HStack,
   Center,
-  Avatar,
-  Skeleton,
   Image,
 } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
@@ -321,8 +319,8 @@ const HomePage = () => {
   const skeletonBg = useColorModeValue('gray.100', 'whiteAlpha.100');
 
   const heroBg = useColorModeValue(
-    'linear(to-br, brand.600, #4C3EC0, accent.700)',
-    'linear(to-br, brand.900, #1a1a2e, accent.900)'
+    'linear(to-br, var(--store-accent), var(--store-primary))',
+    'linear(to-br, var(--store-primary), var(--store-accent))'
   );
   const sectionBg = useColorModeValue('#F8F9FC', '#09090B');
   const sectionBgAlt = useColorModeValue('white', '#0F0F14');

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Container, Heading, VStack, FormControl, FormLabel, Input, Button,
-  Box, Text, useToast, Textarea, Image, useColorModeValue, Flex, Icon, Center, HStack
+  Box, Text, useToast, Textarea, Image, useColorModeValue, Flex, Icon, Center
 } from '@chakra-ui/react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';

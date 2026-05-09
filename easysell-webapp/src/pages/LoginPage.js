@@ -24,7 +24,7 @@ import {
 } from '@chakra-ui/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
-import { FiUser, FiSmartphone, FiFileText, FiAlertCircle, FiCheckCircle, FiShield, FiBriefcase, FiMapPin, FiCamera, FiX } from 'react-icons/fi';
+import { FiUser, FiSmartphone, FiFileText, FiAlertCircle, FiCheckCircle, FiBriefcase, FiCamera, FiX } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 
 const MotionBox = motion(Box);

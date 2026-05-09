@@ -8,6 +8,7 @@ import {
   HStack,
   VStack,
 } from '@chakra-ui/react';
+import { useColorModeValue } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
 import { resolveStoreContext } from '../utils/storeResolver';
 
@@ -27,16 +28,16 @@ export default function Footer({ storeContext }) {
     ? formatStoreLabel(context.handle || context.domain || 'Store')
     : 'Vyparsetu';
 
-  const bg = isStorefront ? '#FFFFFF' : '#FFFFFF';
-  const borderColor = '#E2E8F0';
-  const textColor = '#64748B';
-  const titleColor = '#0F172A';
-  const linkColor = '#475569';
-  const linkHoverColor = '#2563EB';
+  const bg = useColorModeValue(isStorefront ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.94)', 'rgba(17,24,39,0.92)');
+  const borderColor = useColorModeValue('#E2E8F0', 'whiteAlpha.200');
+  const textColor = useColorModeValue('#64748B', 'gray.400');
+  const titleColor = useColorModeValue('#0F172A', 'whiteAlpha.900');
+  const linkColor = useColorModeValue('#475569', 'gray.300');
+  const linkHoverColor = useColorModeValue('brand.600', 'brand.300');
 
   return (
     <Box bg={bg} borderTopWidth="1px" borderColor={borderColor} mt="auto">
-      <Container maxW="container.xl" py={6}>
+      <Container maxW="container.xl" py={8}>
         <Flex
           direction={{ base: 'column', md: 'row' }}
           justify="space-between"
@@ -49,7 +50,7 @@ export default function Footer({ storeContext }) {
             </Text>
             <Text fontSize="xs" color={textColor}>
               {isStorefront
-                ? 'Official storefront with secure checkout and direct support.'
+                ? 'Official storefront with secure checkout, direct support, and focused browsing.'
                 : 'Modern commerce experience built for confident buying.'}
             </Text>
           </VStack>
