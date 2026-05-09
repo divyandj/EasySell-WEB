@@ -40,7 +40,7 @@ import {
   useDisclosure,
   IconButton
 } from '@chakra-ui/react';
-import { FiPlayCircle, FiShoppingCart, FiCheckCircle, FiXCircle, FiClock, FiLock, FiInfo, FiArrowUp, FiMaximize2, FiShield, FiTruck, FiRefreshCw, FiMinus, FiPlus } from 'react-icons/fi';
+import { FiPlayCircle, FiShoppingCart, FiCheckCircle, FiXCircle, FiClock, FiLock, FiArrowUp, FiMaximize2, FiShield, FiTruck, FiRefreshCw, FiMinus, FiPlus } from 'react-icons/fi';
 
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -286,7 +286,7 @@ const ProductDetailPage = () => {
       isBackorder: !inventoryOff && !effectiveInStock && allowBackorder,
       inventoryOff
     };
-  }, [product, selectedVariant]);
+  }, [product, selectedVariant, storeConfig?.inventoryTracking]);
 
   // Removed aggressive quantity clamp useEffect here so user can clear the input while typing.
 
