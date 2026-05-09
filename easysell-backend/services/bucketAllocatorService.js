@@ -70,6 +70,91 @@ async function createBucket(payload, storeHandle) {
   return { bucketId: ref.id, ...doc };
 }
 
+function parseEditableBucketPayload(payload) {
+  const vendorName = String(payload.vendorName || '').trim();
+  const vendorUpiId = String(payload.vendorUpiId || '').trim();
+  const qrImageUrl = String(payload.qrImageUrl || '').trim();
+  const qrType = String(payload.qrType || '').trim().toUpperCase();
+  const priority = Number(payload.priority);
+  const limitAmount = Number(payload.limitAmount);
+
+  if (!vendorName || !vendorUpiId || !qrImageUrl || !Number.isFinite(priority) || limitAmount <= 0) {
+    throw buildError('INVALID_INPUT', { message: 'vendorName, vendorUpiId, qrImageUrl, priority and limitAmount are required.' });
+  }
+
+  if (!['UPI', 'BANK'].includes(qrType)) {
+    throw buildError('INVALID_INPUT', { message: 'qrType must be UPI or BANK.' });
+  }
+
+  return {
+    vendorName,
+    vendorUpiId,
+    qrImageUrl,
+    qrType,
+    priority,
+    limitAmount,
+  };
+}
+
+async function updateBucket(bucketId, payload, storeHandle) {
+  const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
+  if (!scopedStoreHandle) throw buildError('STORE_SCOPE_REQUIRED');
+
+  const parsed = parseEditableBucketPayload(payload);
+  const bucketRef = db.collection('buckets').doc(bucketId);
+
+  await db.runTransaction(async (tx) => {
+    const bucketSnap = await tx.get(bucketRef);
+    if (!bucketSnap.exists) throw buildError('BUCKET_NOT_FOUND');
+
+    const bucket = bucketSnap.data() || {};
+    if (String(bucket.storeHandle || '').trim().toLowerCase() !== scopedStoreHandle) {
+      throw buildError('STORE_SCOPE_MISMATCH');
+    }
+
+    const currentReserved = Number(bucket.reservedAmount || 0);
+    const currentCollected = Number(bucket.collectedAmount || 0);
+    if ((currentReserved + currentCollected) > parsed.limitAmount) {
+      throw buildError('INVALID_INPUT', {
+        message: 'limitAmount cannot be lower than reserved + collected amount.',
+      });
+    }
+
+    const currentStatus = String(bucket.status || '').trim().toUpperCase();
+    if (currentStatus === BUCKET_STATUS.ACTIVE) {
+      const activeSnap = await tx.get(
+        db.collection('buckets')
+          .where('storeHandle', '==', scopedStoreHandle)
+          .where('vendorUpiId', '==', parsed.vendorUpiId)
+          .where('status', '==', BUCKET_STATUS.ACTIVE)
+      );
+
+      const hasOtherActive = activeSnap.docs.some((doc) => doc.id !== bucketId);
+      if (hasOtherActive) {
+        throw buildError('VENDOR_ACTIVE_BUCKET_EXISTS');
+      }
+    }
+
+    tx.update(bucketRef, {
+      vendorName: parsed.vendorName,
+      vendorUpiId: parsed.vendorUpiId,
+      qrImageUrl: parsed.qrImageUrl,
+      qrType: parsed.qrType,
+      priority: parsed.priority,
+      limitAmount: parsed.limitAmount,
+      updatedAt: new Date(),
+    });
+  });
+
+  const finalSnap = await bucketRef.get();
+  const finalData = finalSnap.data() || {};
+  return {
+    bucketId,
+    ...finalData,
+    availableAmount: computeAvailable(finalData),
+  };
+}
+
 async function updateBucketStatus(bucketId, status, storeHandle) {
   const nextStatus = String(status || '').toUpperCase();
   const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
@@ -165,6 +250,7 @@ module.exports = {
   computeAvailable,
   listBucketsWithComputedAvailable,
   createBucket,
+  updateBucket,
   updateBucketStatus,
   selectBucketForOrderTx,
   reserveBucketAmountTx,

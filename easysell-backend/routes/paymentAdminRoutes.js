@@ -13,6 +13,7 @@ const { reopenDisputedOrder } = require('../services/reopenService');
 const {
   listBucketsWithComputedAvailable,
   createBucket,
+  updateBucket,
   updateBucketStatus,
 } = require('../services/bucketAllocatorService');
 
@@ -62,6 +63,11 @@ router.get('/buckets', auth, requireRole('admin'), requireStoreScope, withHandle
 router.post('/buckets', auth, requireRole('admin'), requireStoreScope, withHandler(async (req, res) => {
   const data = await createBucket(req.body || {}, req.storeHandleScope);
   res.json(success({ data }, 'Collection account created'));
+}));
+
+router.patch('/buckets/:bucketId', auth, requireRole('admin'), requireStoreScope, withHandler(async (req, res) => {
+  const data = await updateBucket(req.params.bucketId, req.body || {}, req.storeHandleScope);
+  res.json(success({ data }, 'Collection account updated'));
 }));
 
 router.patch('/buckets/:bucketId/status', auth, requireRole('admin'), requireStoreScope, withHandler(async (req, res) => {
