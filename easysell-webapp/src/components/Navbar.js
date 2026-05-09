@@ -212,6 +212,39 @@ const Navbar = ({ storeContext }) => {
               </Button>
             )}
 
+            {isStorefront && (
+              <HStack spacing={1} display={{ base: 'none', lg: 'flex' }}>
+                <Button
+                  as="a"
+                  href="/#store-collections"
+                  variant="ghost"
+                  size="sm"
+                  borderRadius="full"
+                  color={textColor}
+                  fontWeight="500"
+                  fontSize="xs"
+                  _hover={{ bg: menuHoverBg }}
+                >
+                  Browse
+                </Button>
+                {storeConfig?.requestProductEnabled && (
+                  <Button
+                    as={RouterLink}
+                    to="/request-product"
+                    variant="ghost"
+                    size="sm"
+                    borderRadius="full"
+                    color={textColor}
+                    fontWeight="500"
+                    fontSize="xs"
+                    _hover={{ bg: menuHoverBg }}
+                  >
+                    Request
+                  </Button>
+                )}
+              </HStack>
+            )}
+
             {currentUser && userData && (
               <Box position="relative">
                 <IconButton
@@ -391,6 +424,72 @@ const Navbar = ({ storeContext }) => {
               ))}
 
               {desktopLinks.length > 0 && <Divider my={3} borderColor={borderColor} />}
+
+              {isStorefront && (
+                <>
+                  <Text fontSize="xs" color={mutedColor} fontWeight="700" letterSpacing="0.08em" textTransform="uppercase" px={3} pt={2}>
+                    Quick Access
+                  </Text>
+                  <Button
+                    as="a"
+                    href="/#store-collections"
+                    variant="ghost"
+                    justifyContent="space-between"
+                    rightIcon={<FiChevronRight />}
+                    fontWeight="500"
+                    size="lg"
+                    color={textColor}
+                    _hover={{ bg: menuHoverBg }}
+                  >
+                    Browse collections
+                  </Button>
+                  {storeConfig?.requestProductEnabled && (
+                    <Button
+                      as={RouterLink}
+                      to="/request-product"
+                      variant="ghost"
+                      justifyContent="space-between"
+                      rightIcon={<FiChevronRight />}
+                      onClick={onClose}
+                      fontWeight="500"
+                      size="lg"
+                      color={textColor}
+                      _hover={{ bg: menuHoverBg }}
+                    >
+                      Request product
+                    </Button>
+                  )}
+                  <Button
+                    as={RouterLink}
+                    to="/contact"
+                    variant="ghost"
+                    justifyContent="space-between"
+                    rightIcon={<FiChevronRight />}
+                    onClick={onClose}
+                    fontWeight="500"
+                    size="lg"
+                    color={textColor}
+                    _hover={{ bg: menuHoverBg }}
+                  >
+                    Contact store
+                  </Button>
+                  <Button
+                    as={RouterLink}
+                    to="/about-us"
+                    variant="ghost"
+                    justifyContent="space-between"
+                    rightIcon={<FiChevronRight />}
+                    onClick={onClose}
+                    fontWeight="500"
+                    size="lg"
+                    color={textColor}
+                    _hover={{ bg: menuHoverBg }}
+                  >
+                    About this store
+                  </Button>
+                  <Divider my={3} borderColor={borderColor} />
+                </>
+              )}
 
               {currentUser && userData && (
                 <>

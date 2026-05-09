@@ -108,20 +108,11 @@ const StorefrontPage = ({ subdomain }) => {
   const accentColor = useColorModeValue('var(--store-accent)', 'var(--store-accent)');
   const accentColorHover = useColorModeValue('var(--store-primary)', '#1d1b33');
   const accentSoft = useColorModeValue('rgba(37, 99, 235, 0.08)', 'rgba(255,255,255,0.08)');
-  const chipBg = useColorModeValue('#F3F4F6', 'whiteAlpha.50');
-  const panelBg = useColorModeValue('rgba(255,255,255,0.84)', 'rgba(15,15,20,0.72)');
   const heroGlow = useColorModeValue('radial-gradient(circle at top left, rgba(37,99,235,0.10), transparent 42%)', 'radial-gradient(circle at top left, rgba(37,99,235,0.24), transparent 42%)');
   const heroGlowSecondary = useColorModeValue('radial-gradient(circle at bottom right, rgba(15,23,42,0.05), transparent 38%)', 'radial-gradient(circle at bottom right, rgba(255,255,255,0.08), transparent 38%)');
 
   const storeTitle = storeOwner?.businessName || `${storeHandleLabel} Store`;
   const storeDescription = getStoreDescription(storeOwner);
-  const storeInitials = useMemo(() => storeTitle
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((chunk) => chunk.charAt(0))
-    .join('')
-    .slice(0, 2)
-    .toUpperCase(), [storeTitle]);
   const hasCatalogues = catalogues.length > 0;
 
   if (loading) {
@@ -170,7 +161,7 @@ const StorefrontPage = ({ subdomain }) => {
 
   return (
     <Box bg={pageBg} minH="100vh">
-      <Container maxW="container.xl" py={{ base: 6, md: 10 }}>
+      <Container maxW="container.xl" py={{ base: 4, md: 8 }}>
         <Box
           position="relative"
           overflow="hidden"
@@ -184,8 +175,8 @@ const StorefrontPage = ({ subdomain }) => {
           <Box position="absolute" inset="0" bg={heroGlowSecondary} />
           <Box position="absolute" top="-90px" right="-70px" w="220px" h="220px" borderRadius="full" bg={accentSoft} filter="blur(20px)" />
 
-          <Box position="relative" p={{ base: 4, md: 6 }}>
-            <Grid templateColumns={{ base: '1fr', xl: '1.15fr 0.85fr' }} gap={{ base: 5, xl: 6 }} alignItems="start">
+          <Box position="relative" p={{ base: 3, md: 5 }}>
+            <Grid templateColumns={{ base: '1fr' }} gap={{ base: 5, xl: 6 }} alignItems="start">
               <Box>
                 <Badge
                   bg={accentSoft}
@@ -203,7 +194,7 @@ const StorefrontPage = ({ subdomain }) => {
                 <Heading
                   as="h1"
                   color={textColor}
-                  fontSize={{ base: '2.4xl', md: '4xl', xl: '4.75xl' }}
+                  fontSize={{ base: '2xl', md: '3.5xl', xl: '4xl' }}
                   lineHeight="1.06"
                   fontWeight="900"
                   letterSpacing="-0.03em"
@@ -217,7 +208,7 @@ const StorefrontPage = ({ subdomain }) => {
                   {storeDescription}
                 </Text>
 
-                <HStack spacing={2.5} flexWrap="wrap" mt={5}>
+                <HStack spacing={2.5} flexWrap="wrap" mt={3}>
                   <Button
                     as="a"
                     href="#store-collections"
@@ -263,54 +254,6 @@ const StorefrontPage = ({ subdomain }) => {
                     Sign in for faster checkout and order history.
                   </Text>
                 )}
-              </Box>
-
-              <Box
-                bg={panelBg}
-                borderWidth="1px"
-                borderColor={borderColor}
-                borderRadius="22px"
-                p={4.5}
-                backdropFilter="blur(16px)"
-              >
-                <VStack align="stretch" spacing={3}>
-                  <HStack justify="space-between" align="start" spacing={3}>
-                    <Box>
-                      <Text color={descColor} fontSize="xs" fontWeight="700" letterSpacing="0.1em" textTransform="uppercase">
-                        Quick access
-                      </Text>
-                      <Heading color={textColor} mt={1} fontSize="xl" fontWeight="900" letterSpacing="-0.02em">
-                        Start here
-                      </Heading>
-                    </Box>
-                    <Center w="48px" h="48px" borderRadius="16px" bg={accentSoft} color={accentColor} fontWeight="900" fontSize="md">
-                      {storeInitials || 'SS'}
-                    </Center>
-                  </HStack>
-
-                  <VStack align="stretch" spacing={1}>
-                    <Button as="a" href="#store-collections" variant="ghost" justifyContent="space-between" rightIcon={<Icon as={FiArrowRight} />} color={textColor} borderRadius="14px" px={3} py={6} _hover={{ bg: chipBg }}>
-                      Browse collections
-                    </Button>
-                    <Button as={RouterLink} to="/contact" variant="ghost" justifyContent="space-between" rightIcon={<Icon as={FiArrowRight} />} color={textColor} borderRadius="14px" px={3} py={6} _hover={{ bg: chipBg }}>
-                      Contact store
-                    </Button>
-                    {storeOwner.requestProductEnabled && (
-                      <Button as={RouterLink} to="/request-product" variant="ghost" justifyContent="space-between" rightIcon={<Icon as={FiArrowRight} />} color={textColor} borderRadius="14px" px={3} py={6} _hover={{ bg: chipBg }}>
-                        Request product
-                      </Button>
-                    )}
-                    <Button as={RouterLink} to="/about-us" variant="ghost" justifyContent="space-between" rightIcon={<Icon as={FiArrowRight} />} color={textColor} borderRadius="14px" px={3} py={6} _hover={{ bg: chipBg }}>
-                      About this store
-                    </Button>
-                  </VStack>
-
-                  <Box pt={2} borderTopWidth="1px" borderColor={borderColor}>
-                    <Text color={descColor} fontSize="sm" fontWeight="600">
-                      {String(catalogues.length).padStart(2, '0')} collections ready to browse
-                    </Text>
-                  </Box>
-                </VStack>
               </Box>
             </Grid>
           </Box>
