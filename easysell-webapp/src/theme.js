@@ -4,12 +4,12 @@ import { mode } from '@chakra-ui/theme-tools';
 const styles = {
     global: (props) => ({
         body: {
-            bg: mode('#F8F9FC', '#09090B')(props),
+            bg: mode('#F8FAFC', '#090B12')(props),
             color: mode('gray.800', 'whiteAlpha.900')(props),
             transition: 'background-color 0.2s ease',
         },
         '::selection': {
-            bg: 'brand.100',
+            bg: 'accent.100',
             color: 'brand.900',
         },
     }),
@@ -17,28 +17,28 @@ const styles = {
 
 const colors = {
     brand: {
-        50: '#F3F0FF',
-        100: '#E0DBFF',
-        200: '#C4B5FD',
-        300: '#A78BFA',
-        400: '#8B5CF6',
-        500: '#6C5CE7',
-        600: '#5B4BD5',
-        700: '#4C3EC0',
-        800: '#3B2F9E',
-        900: '#2D2275',
+        50: '#F8FAFC',
+        100: '#F1F5F9',
+        200: '#E2E8F0',
+        300: '#CBD5E1',
+        400: '#94A3B8',
+        500: '#64748B',
+        600: '#475569',
+        700: '#334155',
+        800: '#1E293B',
+        900: '#0F172A',
     },
     accent: {
-        50: '#ECFEFF',
-        100: '#CFFAFE',
-        200: '#A5F3FC',
-        300: '#67E8F9',
-        400: '#22D3EE',
-        500: '#00D2FF',
-        600: '#0891B2',
-        700: '#0E7490',
-        800: '#155E75',
-        900: '#164E63',
+        50: '#EFF6FF',
+        100: '#DBEAFE',
+        200: '#BFDBFE',
+        300: '#93C5FD',
+        400: '#60A5FA',
+        500: '#3B82F6',
+        600: '#2563EB',
+        700: '#1D4ED8',
+        800: '#1E40AF',
+        900: '#1E3A8A',
     },
     surface: {
         light: '#FFFFFF',
@@ -47,8 +47,8 @@ const colors = {
 };
 
 const fonts = {
-    heading: `'Inter', -apple-system, BlinkMacSystemFont, sans-serif`,
-    body: `'Inter', -apple-system, BlinkMacSystemFont, sans-serif`,
+    heading: `'Rubik', 'Segoe UI', sans-serif`,
+    body: `'Nunito Sans', 'Segoe UI', sans-serif`,
 };
 
 const shadows = {
@@ -67,12 +67,12 @@ const components = {
         },
         variants: {
             solid: (props) => ({
-                bg: mode('brand.500', 'brand.400')(props),
+                bg: mode('accent.600', 'accent.500')(props),
                 color: 'white',
                 _hover: {
-                    bg: mode('brand.600', 'brand.500')(props),
+                    bg: mode('accent.700', 'accent.600')(props),
                     transform: 'translateY(-1px)',
-                    boxShadow: '0 4px 14px rgba(108,92,231,0.4)',
+                    boxShadow: '0 4px 12px rgba(37,99,235,0.24)',
                 },
                 _active: {
                     transform: 'translateY(0)',
@@ -85,8 +85,7 @@ const components = {
                 borderWidth: '1.5px',
                 _hover: {
                     bg: mode('gray.50', 'whiteAlpha.50')(props),
-                    borderColor: 'brand.400',
-                    transform: 'translateY(-1px)',
+                    borderColor: 'accent.500',
                 },
             }),
             ghost: (props) => ({
@@ -127,8 +126,8 @@ const components = {
                     borderRadius: '12px',
                     borderColor: mode('gray.200', 'whiteAlpha.200')(props),
                     _focus: {
-                        borderColor: 'brand.400',
-                        boxShadow: '0 0 0 1px var(--chakra-colors-brand-400)',
+                        borderColor: 'accent.500',
+                        boxShadow: '0 0 0 1px var(--chakra-colors-accent-500)',
                     },
                     _hover: {
                         borderColor: mode('gray.300', 'whiteAlpha.300')(props),

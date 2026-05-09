@@ -1,73 +1,73 @@
 import React from 'react';
 import {
-    Box,
-    Container,
-    Text,
-    Link,
-    useColorModeValue,
-    Flex,
-    HStack,
-    Divider
+  Box,
+  Container,
+  Text,
+  Link,
+  Flex,
+  HStack,
+  VStack,
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
+import { resolveStoreContext } from '../utils/storeResolver';
 
-export default function Footer() {
-    const bg = useColorModeValue('white', '#0F0F14');
-    const borderColor = useColorModeValue('gray.100', 'whiteAlpha.100');
-    const textColor = useColorModeValue('gray.500', 'gray.500');
-    const linkColor = useColorModeValue('gray.600', 'gray.400');
-    const brandGradient = 'linear(to-r, brand.500, accent.500)';
+const formatStoreLabel = (value = 'store') => (
+  value
+    .replace(/\..*$/, '')
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .join(' ')
+);
 
-    return (
-        <Box
-            bg={bg}
-            borderTopWidth="1px"
-            borderColor={borderColor}
-            mt="auto"
+export default function Footer({ storeContext }) {
+  const context = storeContext || resolveStoreContext();
+  const isStorefront = context.type === 'subdomain' || context.type === 'customDomain';
+  const storeLabel = isStorefront
+    ? formatStoreLabel(context.handle || context.domain || 'Store')
+    : 'Vyparsetu';
+
+  const bg = isStorefront ? '#FFFFFF' : '#FFFFFF';
+  const borderColor = '#E2E8F0';
+  const textColor = '#64748B';
+  const titleColor = '#0F172A';
+  const linkColor = '#475569';
+  const linkHoverColor = '#2563EB';
+
+  return (
+    <Box bg={bg} borderTopWidth="1px" borderColor={borderColor} mt="auto">
+      <Container maxW="container.xl" py={6}>
+        <Flex
+          direction={{ base: 'column', md: 'row' }}
+          justify="space-between"
+          align={{ base: 'flex-start', md: 'center' }}
+          gap={3}
         >
-            <Container maxW="container.xl" py={6}>
-                <Flex
-                    direction={{ base: 'column', md: 'row' }}
-                    justify="space-between"
-                    align="center"
-                    gap={4}
-                >
-                    {/* Left: Branding */}
-                    <HStack spacing={2}>
-                        <Text fontSize="sm" color={textColor}>
-                            Powered by
-                        </Text>
-                        <Text
-                            fontSize="sm"
-                            fontWeight="800"
-                            bgGradient={brandGradient}
-                            bgClip="text"
-                            letterSpacing="-0.02em"
-                        >
-                            Vyparsetu
-                        </Text>
-                    </HStack>
+          <VStack align="start" spacing={1}>
+            <Text fontSize="sm" color={titleColor} fontWeight="700">
+              {storeLabel}
+            </Text>
+            <Text fontSize="xs" color={textColor}>
+              {isStorefront
+                ? 'Official storefront with secure checkout and direct support.'
+                : 'Modern commerce experience built for confident buying.'}
+            </Text>
+          </VStack>
 
-                    {/* Right: Links */}
-                    <HStack spacing={6} fontSize="xs" color={linkColor}>
-                        <Link as={RouterLink} to="/" _hover={{ color: 'brand.500' }} transition="color 0.2s">
-                            Privacy
-                        </Link>
-                        <Link as={RouterLink} to="/" _hover={{ color: 'brand.500' }} transition="color 0.2s">
-                            Terms
-                        </Link>
-                        <Link as={RouterLink} to="/contact" _hover={{ color: 'brand.500' }} transition="color 0.2s">
-                            Contact
-                        </Link>
-                    </HStack>
-                </Flex>
+          <HStack spacing={4} fontSize="xs" color={linkColor}>
+            <Link as={RouterLink} to="/about-us" _hover={{ color: linkHoverColor }} transition="color 0.2s">
+              About Us
+            </Link>
+            <Link as={RouterLink} to="/contact" _hover={{ color: linkHoverColor }} transition="color 0.2s">
+              Store Support
+            </Link>
+          </HStack>
+        </Flex>
 
-                <Divider my={4} borderColor={borderColor} />
-
-                <Text fontSize="xs" color={textColor} textAlign="center">
-                    © {new Date().getFullYear()} Vyparsetu. All rights reserved.
-                </Text>
-            </Container>
-        </Box>
-    );
+        <Text fontSize="xs" color={textColor} mt={5}>
+          (c) {new Date().getFullYear()} {storeLabel}. All rights reserved.
+        </Text>
+      </Container>
+    </Box>
+  );
 }

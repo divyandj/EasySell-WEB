@@ -15,6 +15,7 @@ import HomePage from './pages/HomePage';
 import StorefrontPage from './pages/StorefrontPage';
 import RequestProductPage from './pages/RequestProductPage';
 import ContactPage from './pages/ContactPage';
+import AboutUsPage from './pages/AboutUsPage';
 import RewardsPage from './pages/RewardsPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -24,18 +25,15 @@ import { Box, Flex } from '@chakra-ui/react';
 
 import { resolveStoreContext } from './utils/storeResolver';
 
-const getSubdomain = () => {
-  const context = resolveStoreContext();
-  return (context.type === 'subdomain' || context.type === 'customDomain') ? context.handle || context.domain : null;
-};
-
 function App() {
-  const subdomain = getSubdomain();
+  const storeContext = resolveStoreContext();
+  const isStorefrontContext = storeContext.type === 'subdomain' || storeContext.type === 'customDomain';
+  const subdomain = isStorefrontContext ? (storeContext.handle || storeContext.domain) : null;
 
   return (
     <Flex direction="column" minH="100vh">
       <ScrollToTop />
-      <Navbar />
+      <Navbar storeContext={storeContext} />
       <Box flex="1">
         <Routes>
           {/* --- Public Routes (Accessible by Everyone) --- */}
@@ -49,6 +47,7 @@ function App() {
           <Route path="/product/:catalogueId/:productId" element={<ProductDetailPage />} />
           <Route path="/product/:productId" element={<ProductDetailPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/about-us" element={<AboutUsPage />} />
           <Route path="/rewards" element={<RewardsPage />} />
           <Route path="/request-product" element={
             <ProtectedRoute>
@@ -114,7 +113,7 @@ function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Box>
-      <Footer />
+      <Footer storeContext={storeContext} />
     </Flex>
   );
 }

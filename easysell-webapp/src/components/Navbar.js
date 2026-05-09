@@ -1,63 +1,110 @@
 import React from 'react';
 import {
-  Box, Flex, Heading, Button, Badge, IconButton, HStack, Avatar, Menu, MenuButton, MenuList, MenuItem, MenuDivider, Text, useColorModeValue, Container, useColorMode,
-  Drawer, DrawerBody, DrawerHeader, DrawerOverlay, DrawerContent, DrawerCloseButton, useDisclosure, VStack, Divider
+  Box,
+  Flex,
+  Heading,
+  Button,
+  Badge,
+  IconButton,
+  HStack,
+  Avatar,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  MenuDivider,
+  Text,
+  useColorModeValue,
+  Container,
+  Drawer,
+  DrawerBody,
+  DrawerHeader,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerCloseButton,
+  useDisclosure,
+  VStack,
+  Divider,
 } from '@chakra-ui/react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { FiShoppingCart, FiLogOut, FiUser, FiSun, FiMoon, FiMenu, FiPackage, FiChevronRight, FiStar } from 'react-icons/fi';
+import {
+  FiShoppingCart,
+  FiLogOut,
+  FiUser,
+  FiMenu,
+  FiPackage,
+  FiChevronRight,
+  FiStar,
+} from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { resolveStoreContext } from '../utils/storeResolver';
 
-const MotionBadge = motion(Badge);
+const formatStoreLabel = (value = 'store') => (
+  value
+    .replace(/\..*$/, '')
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .join(' ')
+);
 
-const Navbar = () => {
+const Navbar = ({ storeContext }) => {
   const { itemCount } = useCart();
   const { currentUser, userData, signOut, storeConfig, buyerPoints } = useAuth();
   const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
+
+  const context = storeContext || resolveStoreContext();
+  const isStorefront = context.type === 'subdomain' || context.type === 'customDomain';
+  const storeLabel = isStorefront
+    ? formatStoreLabel(context.handle || context.domain || 'Store')
+    : 'Vyparsetu';
+
+  const desktopLinks = isStorefront
+    ? [
+      { label: 'Collections', to: '/#store-collections' },
+      { label: 'About Us', to: '/about-us' },
+      { label: 'Contact', to: '/contact' },
+    ]
+    : [];
 
   const handleLogout = async () => {
     try {
       await signOut();
       navigate('/login');
     } catch (error) {
-      console.error("Failed to log out", error);
+      console.error('Failed to log out', error);
     }
   };
 
-  const { colorMode, toggleColorMode } = useColorMode();
-
-  // Theme tokens
-  const navBg = useColorModeValue('rgba(255, 255, 255, 0.85)', 'rgba(9, 9, 11, 0.85)');
-  const borderColor = useColorModeValue('gray.100', 'whiteAlpha.100');
-  const menuBg = useColorModeValue('white', '#111116');
-  const menuBorderColor = useColorModeValue('gray.100', 'whiteAlpha.100');
-  const textColor = useColorModeValue('gray.700', 'gray.200');
+  const navBg = useColorModeValue('white', '#111827');
+  const borderColor = useColorModeValue('#E2E8F0', 'whiteAlpha.200');
+  const textColor = useColorModeValue('#334155', 'gray.200');
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
   const iconColor = useColorModeValue('gray.600', 'gray.300');
-  const menuHoverBg = useColorModeValue('brand.50', 'whiteAlpha.100');
-  const logoGradient = 'linear(to-r, brand.500, accent.500)';
+  const menuBg = useColorModeValue('white', '#111827');
+  const menuHoverBg = useColorModeValue('gray.100', 'whiteAlpha.100');
+  const menuBorderColor = useColorModeValue('gray.200', 'whiteAlpha.200');
+  const dangerHoverBg = useColorModeValue('red.50', 'red.900');
+  const storeBadgeBg = useColorModeValue('blue.50', 'blue.900');
+  const storeBadgeColor = useColorModeValue('blue.700', 'blue.100');
+  const defaultBrandColor = useColorModeValue('brand.700', 'brand.300');
+  const brandColor = isStorefront ? '#0F172A' : defaultBrandColor;
 
   return (
     <Box
       as="nav"
       position="sticky"
       top="0"
-      bg={navBg}
       zIndex="sticky"
-      backdropFilter="blur(20px)"
-      sx={{ WebkitBackdropFilter: 'blur(20px)' }}
+      bg={navBg}
       borderBottomWidth="1px"
       borderColor={borderColor}
-      transition="all 0.3s"
     >
       <Container maxW="container.xl" px={{ base: 4, md: 6 }}>
-        <Flex h={16} alignItems="center" justifyContent="space-between">
-
-          {/* Logo */}
-          <HStack spacing={3} alignItems="center">
-            {/* Mobile menu button */}
+        <Flex h={{ base: 14, md: 16 }} align="center" justify="space-between">
+          <HStack spacing={3} align="center">
             <IconButton
               icon={<FiMenu />}
               variant="ghost"
@@ -71,52 +118,67 @@ const Navbar = () => {
             <Heading
               as={RouterLink}
               to="/"
-              fontSize="xl"
-              letterSpacing="-0.03em"
-              bgGradient={logoGradient}
-              bgClip="text"
+              fontSize={{ base: 'lg', md: 'xl' }}
+              letterSpacing="-0.02em"
+              color={brandColor}
               fontWeight="900"
-              _hover={{ opacity: 0.8 }}
-              transition="opacity 0.2s"
+              _hover={{ opacity: 0.85 }}
             >
-              Vyparsetu
+              {storeLabel}
             </Heading>
+
+            {isStorefront && (
+              <Badge
+                display={{ base: 'none', md: 'inline-flex' }}
+                borderRadius="full"
+                px={2.5}
+                py={1}
+                bg={storeBadgeBg}
+                color={storeBadgeColor}
+                fontSize="10px"
+                fontWeight="700"
+                letterSpacing="0.06em"
+              >
+                Official Store
+              </Badge>
+            )}
           </HStack>
 
-          {/* Right Side Actions */}
-          <HStack alignItems="center" spacing={1}>
-            {/* Theme Toggle */}
-            <IconButton
-              icon={colorMode === 'light' ? <FiMoon size="16px" /> : <FiSun size="16px" />}
-              onClick={toggleColorMode}
-              variant="ghost"
-              aria-label="Toggle Theme"
-              color={iconColor}
-              _hover={{ bg: useColorModeValue('gray.100', 'whiteAlpha.100') }}
-              borderRadius="full"
-              size="sm"
-            />
+          {desktopLinks.length > 0 && (
+            <HStack display={{ base: 'none', lg: 'flex' }} spacing={1}>
+              {desktopLinks.map((link) => (
+                <Button
+                  key={link.label}
+                  as={RouterLink}
+                  to={link.to}
+                  size="sm"
+                  variant="ghost"
+                  color={textColor}
+                  fontWeight="600"
+                  _hover={{ bg: menuHoverBg, color: brandColor }}
+                >
+                  {link.label}
+                </Button>
+              ))}
+            </HStack>
+          )}
 
-            {/* Complete Profile Prompt */}
+          <HStack align="center" spacing={1.5}>
             {currentUser && !userData && (
               <Button
                 as={RouterLink}
                 to="/signup"
                 colorScheme="orange"
-                variant="solid"
-                bg="orange.400"
                 size="xs"
                 px={4}
-                rounded="full"
-                fontWeight="600"
-                display={{ base: 'none', md: 'flex' }}
+                borderRadius="full"
+                display={{ base: 'none', md: 'inline-flex' }}
               >
                 Complete Setup
               </Button>
             )}
 
-            {/* Points Badge */}
-            {currentUser && userData && storeConfig?.rewardsEnabled && (
+            {currentUser && userData && storeConfig?.rewardsEnabled && !isStorefront && (
               <Button
                 as={RouterLink}
                 to="/rewards"
@@ -124,7 +186,7 @@ const Navbar = () => {
                 size="sm"
                 borderRadius="full"
                 leftIcon={<FiStar size="14px" />}
-                color="purple.500"
+                color="accent.700"
                 fontWeight="700"
                 fontSize="xs"
                 _hover={{ bg: menuHoverBg }}
@@ -134,7 +196,6 @@ const Navbar = () => {
               </Button>
             )}
 
-            {/* Cart Icon */}
             {currentUser && userData && (
               <Box position="relative">
                 <IconButton
@@ -148,53 +209,36 @@ const Navbar = () => {
                   borderRadius="full"
                   size="sm"
                 />
-                <AnimatePresence>
-                  {itemCount > 0 && (
-                    <MotionBadge
-                      key="cart-badge"
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 20 }}
-                      position="absolute"
-                      top="-2px"
-                      right="-2px"
-                      fontSize="0.6em"
-                      colorScheme="red"
-                      variant="solid"
-                      borderRadius="full"
-                      w="16px"
-                      h="16px"
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                      boxShadow={`0 0 0 2px ${colorMode === 'light' ? 'white' : '#09090B'}`}
-                      pointerEvents="none"
-                    >
-                      {itemCount}
-                    </MotionBadge>
-                  )}
-                </AnimatePresence>
+                {itemCount > 0 && (
+                  <Badge
+                    position="absolute"
+                    top="-2px"
+                    right="-2px"
+                    fontSize="0.6em"
+                    colorScheme="red"
+                    borderRadius="full"
+                    w="16px"
+                    h="16px"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    pointerEvents="none"
+                  >
+                    {itemCount}
+                  </Badge>
+                )}
               </Box>
             )}
 
-            {/* User Menu */}
             {currentUser ? (
               <Menu>
-                <MenuButton
-                  as={Button}
-                  rounded="full"
-                  variant="link"
-                  cursor="pointer"
-                  minW={0}
-                  ml={1}
-                >
+                <MenuButton as={Button} variant="link" rounded="full" minW={0} ml={1}>
                   <Avatar
                     size="xs"
                     src={currentUser.photoURL || ''}
                     name={currentUser.displayName || currentUser.email || ''}
                     borderWidth="2px"
-                    borderColor="brand.400"
+                    borderColor={brandColor}
                   />
                 </MenuButton>
                 <MenuList
@@ -202,20 +246,21 @@ const Navbar = () => {
                   borderColor={menuBorderColor}
                   shadow="elevated"
                   py={2}
-                  borderRadius="16px"
+                  borderRadius="14px"
                   minW="220px"
                 >
                   <Box px={4} py={3} borderBottomWidth="1px" borderColor={borderColor} mb={1}>
                     <Text fontWeight="700" color={textColor} fontSize="sm">{currentUser.displayName || 'User'}</Text>
                     <Text fontSize="xs" color={mutedColor} noOfLines={1}>{currentUser.email}</Text>
                   </Box>
+
                   {userData && (
                     <>
                       <MenuItem
                         as={RouterLink}
                         to="/orders"
+                        icon={<FiPackage />}
                         _hover={{ bg: menuHoverBg }}
-                        icon={<FiPackage color="var(--chakra-colors-brand-500)" />}
                         fontSize="sm"
                         borderRadius="md"
                         mx={2}
@@ -226,8 +271,8 @@ const Navbar = () => {
                       <MenuItem
                         as={RouterLink}
                         to="/profile"
+                        icon={<FiUser />}
                         _hover={{ bg: menuHoverBg }}
-                        icon={<FiUser color="var(--chakra-colors-brand-500)" />}
                         fontSize="sm"
                         borderRadius="md"
                         mx={2}
@@ -238,13 +283,14 @@ const Navbar = () => {
                       <MenuDivider borderColor={borderColor} />
                     </>
                   )}
+
                   {!userData && (
                     <MenuItem
                       as={RouterLink}
                       to="/signup"
+                      icon={<FiUser />}
                       fontWeight="600"
                       color="orange.500"
-                      icon={<FiUser />}
                       fontSize="sm"
                       borderRadius="md"
                       mx={2}
@@ -253,11 +299,12 @@ const Navbar = () => {
                       Complete Setup
                     </MenuItem>
                   )}
+
                   <MenuItem
                     icon={<FiLogOut />}
                     onClick={handleLogout}
                     color="red.500"
-                    _hover={{ bg: 'red.50' }}
+                    _hover={{ bg: dangerHoverBg }}
                     fontSize="sm"
                     borderRadius="md"
                     mx={2}
@@ -274,46 +321,61 @@ const Navbar = () => {
                   to="/login"
                   variant="ghost"
                   color={textColor}
-                  fontWeight="500"
-                  size="sm"
-                  _hover={{ color: 'brand.500' }}
-                >
-                  Log In
-                </Button>
-                <Button
-                  as={RouterLink}
-                  to="/signup"
-                  colorScheme="brand"
-                  size="sm"
-                  px={5}
-                  borderRadius="full"
                   fontWeight="600"
+                  size="sm"
+                  _hover={{ bg: menuHoverBg, color: brandColor }}
                 >
-                  Sign Up
+                  Sign In
                 </Button>
+                {!isStorefront && (
+                  <Button
+                    as={RouterLink}
+                    to="/signup"
+                    colorScheme="brand"
+                    size="sm"
+                    px={5}
+                    borderRadius="full"
+                    fontWeight="600"
+                  >
+                    Sign Up
+                  </Button>
+                )}
               </HStack>
             )}
           </HStack>
         </Flex>
       </Container>
 
-      {/* Mobile Drawer */}
       <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
         <DrawerOverlay />
         <DrawerContent bg={menuBg} maxW="280px">
           <DrawerCloseButton />
           <DrawerHeader borderBottomWidth="1px" borderColor={borderColor}>
-            <Heading
-              fontSize="lg"
-              bgGradient={logoGradient}
-              bgClip="text"
-              fontWeight="900"
-            >
-              Vyparsetu
+            <Heading fontSize="lg" color={brandColor} fontWeight="900">
+              {storeLabel}
             </Heading>
           </DrawerHeader>
+
           <DrawerBody py={6}>
             <VStack spacing={1} align="stretch">
+              {desktopLinks.map((link) => (
+                <Button
+                  key={link.label}
+                  as={RouterLink}
+                  to={link.to}
+                  variant="ghost"
+                  justifyContent="space-between"
+                  rightIcon={<FiChevronRight />}
+                  onClick={onClose}
+                  fontWeight="500"
+                  size="lg"
+                >
+                  {link.label}
+                </Button>
+              ))}
+
+              {desktopLinks.length > 0 && <Divider my={3} borderColor={borderColor} />}
+
               {currentUser && userData && (
                 <>
                   <Button
@@ -362,6 +424,7 @@ const Navbar = () => {
                   <Divider my={3} borderColor={borderColor} />
                 </>
               )}
+
               {currentUser && !userData && (
                 <Button
                   as={RouterLink}
@@ -374,6 +437,7 @@ const Navbar = () => {
                   Complete Setup
                 </Button>
               )}
+
               {!currentUser && (
                 <>
                   <Button
@@ -384,20 +448,23 @@ const Navbar = () => {
                     fontWeight="500"
                     size="lg"
                   >
-                    Log In
+                    Sign In
                   </Button>
-                  <Button
-                    as={RouterLink}
-                    to="/signup"
-                    colorScheme="brand"
-                    onClick={onClose}
-                    borderRadius="xl"
-                    size="lg"
-                  >
-                    Sign Up
-                  </Button>
+                  {!isStorefront && (
+                    <Button
+                      as={RouterLink}
+                      to="/signup"
+                      colorScheme="brand"
+                      onClick={onClose}
+                      borderRadius="xl"
+                      size="lg"
+                    >
+                      Sign Up
+                    </Button>
+                  )}
                 </>
               )}
+
               {currentUser && (
                 <>
                   <Divider my={3} borderColor={borderColor} />
