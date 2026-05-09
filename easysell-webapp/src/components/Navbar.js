@@ -78,7 +78,7 @@ const Navbar = ({ storeContext }) => {
     }
   };
 
-  const navBg = useColorModeValue('white', '#111827');
+  const navSurface = useColorModeValue('rgba(255,255,255,0.84)', 'rgba(17,24,39,0.92)');
   const borderColor = useColorModeValue('#E2E8F0', 'whiteAlpha.200');
   const textColor = useColorModeValue('#334155', 'gray.200');
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
@@ -98,9 +98,11 @@ const Navbar = ({ storeContext }) => {
       position="sticky"
       top="0"
       zIndex="sticky"
-      bg={navBg}
+      bg={navSurface}
       borderBottomWidth="1px"
       borderColor={borderColor}
+      backdropFilter="blur(18px)"
+      boxShadow="sm"
     >
       <Container maxW="container.xl" px={{ base: 4, md: 6 }}>
         <Flex h={{ base: 14, md: 16 }} align="center" justify="space-between">
@@ -155,6 +157,7 @@ const Navbar = ({ storeContext }) => {
                   variant="ghost"
                   color={textColor}
                   fontWeight="600"
+                  borderRadius="full"
                   _hover={{ bg: menuHoverBg, color: brandColor }}
                 >
                   {link.label}

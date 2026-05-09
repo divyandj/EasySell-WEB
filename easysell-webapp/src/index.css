@@ -9,7 +9,7 @@
   --store-primary: #0f172a;
   --store-secondary: #334155;
   --store-accent: #2563eb;
-  --store-bg: #f4f6f8;
+  --store-bg: #eef4fb;
   --store-text: #020617;
   --store-radius-lg: 18px;
   --store-radius-xl: 24px;
@@ -26,6 +26,7 @@ body {
   margin: 0;
   font-family: 'Nunito Sans', 'Segoe UI', sans-serif;
   overflow-x: hidden;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
 }
 
 /* Selection Color */

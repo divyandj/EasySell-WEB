@@ -27,7 +27,7 @@ export default function Footer({ storeContext }) {
     ? formatStoreLabel(context.handle || context.domain || 'Store')
     : 'Vyparsetu';
 
-  const bg = isStorefront ? '#FFFFFF' : '#FFFFFF';
+  const bg = isStorefront ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.94)';
   const borderColor = '#E2E8F0';
   const textColor = '#64748B';
   const titleColor = '#0F172A';
@@ -36,7 +36,7 @@ export default function Footer({ storeContext }) {
 
   return (
     <Box bg={bg} borderTopWidth="1px" borderColor={borderColor} mt="auto">
-      <Container maxW="container.xl" py={6}>
+      <Container maxW="container.xl" py={8}>
         <Flex
           direction={{ base: 'column', md: 'row' }}
           justify="space-between"
@@ -49,7 +49,7 @@ export default function Footer({ storeContext }) {
             </Text>
             <Text fontSize="xs" color={textColor}>
               {isStorefront
-                ? 'Official storefront with secure checkout and direct support.'
+                ? 'Official storefront with secure checkout, direct support, and focused browsing.'
                 : 'Modern commerce experience built for confident buying.'}
             </Text>
           </VStack>
