@@ -1,0 +1,179 @@
+[
+  {
+    "id": "1XGNflE5HFqCRWhenY6b",
+    "vendorName": "sududd",
+    "totalDebtAmount": 555,
+    "settledAmount": 0,
+    "remainingAmount": 555,
+    "agreementRef": "",
+    "storeHandle": "divv",
+    "status": "OPEN",
+    "createdAt": "2026-04-07T05:30:50.738Z",
+    "updatedAt": "2026-04-07T05:30:50.738Z"
+  },
+  {
+    "id": "6EyB2TRDBnLClafIorEn",
+    "vendorName": "Overpaid Vendor",
+    "totalDebtAmount": 100,
+    "agreementRef": "AGR-OVERPAID-1775417672938",
+    "createdAt": "2026-04-05T19:35:45.199Z",
+    "remainingAmount": -1499900,
+    "settledAmount": 1500000,
+    "status": "OVERPAID",
+    "updatedAt": "2026-04-05T19:36:05.516Z"
+  },
+  {
+    "id": "Bxy270UfHsjWSsOnxLHX",
+    "vendorName": "Smoke Vendor",
+    "totalDebtAmount": 5000,
+    "agreementRef": "AGR-1775415037972",
+    "createdAt": "2026-04-05T18:50:43.892Z",
+    "remainingAmount": 3766,
+    "settledAmount": 1234,
+    "status": "PARTIAL",
+    "updatedAt": "2026-04-05T18:51:13.427Z"
+  },
+  {
+    "id": "EvHhU1L2hM9YZvW40sAB",
+    "vendorName": "Overpaid Vendor",
+    "totalDebtAmount": 100,
+    "agreementRef": "AGR-OVERPAID-1775417532472",
+    "createdAt": "2026-04-05T19:32:45.464Z",
+    "remainingAmount": -1499900,
+    "settledAmount": 1500000,
+    "status": "OVERPAID",
+    "updatedAt": "2026-04-05T19:32:56.580Z"
+  },
+  {
+    "id": "GErB1oWqbYOMt2pc634Y",
+    "vendorName": "Smoke Vendor",
+    "totalDebtAmount": 5000,
+    "agreementRef": "AGR-1775412526152",
+    "createdAt": "2026-04-05T18:08:51.397Z",
+    "remainingAmount": 3766,
+    "settledAmount": 1234,
+    "status": "PARTIAL",
+    "updatedAt": "2026-04-05T18:09:21.055Z"
+  },
+  {
+    "id": "Gi9e3DW8UICgLiGtZjTa",
+    "vendorName": "Smoke Vendor",
+    "totalDebtAmount": 5000,
+    "settledAmount": 0,
+    "remainingAmount": 5000,
+    "agreementRef": "AGR-1775412418271",
+    "status": "OPEN",
+    "createdAt": "2026-04-05T18:07:03.734Z",
+    "updatedAt": "2026-04-05T18:07:03.734Z"
+  },
+  {
+    "id": "HOCqAQ12XcRvci86TGxb",
+    "vendorName": "Smoke Vendor",
+    "totalDebtAmount": 5000,
+    "settledAmount": 0,
+    "remainingAmount": 5000,
+    "agreementRef": "AGR-1775417532472",
+    "status": "OPEN",
+    "createdAt": "2026-04-05T19:32:15.223Z",
+    "updatedAt": "2026-04-05T19:32:15.223Z"
+  },
+  {
+    "id": "OXbaNE9tl5eKHR7usNfF",
+    "vendorName": "Smoke Vendor",
+    "totalDebtAmount": 5000,
+    "agreementRef": "AGR-1775417481829",
+    "createdAt": "2026-04-05T19:31:24.946Z",
+    "remainingAmount": 3766,
+    "settledAmount": 1234,
+    "status": "PARTIAL",
+    "updatedAt": "2026-04-05T19:32:29.118Z"
+  },
+  {
+    "id": "YYoBeeXCYX1UQFo9X4YX",
+    "vendorName": "Smoke Vendor",
+    "totalDebtAmount": 5000,
+    "agreementRef": "AGR-1775415613806",
+    "createdAt": "2026-04-05T19:00:18.941Z",
+    "remainingAmount": 3766,
+    "settledAmount": 1234,
+    "status": "PARTIAL",
+    "updatedAt": "2026-04-05T19:00:48.581Z"
+  },
+  {
+    "id": "hwrk3X0rJWhcEmzVRZpS",
+    "vendorName": "Overpaid Vendor",
+    "totalDebtAmount": 100,
+    "settledAmount": 0,
+    "remainingAmount": 100,
+    "agreementRef": "AGR-OVERPAID-1775417243004",
+    "status": "OPEN",
+    "createdAt": "2026-04-05T19:28:35.099Z",
+    "updatedAt": "2026-04-05T19:28:35.099Z"
+  },
+  {
+    "id": "iEUUkPoMZDSsZ3jAZGPj",
+    "vendorName": "Smoke Vendor",
+    "totalDebtAmount": 5000,
+    "agreementRef": "AGR-1775417410992",
+    "createdAt": "2026-04-05T19:30:13.986Z",
+    "remainingAmount": 3766,
+    "settledAmount": 1234,
+    "status": "PARTIAL",
+    "updatedAt": "2026-04-05T19:30:27.767Z"
+  },
+  {
+    "id": "jkTfuvX22ODmyD99fWHo",
+    "vendorName": "Overpaid Vendor",
+    "totalDebtAmount": 100,
+    "settledAmount": 0,
+    "remainingAmount": 100,
+    "agreementRef": "AGR-OVERPAID-1775417410992",
+    "status": "OPEN",
+    "createdAt": "2026-04-05T19:30:44.190Z",
+    "updatedAt": "2026-04-05T19:30:44.190Z"
+  },
+  {
+    "id": "k7Vtfs5aNFjQTUEFRCcl",
+    "vendorName": "Smoke Vendor",
+    "totalDebtAmount": 5000,
+    "agreementRef": "AGR-1775417243004",
+    "createdAt": "2026-04-05T19:27:29.252Z",
+    "remainingAmount": 3766,
+    "settledAmount": 1234,
+    "status": "PARTIAL",
+    "updatedAt": "2026-04-05T19:27:58.716Z"
+  },
+  {
+    "id": "nOV0Rlp998f54bcfNIZO",
+    "vendorName": "Smoke Vendor",
+    "totalDebtAmount": 5000,
+    "agreementRef": "AGR-1775417672938",
+    "createdAt": "2026-04-05T19:34:37.805Z",
+    "remainingAmount": 3766,
+    "settledAmount": 1234,
+    "status": "PARTIAL",
+    "updatedAt": "2026-04-05T19:35:07.871Z"
+  },
+  {
+    "id": "tWkeMYypG8pZSVBsW0Vj",
+    "vendorName": "Smoke Vendor",
+    "totalDebtAmount": 5000,
+    "settledAmount": 0,
+    "remainingAmount": 5000,
+    "agreementRef": "AGR-1775412135247",
+    "status": "OPEN",
+    "createdAt": "2026-04-05T18:02:21.034Z",
+    "updatedAt": "2026-04-05T18:02:21.034Z"
+  },
+  {
+    "id": "zE30JEFYW4JbeuA5sHa7",
+    "vendorName": "Smoke Vendor",
+    "totalDebtAmount": 5000,
+    "agreementRef": "AGR-1775412250208",
+    "createdAt": "2026-04-05T18:04:15.720Z",
+    "status": "PARTIAL",
+    "remainingAmount": 4600,
+    "settledAmount": 400,
+    "updatedAt": "2026-04-05T19:30:53.408Z"
+  }
+]

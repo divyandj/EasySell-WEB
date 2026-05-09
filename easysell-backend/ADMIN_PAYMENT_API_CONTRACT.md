@@ -234,6 +234,37 @@ Possible errors:
 - STORE_SCOPE_MISMATCH (403)
 - VENDOR_ACTIVE_BUCKET_EXISTS (409)
 
+## 9) Edit Collection Account (In-Place)
+
+Route:
+- PATCH /api/admin/payment/buckets/:bucketId
+
+Body:
+
+```json
+{
+  "vendorName": "Vendor A",
+  "vendorUpiId": "vendor-a@upi",
+  "qrImageUrl": "https://...",
+  "qrType": "UPI",
+  "priority": 1,
+  "limitAmount": 120000
+}
+```
+
+Notes:
+- This endpoint edits bucket fields in-place (status is not changed here).
+- `limitAmount` cannot be lower than current `reservedAmount + collectedAmount`.
+
+Success (200): returns updated account payload.
+
+Possible errors:
+- BUCKET_NOT_FOUND (404)
+- INVALID_INPUT (400)
+- STORE_SCOPE_REQUIRED (403)
+- STORE_SCOPE_MISMATCH (403)
+- VENDOR_ACTIVE_BUCKET_EXISTS (409)
+
 ## Cursor Pagination Rules
 
 For list endpoints (pending, review, history):
