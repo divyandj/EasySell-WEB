@@ -31,8 +31,6 @@ const RewardsPage = () => {
   const cardBorder = useColorModeValue('gray.100', 'whiteAlpha.100');
   const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
-  const accent = useColorModeValue('var(--store-accent)', 'var(--store-accent)');
-  const accentContrast = useColorModeValue('var(--store-accent-contrast)', 'white');
 
   useEffect(() => {
     const fetchRewards = async () => {
@@ -178,14 +176,14 @@ const RewardsPage = () => {
   }
 
   return (
-    <Box bg={pageBg} minH="100vh" py={{ base: 6, md: 12 }}>
+    <Box bg={pageBg} minH="100vh" py={{ base: 4, md: 8 }}>
       <Container maxW="container.md">
-        <Button variant="ghost" leftIcon={<FiArrowLeft />} mb={6} onClick={() => navigate(-1)} color={mutedColor} _hover={{ color: textColor }}>
+        <Button variant="ghost" leftIcon={<FiArrowLeft />} mb={4} onClick={() => navigate(-1)} color={mutedColor} _hover={{ color: textColor }}>
           Back
         </Button>
 
         {/* Points Balance Header */}
-        <Box bgGradient="linear(to-br, var(--store-accent), var(--store-primary))" borderRadius="20px" p={{ base: 6, md: 10 }} mb={6} color="white" textAlign="center">
+        <Box bgGradient="linear(to-br, var(--store-accent), var(--store-primary))" borderRadius="16px" p={{ base: 4, md: 8 }} mb={4} color="white" textAlign="center">
           <Icon as={FiStar} w={8} h={8} mb={3} />
           <Text fontSize="sm" opacity={0.8} textTransform="uppercase" letterSpacing="0.1em" fontWeight="700">Your Points</Text>
           <Heading size="2xl" mt={1}>{currentUser ? points.toLocaleString() : '—'}</Heading>

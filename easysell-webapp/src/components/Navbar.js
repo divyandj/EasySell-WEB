@@ -92,7 +92,9 @@ const Navbar = ({ storeContext }) => {
   const storeBadgeBg = useColorModeValue('blue.50', 'blue.900');
   const storeBadgeColor = useColorModeValue('blue.700', 'blue.100');
   const defaultBrandColor = useColorModeValue('brand.700', 'brand.300');
-  const brandColor = isStorefront ? '#0F172A' : defaultBrandColor;
+  // For storefronts we prefer the store primary in light mode and high-contrast in dark mode
+  const storefrontBrandColor = useColorModeValue('var(--store-primary)', 'whiteAlpha.900');
+  const brandColor = isStorefront ? storefrontBrandColor : defaultBrandColor;
   const { colorMode, toggleColorMode } = useColorMode();
 
   return (
