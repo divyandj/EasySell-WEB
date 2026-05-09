@@ -120,18 +120,20 @@ const StorefrontPage = ({ subdomain }) => {
   }, [subdomain]);
 
   // Use theme variables for consistent branding and professional appearance
-  const pageBg = useColorModeValue('white', '#0F0F14');
-  const surfaceBg = useColorModeValue('white', '#111116');
-  const mutedSurface = useColorModeValue('var(--store-bg)', '#1a1a24');
+  const pageBg = useColorModeValue('#F7F8FA', '#0A0B10');
+  const surfaceBg = useColorModeValue('rgba(255,255,255,0.9)', 'rgba(17,17,22,0.92)');
+  const mutedSurface = useColorModeValue('#F3F4F6', '#1A1A24');
   const borderColor = useColorModeValue('#E5E7EB', 'whiteAlpha.100');
   const textColor = useColorModeValue('var(--store-primary)', 'whiteAlpha.900');
   const descColor = useColorModeValue('gray.600', 'gray.400');
   const emptyIconBg = useColorModeValue('gray.100', 'whiteAlpha.100');
   const accentColor = useColorModeValue('var(--store-accent)', 'var(--store-accent)');
-  const accentColorHover = useColorModeValue('var(--store-primary)', '#1a1a2e');
+  const accentColorHover = useColorModeValue('var(--store-primary)', '#1d1b33');
   const accentSoft = useColorModeValue('rgba(37, 99, 235, 0.08)', 'rgba(255,255,255,0.08)');
   const chipBg = useColorModeValue('#F3F4F6', 'whiteAlpha.50');
-  const panelBg = useColorModeValue('white', 'whiteAlpha.50');
+  const panelBg = useColorModeValue('rgba(255,255,255,0.84)', 'rgba(15,15,20,0.72)');
+  const heroGlow = useColorModeValue('radial-gradient(circle at top left, rgba(37,99,235,0.10), transparent 42%)', 'radial-gradient(circle at top left, rgba(37,99,235,0.24), transparent 42%)');
+  const heroGlowSecondary = useColorModeValue('radial-gradient(circle at bottom right, rgba(15,23,42,0.05), transparent 38%)', 'radial-gradient(circle at bottom right, rgba(255,255,255,0.08), transparent 38%)');
 
   const storefrontStats = useMemo(() => ([
     {
@@ -162,16 +164,23 @@ const StorefrontPage = ({ subdomain }) => {
 
   const storeTitle = storeOwner?.businessName || `${storeHandleLabel} Store`;
   const storeDescription = getStoreDescription(storeOwner);
+  const storeInitials = useMemo(() => storeTitle
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((chunk) => chunk.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase(), [storeTitle]);
   const hasCatalogues = catalogues.length > 0;
 
   if (loading) {
     return (
       <Box bg={pageBg} minH="100vh">
         <Container maxW="container.xl" py={{ base: 10, md: 14 }}>
-          <Skeleton height="260px" borderRadius="20px" mb={6} />
-          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
+          <Skeleton height="280px" borderRadius="24px" mb={6} />
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
             {[1, 2, 3].map((idx) => (
-              <Skeleton key={idx} height="260px" borderRadius="16px" />
+              <Skeleton key={idx} height="220px" borderRadius="18px" />
             ))}
           </SimpleGrid>
         </Container>
@@ -217,39 +226,43 @@ const StorefrontPage = ({ subdomain }) => {
           bg={surfaceBg}
           borderWidth="1px"
           borderColor={borderColor}
-          borderRadius={{ base: '20px', md: '24px' }}
-          boxShadow="0 1px 3px rgba(0,0,0,0.08)"
+          borderRadius={{ base: '24px', md: '32px' }}
+          boxShadow="0 18px 50px rgba(15, 23, 42, 0.08)"
         >
+          <Box position="absolute" inset="0" bg={heroGlow} />
+          <Box position="absolute" inset="0" bg={heroGlowSecondary} />
+          <Box position="absolute" top="-90px" right="-70px" w="220px" h="220px" borderRadius="full" bg={accentSoft} filter="blur(20px)" />
+
           <Box position="relative" p={{ base: 5, md: 8 }}>
-            <Grid templateColumns={{ base: '1fr', xl: '1.2fr 0.8fr' }} gap={{ base: 6, xl: 8 }} alignItems="stretch">
+            <Grid templateColumns={{ base: '1fr', xl: '1.1fr 0.9fr' }} gap={{ base: 6, xl: 8 }} alignItems="stretch">
               <Box>
                 <Badge
                   bg={accentSoft}
                   color={accentColor}
                   borderRadius="full"
-                  px={3.5}
-                  py={1.5}
-                  fontWeight="800"
-                  letterSpacing="0.08em"
-                  fontSize="10px"
+                  px={3}
+                  py={1}
+                  fontWeight="700"
+                  letterSpacing="0.1em"
+                  fontSize="9px"
                 >
-                  Independent storefront
+                  PREMIUM STOREFRONT
                 </Badge>
 
                 <Heading
                   as="h1"
                   color={textColor}
-                  fontSize={{ base: '2.5xl', md: '4.5xl', xl: '5xl' }}
-                  lineHeight="1.1"
+                  fontSize={{ base: '2.8xl', md: '5xl', xl: '5.5xl' }}
+                  lineHeight="1.02"
                   fontWeight="900"
-                  letterSpacing="-0.02em"
-                  mt={3}
-                  maxW="14ch"
+                  letterSpacing="-0.04em"
+                  mt={4}
+                  maxW="12ch"
                 >
                   {storeTitle}
                 </Heading>
 
-                <Text color={descColor} fontSize={{ base: 'sm', md: 'base' }} lineHeight="1.7" mt={4} maxW="720px" fontWeight="500">
+                <Text color={descColor} fontSize={{ base: 'sm', md: 'lg' }} lineHeight="1.8" mt={4} maxW="700px" fontWeight="500">
                   {storeDescription}
                 </Text>
 
@@ -292,20 +305,35 @@ const StorefrontPage = ({ subdomain }) => {
                   </Button>
                 </HStack>
 
-                <HStack spacing={2} flexWrap="wrap" mt={6} color={descColor} fontSize="sm">
-                  <HStack spacing={1.5} px={3} py={1.5} bg={chipBg} borderRadius="full">
-                    <Icon as={FiCheckCircle} />
-                    <Text fontWeight="700">Secure checkout</Text>
+                <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3} mt={8} maxW="760px">
+                  <HStack spacing={3} px={4} py={3} bg={chipBg} borderRadius="18px" borderWidth="1px" borderColor={borderColor}>
+                    <Center w={10} h={10} borderRadius="full" bg={accentSoft} color={accentColor} fontWeight="800" fontSize="sm">
+                      {String(catalogues.length).padStart(2, '0')}
+                    </Center>
+                    <Box>
+                      <Text fontWeight="800" color={textColor}>Collections</Text>
+                      <Text fontSize="xs" color={descColor}>Ready to browse</Text>
+                    </Box>
                   </HStack>
-                  <HStack spacing={1.5} px={3} py={1.5} bg={chipBg} borderRadius="full">
-                    <Icon as={FiTruck} />
-                    <Text fontWeight="700">Quick dispatch</Text>
+                  <HStack spacing={3} px={4} py={3} bg={chipBg} borderRadius="18px" borderWidth="1px" borderColor={borderColor}>
+                    <Center w={10} h={10} borderRadius="full" bg={accentSoft} color={accentColor}>
+                      <Icon as={FiShield} boxSize={4} />
+                    </Center>
+                    <Box>
+                      <Text fontWeight="800" color={textColor}>Secure</Text>
+                      <Text fontSize="xs" color={descColor}>Focused checkout</Text>
+                    </Box>
                   </HStack>
-                  <HStack spacing={1.5} px={3} py={1.5} bg={chipBg} borderRadius="full">
-                    <Icon as={FiMail} />
-                    <Text fontWeight="700">Direct support</Text>
+                  <HStack spacing={3} px={4} py={3} bg={chipBg} borderRadius="18px" borderWidth="1px" borderColor={borderColor}>
+                    <Center w={10} h={10} borderRadius="full" bg={accentSoft} color={accentColor}>
+                      <Icon as={FiMail} boxSize={4} />
+                    </Center>
+                    <Box>
+                      <Text fontWeight="800" color={textColor}>Direct</Text>
+                      <Text fontSize="xs" color={descColor}>Store support</Text>
+                    </Box>
                   </HStack>
-                </HStack>
+                </SimpleGrid>
 
                 {!currentUser && (
                   <Text color={descColor} fontSize="sm" mt={4}>
@@ -318,41 +346,98 @@ const StorefrontPage = ({ subdomain }) => {
                 bg={panelBg}
                 borderWidth="1px"
                 borderColor={borderColor}
-                borderRadius="20px"
+                borderRadius="26px"
                 p={5}
+                backdropFilter="blur(18px)"
               >
-                <VStack align="stretch" spacing={3.5}>
+                <VStack align="stretch" spacing={4} h="full">
                   <Box>
-                    <Text color={descColor} fontSize="xs" fontWeight="700" letterSpacing="0.1em" textTransform="uppercase">
-                      Why shop here
-                    </Text>
-                    <Heading size="md" color={textColor} mt={1.5} fontSize="xl">
-                      Trusted & reliable
-                    </Heading>
+                    <HStack justify="space-between" align="start" spacing={3}>
+                      <Box>
+                        <Text color={descColor} fontSize="xs" fontWeight="700" letterSpacing="0.12em" textTransform="uppercase">
+                          Live snapshot
+                        </Text>
+                        <Heading color={textColor} mt={1.5} fontSize="2xl" fontWeight="900" letterSpacing="-0.02em">
+                          Built for quick browsing
+                        </Heading>
+                      </Box>
+                      <Center w="56px" h="56px" borderRadius="18px" bg={accentSoft} color={accentColor} fontWeight="900" fontSize="lg">
+                        {storeInitials || 'SS'}
+                      </Center>
+                    </HStack>
                   </Box>
 
-                  {storefrontHighlights.map((highlight) => (
-                    <HStack
-                      key={highlight.title}
-                      align="start"
-                      spacing={2.5}
-                      py={2.5}
-                      px={0}
-                      borderBottomWidth="1px"
-                      borderColor={borderColor}
-                      _last={{ borderBottomWidth: 0 }}
-                    >
-                      <Center w="36px" h="36px" borderRadius="10px" bg={accentSoft} color={accentColor} flexShrink={0}>
-                        <Icon as={highlight.icon} boxSize={4} />
-                      </Center>
+                  <Box
+                    borderWidth="1px"
+                    borderColor={borderColor}
+                    borderRadius="22px"
+                    bg={surfaceBg}
+                    p={4}
+                  >
+                    <HStack justify="space-between" align="center" spacing={3}>
                       <Box>
-                        <Text color={textColor} fontWeight="700" fontSize="sm">{highlight.title}</Text>
-                        <Text color={descColor} fontSize="xs" lineHeight="1.6" mt={0.5}>
-                          {highlight.description}
+                        <Text color={descColor} fontSize="xs" fontWeight="700" letterSpacing="0.1em" textTransform="uppercase">
+                          Store state
                         </Text>
+                        <Text color={textColor} fontWeight="800" mt={1}>Open for browsing</Text>
                       </Box>
+                      <Badge bg={accentSoft} color={accentColor} borderRadius="full" px={3} py={1}>
+                        {catalogues.length} collections
+                      </Badge>
                     </HStack>
-                  ))}
+                  </Box>
+
+                  <Box borderWidth="1px" borderColor={borderColor} borderRadius="22px" overflow="hidden">
+                    <AspectRatio ratio={16 / 9} bg={mutedSurface}>
+                      <Box position="relative">
+                        <Image
+                          src={catalogues[0]?.imageUrl || 'https://via.placeholder.com/1200x675?text=Storefront'}
+                          alt={catalogues[0]?.name || storeTitle}
+                          objectFit="cover"
+                          loading="lazy"
+                        />
+                        <Box position="absolute" inset="0" bgGradient="linear(to-t, rgba(15,23,42,0.7), transparent 55%)" />
+                        <Box position="absolute" left={4} right={4} bottom={4}>
+                          <HStack justify="space-between" align="end" spacing={3}>
+                            <Box>
+                              <Badge bg="whiteAlpha.800" color={textColor} borderRadius="full" px={2.5} py={0.5} fontSize="9px">
+                                Featured first collection
+                              </Badge>
+                              <Text color="white" fontWeight="800" fontSize="lg" mt={2} noOfLines={1}>
+                                {catalogues[0]?.name || 'Store collection'}
+                              </Text>
+                            </Box>
+                            <Icon as={FiArrowRight} color="white" boxSize={5} />
+                          </HStack>
+                        </Box>
+                      </Box>
+                    </AspectRatio>
+                  </Box>
+
+                  <VStack align="stretch" spacing={3}>
+                    {storefrontHighlights.map((highlight) => (
+                      <HStack
+                        key={highlight.title}
+                        align="start"
+                        spacing={3}
+                        py={3}
+                        px={0}
+                        borderBottomWidth="1px"
+                        borderColor={borderColor}
+                        _last={{ borderBottomWidth: 0 }}
+                      >
+                        <Center w="38px" h="38px" borderRadius="12px" bg={accentSoft} color={accentColor} flexShrink={0}>
+                          <Icon as={highlight.icon} boxSize={4} />
+                        </Center>
+                        <Box>
+                          <Text color={textColor} fontWeight="800" fontSize="sm">{highlight.title}</Text>
+                          <Text color={descColor} fontSize="xs" lineHeight="1.6" mt={0.5}>
+                            {highlight.description}
+                          </Text>
+                        </Box>
+                      </HStack>
+                    ))}
+                  </VStack>
                 </VStack>
               </Box>
             </Grid>
@@ -366,9 +451,9 @@ const StorefrontPage = ({ subdomain }) => {
               bg={surfaceBg}
               borderWidth="1px"
               borderColor={borderColor}
-              borderRadius="16px"
-              p={3.5}
-              boxShadow="none"
+              borderRadius="18px"
+              p={4}
+              boxShadow="0 1px 2px rgba(0,0,0,0.05)"
             >
               <HStack justify="space-between" align="start" spacing={2}>
                 <Box>
@@ -405,11 +490,11 @@ const StorefrontPage = ({ subdomain }) => {
               >
                 COLLECTIONS
               </Badge>
-              <Heading color={textColor} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="900" letterSpacing="-0.01em">
-                Shop by category
+              <Heading color={textColor} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="900" letterSpacing="-0.03em">
+                Shop the edited collection
               </Heading>
-              <Text color={descColor} fontSize="sm" maxW="660px" fontWeight="500">
-                Organized collections make it easy to find exactly what you're looking for.
+              <Text color={descColor} fontSize="sm" maxW="660px" fontWeight="500" lineHeight="1.7">
+                Each category is presented with a simple, focused layout so customers can move from discovery to checkout with less friction.
               </Text>
             </VStack>
 
@@ -439,50 +524,66 @@ const StorefrontPage = ({ subdomain }) => {
                   bg={surfaceBg}
                   borderWidth="1px"
                   borderColor={borderColor}
-                  borderRadius="16px"
+                  borderRadius="22px"
                   overflow="hidden"
                   boxShadow="0 1px 2px rgba(0,0,0,0.05)"
                   cursor="pointer"
                   touchAction="manipulation"
-                  _hover={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)', borderColor: borderColor, transform: 'translateY(-1px)' }}
+                  _hover={{ boxShadow: '0 10px 24px rgba(0,0,0,0.08)', borderColor: borderColor, transform: 'translateY(-2px)' }}
                   _focusVisible={{ boxShadow: `0 0 0 2px ${accentColor}` }}
                   transition="transform 0.2s ease, box-shadow 0.2s ease"
                 >
-                  <AspectRatio ratio={4 / 3} bg={mutedSurface}>
-                    <Image
-                      src={catalogue.imageUrl}
-                      alt={catalogue.name}
-                      objectFit="cover"
-                      loading="lazy"
-                      fallbackSrc="https://via.placeholder.com/900x675?text=Collection"
-                    />
-                  </AspectRatio>
+                  <Box position="relative">
+                    <AspectRatio ratio={4 / 3} bg={mutedSurface}>
+                      <Image
+                        src={catalogue.imageUrl}
+                        alt={catalogue.name}
+                        objectFit="cover"
+                        loading="lazy"
+                        fallbackSrc="https://via.placeholder.com/900x675?text=Collection"
+                      />
+                    </AspectRatio>
+                    <Box position="absolute" inset="0" bgGradient="linear(to-t, rgba(15,23,42,0.38), transparent 58%)" />
+                    <Badge
+                      position="absolute"
+                      top={4}
+                      left={4}
+                      bg="whiteAlpha.900"
+                      color={textColor}
+                      borderRadius="full"
+                      px={3}
+                      py={1}
+                      fontSize="9px"
+                      fontWeight="700"
+                      letterSpacing="0.08em"
+                    >
+                      {index === 0 ? 'FEATURED' : `COLLECTION ${String(index + 1).padStart(2, '0')}`}
+                    </Badge>
+                  </Box>
 
-                  <Stack spacing={3} p={4}>
-                    <HStack justify="space-between" align="start" spacing={2}>
+                  <Stack spacing={3} p={4.5}>
+                    <HStack justify="space-between" align="start" spacing={3}>
                       <Box flex={1}>
-                        <Badge
-                          bg={accentSoft}
-                          color={accentColor}
-                          borderRadius="full"
-                          px={2}
-                          py={0.5}
-                          fontSize="9px"
-                          fontWeight="700"
-                          letterSpacing="0.08em"
-                        >
-                          {String(index + 1).padStart(2, '0')}
-                        </Badge>
-                        <Heading as="h3" size="sm" color={textColor} noOfLines={2} mt={2} fontSize="lg" fontWeight="800">
+                        <Heading as="h3" size="sm" color={textColor} noOfLines={2} fontSize="lg" fontWeight="800" letterSpacing="-0.02em">
                           {catalogue.name}
                         </Heading>
+                        <Text color={descColor} fontSize="xs" mt={1} fontWeight="600">
+                          Curated for fast browsing
+                        </Text>
                       </Box>
-                      <Icon as={FiArrowRight} color={accentColor} boxSize={4} flexShrink={0} />
+                      <Center w="36px" h="36px" borderRadius="12px" bg={accentSoft} color={accentColor} flexShrink={0}>
+                        <Icon as={FiArrowRight} boxSize={4} />
+                      </Center>
                     </HStack>
 
-                    <Text color={descColor} fontSize="xs" noOfLines={2} lineHeight="1.6" fontWeight="500">
-                      {catalogue.description || 'Curated collection of products'}
+                    <Text color={descColor} fontSize="sm" noOfLines={2} lineHeight="1.65" fontWeight="500">
+                      {catalogue.description || 'A clean, focused assortment from this storefront.'}
                     </Text>
+
+                    <HStack justify="space-between" pt={1} color={accentColor} fontSize="sm">
+                      <Text fontWeight="800">Open collection</Text>
+                      <Icon as={FiArrowRight} boxSize={3.5} />
+                    </HStack>
                   </Stack>
                 </Box>
               ))}
@@ -492,29 +593,44 @@ const StorefrontPage = ({ subdomain }) => {
               bg={surfaceBg}
               borderWidth="1px"
               borderColor={borderColor}
-              borderRadius="16px"
-              py={12}
+              borderRadius="22px"
+              py={14}
               px={6}
               textAlign="center"
             >
               <Center w={16} h={16} bg={emptyIconBg} borderRadius="full" mx="auto" mb={5}>
                 <Icon as={FiShoppingBag} w={8} h={8} color="gray.400" />
               </Center>
-              <Heading size="md" color={textColor} mb={3}>Collections are being prepared</Heading>
-              <Text color={descColor} mb={6} maxW="520px" mx="auto" fontSize="sm">
+              <Heading size="md" color={textColor} mb={3} fontWeight="800">Collections are being prepared</Heading>
+              <Text color={descColor} mb={6} maxW="520px" mx="auto" fontSize="sm" lineHeight="1.7">
                 This storefront is live, and the catalog will appear as the store adds products.
               </Text>
-              <Button
-                as={RouterLink}
-                to="/contact"
-                bg={accentColor}
-                color="white"
-                _hover={{ bg: accentColorHover }}
-                borderRadius="full"
-                px={7}
-              >
-                Ask about availability
-              </Button>
+              <HStack justify="center" spacing={3} flexWrap="wrap">
+                <Button
+                  as={RouterLink}
+                  to="/contact"
+                  bg={accentColor}
+                  color="white"
+                  _hover={{ bg: accentColorHover }}
+                  borderRadius="full"
+                  px={7}
+                >
+                  Ask about availability
+                </Button>
+                {storeOwner.requestProductEnabled && (
+                  <Button
+                    as={RouterLink}
+                    to="/request-product"
+                    variant="outline"
+                    borderRadius="full"
+                    borderColor={borderColor}
+                    color={textColor}
+                    px={7}
+                  >
+                    Request a product
+                  </Button>
+                )}
+              </HStack>
             </Box>
           )}
         </Box>
@@ -525,7 +641,7 @@ const StorefrontPage = ({ subdomain }) => {
             bg={surfaceBg}
             borderWidth="1px"
             borderColor={borderColor}
-            borderRadius="20px"
+            borderRadius="24px"
             p={{ base: 5, md: 7 }}
           >
             <Grid templateColumns={{ base: '1fr', md: '1.2fr 0.8fr' }} gap={6} alignItems="center">
@@ -542,7 +658,7 @@ const StorefrontPage = ({ subdomain }) => {
                 >
                   REQUEST
                 </Badge>
-                <Heading as="h3" size="lg" color={textColor} mt={3} fontSize="2xl" fontWeight="900">
+                <Heading as="h3" size="lg" color={textColor} mt={3} fontSize="2xl" fontWeight="900" letterSpacing="-0.02em">
                   Need a specific product?
                 </Heading>
                 <Text color={descColor} mt={2.5} lineHeight="1.7" maxW="700px" fontSize="sm" fontWeight="500">
