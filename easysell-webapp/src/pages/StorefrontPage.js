@@ -127,9 +127,9 @@ const StorefrontPage = ({ subdomain }) => {
   const textColor = useColorModeValue('#0F172A', 'whiteAlpha.900');
   const descColor = useColorModeValue('#334155', 'gray.300');
   const emptyIconBg = useColorModeValue('gray.100', 'whiteAlpha.100');
-  const accentColor = '#2563EB';
-  const accentColorHover = '#1D4ED8';
-  const accentSoft = useColorModeValue('#DBEAFE', 'rgba(37, 99, 235, 0.22)');
+  const accentColor = useColorModeValue('brand.600', 'brand.300');
+  const accentColorHover = useColorModeValue('brand.700', 'brand.400');
+  const accentSoft = useColorModeValue('brand.50', 'rgba(37, 99, 235, 0.08)');
   const chipBg = useColorModeValue('#F8FAFC', 'whiteAlpha.100');
   const panelBg = useColorModeValue('rgba(255,255,255,0.84)', 'rgba(17,24,39,0.94)');
 
@@ -447,7 +447,7 @@ const StorefrontPage = ({ subdomain }) => {
                   boxShadow="card"
                   cursor="pointer"
                   touchAction="manipulation"
-                  _hover={{ boxShadow: 'cardHover', borderColor: '#94A3B8', transform: 'translateY(-2px)' }}
+                  _hover={{ boxShadow: 'cardHover', borderColor: borderColor, transform: 'translateY(-2px)' }}
                   _focusVisible={{ boxShadow: `0 0 0 2px ${accentColor}` }}
                   transition="transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease"
                 >

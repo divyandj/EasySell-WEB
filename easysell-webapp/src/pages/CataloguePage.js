@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   useParams,
-  useNavigate,
-  useLocation,
 } from "react-router-dom";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
@@ -23,11 +21,9 @@ import {
   useColorModeValue,
   Skeleton,
   Badge,
-  HStack,
   Center,
 } from "@chakra-ui/react";
-import { FiSearch, FiShoppingBag } from "react-icons/fi";
-import { useAuth } from "../context/AuthContext";
+import { FiSearch } from "react-icons/fi";
 import { motion } from "framer-motion";
 import ProductCard from '../components/ProductCard';
 
@@ -44,9 +40,6 @@ const MotionSimpleGrid = motion(SimpleGrid);
 
 const CataloguePage = () => {
   const { catalogueId } = useParams();
-  const { currentUser } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
   const toast = useToast();
 
   const [catalogue, setCatalogue] = useState(null);

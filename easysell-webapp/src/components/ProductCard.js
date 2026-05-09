@@ -40,7 +40,7 @@ const ProductCard = ({ product }) => {
   const textColor = useColorModeValue('gray.800', 'white');
   const priceColor = useColorModeValue('gray.900', 'white');
   const originalPriceColor = useColorModeValue('gray.400', 'gray.500');
-  const descColor = useColorModeValue('gray.500', 'gray.400');
+  // const descColor = useColorModeValue('gray.500', 'gray.400');
   const imageBg = useColorModeValue('gray.50', '#0D0D12');
 
   // Price calculations

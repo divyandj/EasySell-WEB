@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container, Heading, VStack, Box, Text, useColorModeValue, Icon, Flex, Center,
-  HStack, Link, Skeleton, Button
+  HStack, Skeleton, Button
 } from '@chakra-ui/react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
