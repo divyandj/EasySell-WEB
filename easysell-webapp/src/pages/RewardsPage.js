@@ -26,11 +26,13 @@ const RewardsPage = () => {
   const [claimStatusMap, setClaimStatusMap] = useState({});
 
 
-  const pageBg = useColorModeValue('#F8F9FC', '#09090B');
+  const pageBg = useColorModeValue('var(--store-bg)', '#09090B');
   const cardBg = useColorModeValue('white', '#111116');
   const cardBorder = useColorModeValue('gray.100', 'whiteAlpha.100');
-  const textColor = useColorModeValue('gray.800', 'white');
+  const textColor = useColorModeValue('gray.800', 'whiteAlpha.900');
   const mutedColor = useColorModeValue('gray.500', 'gray.400');
+  const accent = useColorModeValue('var(--store-accent)', 'var(--store-accent)');
+  const accentContrast = useColorModeValue('var(--store-accent-contrast)', 'white');
 
   useEffect(() => {
     const fetchRewards = async () => {
@@ -183,7 +185,7 @@ const RewardsPage = () => {
         </Button>
 
         {/* Points Balance Header */}
-        <Box bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)" borderRadius="20px" p={{ base: 6, md: 10 }} mb={6} color="white" textAlign="center">
+        <Box bgGradient="linear(to-br, var(--store-accent), var(--store-primary))" borderRadius="20px" p={{ base: 6, md: 10 }} mb={6} color="white" textAlign="center">
           <Icon as={FiStar} w={8} h={8} mb={3} />
           <Text fontSize="sm" opacity={0.8} textTransform="uppercase" letterSpacing="0.1em" fontWeight="700">Your Points</Text>
           <Heading size="2xl" mt={1}>{currentUser ? points.toLocaleString() : '—'}</Heading>
@@ -194,7 +196,16 @@ const RewardsPage = () => {
               </Badge>
             </HStack>
           )}
-          {!currentUser && <Text mt={2} fontSize="sm" opacity={0.7}>Sign in to start earning points</Text>}
+
+          {!currentUser && (
+            <VStack mt={3} spacing={3} align="center">
+              <Text fontSize="sm" opacity={0.85}>Sign in to start earning points and redeem rewards</Text>
+              <HStack>
+                <Button size="sm" colorScheme="brand" onClick={() => navigate('/login')}>Sign in to redeem</Button>
+                <Button size="sm" variant="outline" onClick={() => navigate('/signup')}>Create account</Button>
+              </HStack>
+            </VStack>
+          )}
           <Text mt={3} fontSize="xs" opacity={0.6}>Earn {ppr} point{ppr !== 1 ? 's' : ''} per ₹1 spent</Text>
         </Box>
 

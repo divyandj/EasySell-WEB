@@ -27,7 +27,7 @@ import {
   Divider,
 } from '@chakra-ui/react';
 import { useColorMode } from '@chakra-ui/react';
-import { SunIcon, MoonIcon } from '@chakra-ui/icons';
+import { FiSun, FiMoon } from 'react-icons/fi';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   FiShoppingCart,
@@ -175,7 +175,7 @@ const Navbar = ({ storeContext }) => {
               variant="ghost"
               size="sm"
               onClick={toggleColorMode}
-              icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+              icon={colorMode === 'light' ? <FiMoon /> : <FiSun />}
               _hover={{ bg: menuHoverBg }}
             />
             {currentUser && !userData && (
@@ -192,7 +192,7 @@ const Navbar = ({ storeContext }) => {
               </Button>
             )}
 
-            {currentUser && userData && storeConfig?.rewardsEnabled && !isStorefront && (
+            {storeConfig?.rewardsEnabled && (
               <Button
                 as={RouterLink}
                 to="/rewards"
@@ -200,13 +200,13 @@ const Navbar = ({ storeContext }) => {
                 size="sm"
                 borderRadius="full"
                 leftIcon={<FiStar size="14px" />}
-                color="accent.700"
+                color={buyerPoints ? 'accent.700' : textColor}
                 fontWeight="700"
                 fontSize="xs"
                 _hover={{ bg: menuHoverBg }}
                 px={3}
               >
-                {buyerPoints?.points || 0} pts
+                {currentUser && buyerPoints ? `${buyerPoints?.points || 0} pts` : 'Rewards'}
               </Button>
             )}
 
