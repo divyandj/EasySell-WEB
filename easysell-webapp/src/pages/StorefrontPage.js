@@ -23,6 +23,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { resolveStoreContext } from '../utils/storeResolver';
 import {
   FiArrowRight,
   FiCheckCircle,
@@ -47,13 +48,24 @@ const getStoreDescription = (storeOwner) => (
   || 'Curated collections with reliable service and secure checkout.'
 );
 
-const StorefrontPage = ({ subdomain }) => {
+const StorefrontPage = ({ subdomain, storeContext }) => {
   const { currentUser } = useAuth();
   const [storeOwner, setStoreOwner] = useState(null);
   const [catalogues, setCatalogues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const storeHandleLabel = useMemo(() => formatStoreHandle(subdomain || 'store'), [subdomain]);
+  const resolvedContext = storeContext || resolveStoreContext();
+  const resolvedSubdomain = subdomain || resolvedContext.handle || null;
+  const resolvedCustomDomain = resolvedContext.type === 'customDomain' ? resolvedContext.domain : null;
+  const storeHandleLabel = useMemo(() => {
+    if (resolvedSubdomain) {
+      return formatStoreHandle(resolvedSubdomain);
+    }
+    if (resolvedCustomDomain) {
+      return formatStoreHandle(resolvedCustomDomain.replace(/^www\./i, ''));
+    }
+    return 'store';
+  }, [resolvedSubdomain, resolvedCustomDomain]);
 
   useEffect(() => {
     const fetchStorefrontData = async () => {
@@ -62,9 +74,19 @@ const StorefrontPage = ({ subdomain }) => {
         setError(null);
 
         const usersRef = collection(db, 'users');
-        const storeHandle = (subdomain || '').toLowerCase();
-        const ownerQuery = query(usersRef, where('storeHandle', '==', storeHandle));
-        const userSnapshot = await getDocs(ownerQuery);
+        const storeHandle = (resolvedSubdomain || '').toLowerCase();
+        const customDomain = (resolvedCustomDomain || '').toLowerCase();
+        let userSnapshot = null;
+
+        if (customDomain) {
+          const ownerQuery = query(usersRef, where('customDomain', '==', customDomain));
+          userSnapshot = await getDocs(ownerQuery);
+        }
+
+        if (!userSnapshot || userSnapshot.empty) {
+          const ownerQuery = query(usersRef, where('storeHandle', '==', storeHandle));
+          userSnapshot = await getDocs(ownerQuery);
+        }
 
         if (userSnapshot.empty) {
           setError('Store Not Found');
@@ -94,10 +116,10 @@ const StorefrontPage = ({ subdomain }) => {
       }
     };
 
-    if (subdomain) {
+    if (resolvedSubdomain || resolvedCustomDomain) {
       fetchStorefrontData();
     }
-  }, [subdomain]);
+  }, [resolvedSubdomain, resolvedCustomDomain]);
 
   // Use theme variables for consistent branding and professional appearance
   const pageBg = useColorModeValue('#F7F8FA', '#0A0B10');

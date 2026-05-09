@@ -38,8 +38,8 @@ function App() {
         <Routes>
           {/* --- Public Routes (Accessible by Everyone) --- */}
 
-          {/* 1. Dynamic Root Route: Storefront if subdomain exists, otherwise Main Home */}
-          <Route path="/" element={subdomain ? <StorefrontPage subdomain={subdomain} /> : <HomePage />} />
+          {/* 1. Dynamic Root Route: Storefront if subdomain/custom domain exists, otherwise Main Home */}
+          <Route path="/" element={subdomain ? <StorefrontPage storeContext={storeContext} /> : <HomePage />} />
 
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<LoginPage />} />
