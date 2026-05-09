@@ -319,12 +319,16 @@ const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
-// Helper to extract subdomain
-
-
+// Helper to extract subdomain (only returns subdomain handle)
 const getSubdomain = () => {
   const context = resolveStoreContext();
-  return (context.type === 'subdomain' || context.type === 'customDomain') ? context.handle || context.domain : null;
+  return (context.type === 'subdomain') ? context.handle : null;
+};
+
+// Helper to extract hostname when visiting via custom domain
+const getHostDomain = () => {
+  const context = resolveStoreContext();
+  return (context.type === 'customDomain') ? context.domain : null;
 };
 
 export const AuthProvider = ({ children }) => {
@@ -339,11 +343,13 @@ export const AuthProvider = ({ children }) => {
   // --- 0. FETCH STORE CONFIG (Public/Private Mode) ---
   useEffect(() => {
     const fetchStoreConfig = async () => {
+      // Resolve either by subdomain or by custom domain lookup
       const subdomain = getSubdomain();
-      if (subdomain) {
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('storeHandle', '==', subdomain.toLowerCase()));
-        try {
+      const hostDomain = getHostDomain();
+      const usersRef = collection(db, 'users');
+      try {
+        if (subdomain) {
+          const q = query(usersRef, where('storeHandle', '==', subdomain.toLowerCase()));
           const snap = await getDocs(q);
           if (!snap.empty) {
             setStoreConfig({ uid: snap.docs[0].id, ...snap.docs[0].data() });
@@ -356,9 +362,27 @@ export const AuthProvider = ({ children }) => {
               sessionStorage.setItem(visitKey, 'true');
             }
           }
-        } catch (error) {
-          console.error("Error fetching store config:", error);
+        } else if (hostDomain) {
+          // Lookup by customDomain field in users collection
+          const q = query(usersRef, where('customDomain', '==', hostDomain.toLowerCase()));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const data = snap.docs[0].data();
+            // Ensure storeConfig contains storeHandle for downstream logic
+            setStoreConfig({ uid: snap.docs[0].id, ...data });
+
+            // Analytics: use resolved storeHandle if available
+            const resolvedHandle = (data.storeHandle || hostDomain).toLowerCase();
+            const visitKey = `visited_${resolvedHandle}_${new Date().toISOString().split('T')[0]}`;
+            if (!sessionStorage.getItem(visitKey)) {
+              axios.post(`${API_BASE_URL}/api/analytics/visit`, { storeHandle: resolvedHandle })
+                .catch(err => console.error("Analytics visit ping failed:", err));
+              sessionStorage.setItem(visitKey, 'true');
+            }
+          }
         }
+      } catch (error) {
+        console.error("Error fetching store config:", error);
       }
       setStoreConfigLoaded(true);
     };
