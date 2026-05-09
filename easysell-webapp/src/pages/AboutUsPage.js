@@ -79,8 +79,9 @@ const AboutUsPage = () => {
   const textColor = useColorModeValue('#0F172A', 'whiteAlpha.900');
   const descColor = useColorModeValue('#334155', 'gray.300');
   const mutedBg = useColorModeValue('#F1F5F9', '#1F2937');
-  const accentColor = '#2563EB';
-  const accentSoft = useColorModeValue('#DBEAFE', 'rgba(37, 99, 235, 0.22)');
+  const accentColor = useColorModeValue('brand.600', 'brand.300');
+  const accentSoft = useColorModeValue('brand.50', 'rgba(37, 99, 235, 0.08)');
+  const accentHover = useColorModeValue('brand.700', 'brand.400');
   const softBorder = useColorModeValue('#CBD5E1', 'whiteAlpha.300');
   const panelBg = useColorModeValue('rgba(255,255,255,0.84)', 'rgba(17,24,39,0.94)');
 
@@ -325,7 +326,7 @@ const AboutUsPage = () => {
             mt={6}
             bg={accentColor}
             color="white"
-            _hover={{ bg: '#1D4ED8' }}
+            _hover={{ bg: accentHover }}
             borderRadius="full"
             px={7}
           >

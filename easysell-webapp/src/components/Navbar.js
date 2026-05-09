@@ -26,6 +26,8 @@ import {
   VStack,
   Divider,
 } from '@chakra-ui/react';
+import { useColorMode } from '@chakra-ui/react';
+import { SunIcon, MoonIcon } from '@chakra-ui/icons';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   FiShoppingCart,
@@ -91,6 +93,7 @@ const Navbar = ({ storeContext }) => {
   const storeBadgeColor = useColorModeValue('blue.700', 'blue.100');
   const defaultBrandColor = useColorModeValue('brand.700', 'brand.300');
   const brandColor = isStorefront ? '#0F172A' : defaultBrandColor;
+  const { colorMode, toggleColorMode } = useColorMode();
 
   return (
     <Box
@@ -167,6 +170,14 @@ const Navbar = ({ storeContext }) => {
           )}
 
           <HStack align="center" spacing={1.5}>
+            <IconButton
+              aria-label="Toggle theme"
+              variant="ghost"
+              size="sm"
+              onClick={toggleColorMode}
+              icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+              _hover={{ bg: menuHoverBg }}
+            />
             {currentUser && !userData && (
               <Button
                 as={RouterLink}
