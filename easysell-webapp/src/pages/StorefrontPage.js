@@ -26,7 +26,6 @@ import { useAuth } from '../context/AuthContext';
 import {
   FiArrowRight,
   FiMail,
-  FiShield,
   FiShoppingBag,
 } from 'react-icons/fi';
 
@@ -257,20 +256,7 @@ const StorefrontPage = ({ subdomain }) => {
                   </Button>
                 </HStack>
 
-                <HStack spacing={2} flexWrap="wrap" mt={5} color={descColor} fontSize="sm">
-                  <HStack spacing={1.5} px={3} py={1.5} bg={chipBg} borderRadius="full" borderWidth="1px" borderColor={borderColor}>
-                    <Icon as={FiShoppingBag} boxSize={3.5} />
-                    <Text fontWeight="700">{String(catalogues.length).padStart(2, '0')} collections</Text>
-                  </HStack>
-                  <HStack spacing={1.5} px={3} py={1.5} bg={chipBg} borderRadius="full" borderWidth="1px" borderColor={borderColor}>
-                    <Icon as={FiShield} boxSize={3.5} />
-                    <Text fontWeight="700">Secure checkout</Text>
-                  </HStack>
-                  <HStack spacing={1.5} px={3} py={1.5} bg={chipBg} borderRadius="full" borderWidth="1px" borderColor={borderColor}>
-                    <Icon as={FiMail} boxSize={3.5} />
-                    <Text fontWeight="700">Direct support</Text>
-                  </HStack>
-                </HStack>
+                {/* removed duplicate chips to reduce redundancy with quick-access panel */}
 
                 {!currentUser && (
                   <Text color={descColor} fontSize="sm" mt={4}>
@@ -480,54 +466,7 @@ const StorefrontPage = ({ subdomain }) => {
           )}
         </Box>
 
-        {storeOwner.requestProductEnabled && (
-          <Box
-            mt={8}
-            bg={surfaceBg}
-            borderWidth="1px"
-            borderColor={borderColor}
-            borderRadius="20px"
-            p={{ base: 4.5, md: 6 }}
-          >
-            <Grid templateColumns={{ base: '1fr', md: '1.2fr 0.8fr' }} gap={6} alignItems="center">
-              <Box>
-                <Badge
-                  bg={accentSoft}
-                  color={accentColor}
-                  borderRadius="full"
-                  px={3}
-                  py={1}
-                  fontWeight="700"
-                  letterSpacing="0.08em"
-                  fontSize="9px"
-                >
-                  REQUEST
-                </Badge>
-                <Heading as="h3" size="lg" color={textColor} mt={3} fontSize="2xl" fontWeight="900" letterSpacing="-0.02em">
-                  Need a specific product?
-                </Heading>
-                <Text color={descColor} mt={2.5} lineHeight="1.65" maxW="700px" fontSize="sm" fontWeight="500">
-                  Send a request directly to this store and keep the conversation in one place.
-                </Text>
-              </Box>
-
-              <HStack justify={{ base: 'flex-start', md: 'flex-end' }}>
-                <Button
-                  as={RouterLink}
-                  to="/request-product"
-                  bg={accentColor}
-                  color="white"
-                  _hover={{ bg: accentColorHover }}
-                  borderRadius="full"
-                  px={7}
-                  minW={{ md: '200px' }}
-                >
-                  Request product
-                </Button>
-              </HStack>
-            </Grid>
-          </Box>
-        )}
+        {/* Request product banner removed to simplify storefront */}
       </Container>
     </Box>
   );
