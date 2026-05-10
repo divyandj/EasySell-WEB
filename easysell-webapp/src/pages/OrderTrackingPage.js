@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, increment, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -9,7 +9,7 @@ import {
   AlertDescription, HStack, Tooltip, useColorModeValue, Icon, Badge,
   Button, FormControl, FormLabel, Input, Link, useToast
 } from '@chakra-ui/react';
-import { FiCheck, FiPackage, FiClock, FiTruck, FiCheckCircle, FiMapPin } from 'react-icons/fi';
+import { FiCheck, FiPackage, FiClock, FiTruck, FiCheckCircle, FiMapPin, FiMessageCircle, FiPhone, FiAlertTriangle } from 'react-icons/fi';
 import SpinnerComponent from '../components/Spinner';
 import {
   getPaymentStatus,
@@ -23,13 +23,14 @@ const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 const OrderTrackingPage = () => {
   const { catalogueId, orderId } = useParams();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, storeConfig } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [utrInput, setUtrInput] = useState('');
   const [paymentActionLoading, setPaymentActionLoading] = useState(false);
+  const [cancelOrderLoading, setCancelOrderLoading] = useState(false);
   const toast = useToast();
 
   const pageBg = useColorModeValue('#F8F9FC', '#09090B');
@@ -49,7 +50,19 @@ const OrderTrackingPage = () => {
 
   const canSubmitUtr = ['PENDING', 'UTR_SUBMITTED'].includes(paymentInfo?.paymentStatus || '');
   const canCorrectUtr = ['UTR_SUBMITTED', 'PAYMENT_UNDER_REVIEW'].includes(paymentInfo?.paymentStatus || '');
-  const canCancelPayment = ['PENDING'].includes(paymentInfo?.paymentStatus || '');
+
+  // Order can be cancelled if status is Placed AND no payment has been made (PENDING or no paymentOrderId)
+  const orderStatus = order?.status || '';
+  const canCancelOrder = orderStatus === 'Placed' && (
+    !paymentOrderId || effectivePaymentStatus === 'PENDING' || effectivePaymentStatus === ''
+  );
+
+  // Payment has progressed beyond PENDING — show Contact Support
+  const paymentInProgress = ['UTR_SUBMITTED', 'PAYMENT_UNDER_REVIEW', 'RECONCILED', 'DISPUTED'].includes(effectivePaymentStatus);
+
+  // Support contact info from store config
+  const supportWhatsapp = storeConfig?.contactWhatsapp || storeConfig?.contactPhone || storeConfig?.phone || '';
+  const supportPhone = storeConfig?.contactPhone || storeConfig?.phone || '';
 
   const syncPaymentStatus = useCallback(async (paymentOrderIdValue, orderDocId, orderCatalogueId) => {
     if (!paymentOrderIdValue || !currentUser) return;
@@ -138,9 +151,6 @@ const OrderTrackingPage = () => {
       } else if (mode === 'correct') {
         await correctPaymentUtr(currentUser, paymentOrderId, normalizedUtr);
         toast({ title: 'UTR corrected successfully.', status: 'success', duration: 3000, isClosable: true });
-      } else if (mode === 'cancel') {
-        await cancelPaymentOrder(currentUser, paymentOrderId);
-        toast({ title: 'Payment order cancelled.', status: 'success', duration: 3000, isClosable: true });
       }
 
       await syncPaymentStatus(paymentOrderId, order.id, catalogueId);
@@ -150,6 +160,81 @@ const OrderTrackingPage = () => {
       toast({ title: msg, status: 'error', duration: 4000, isClosable: true });
     } finally {
       setPaymentActionLoading(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!order || !currentUser || !catalogueId) return;
+
+    setCancelOrderLoading(true);
+    try {
+      // 1. If a payment order exists and is still PENDING, cancel the backend reservation
+      if (paymentOrderId && effectivePaymentStatus === 'PENDING') {
+        try {
+          await cancelPaymentOrder(currentUser, paymentOrderId);
+        } catch (cancelErr) {
+          console.error('Payment cancel failed (may already be expired):', cancelErr?.response?.data || cancelErr.message);
+          // Continue with Firestore order cancellation regardless
+        }
+      }
+
+      // 2. Restore inventory stock (best-effort, skip infinite stock items)
+      const items = order.items || [];
+      for (const item of items) {
+        try {
+          const productRef = doc(db, 'products', item.productId);
+          const productSnap = await getDoc(productRef);
+          if (!productSnap.exists()) continue;
+
+          const productData = productSnap.data();
+          if (item.variant) {
+            const variantIndex = productData.variants?.findIndex(
+              (v) => JSON.stringify(v.options) === JSON.stringify(item.variant.options)
+            );
+            if (variantIndex === -1 || variantIndex === undefined) continue;
+            const currentVariant = productData.variants[variantIndex];
+            const isInfinite = currentVariant.quantity === -1;
+            if (isInfinite) continue;
+
+            const updatedVariants = [...productData.variants];
+            const restoredQty = (currentVariant.quantity || 0) + item.quantity;
+            updatedVariants[variantIndex] = {
+              ...currentVariant,
+              quantity: restoredQty,
+              inStock: restoredQty > 0,
+            };
+            await updateDoc(productRef, { variants: updatedVariants });
+          } else {
+            const isInfinite = productData.availableQuantity === -1;
+            if (isInfinite) continue;
+
+            const restoredQty = (productData.availableQuantity || 0) + item.quantity;
+            await updateDoc(productRef, {
+              availableQuantity: restoredQty,
+              inStock: restoredQty > 0,
+            });
+          }
+        } catch (stockErr) {
+          console.error(`Stock restore failed for ${item.productId}:`, stockErr);
+          // Non-blocking — continue cancelling
+        }
+      }
+
+      // 3. Update Firestore order status to Cancelled
+      const orderRef = doc(db, 'catalogues', catalogueId, 'orders', order.id);
+      await setDoc(orderRef, {
+        status: 'Cancelled',
+        cancelledAt: Timestamp.fromDate(new Date()),
+        cancelledBy: 'buyer',
+      }, { merge: true });
+
+      setOrder((prev) => prev ? { ...prev, status: 'Cancelled', cancelledAt: Timestamp.fromDate(new Date()) } : prev);
+      toast({ title: 'Order cancelled successfully.', description: 'Inventory has been restored.', status: 'success', duration: 4000, isClosable: true });
+    } catch (err) {
+      const msg = err?.message || 'Failed to cancel order.';
+      toast({ title: msg, status: 'error', duration: 4000, isClosable: true });
+    } finally {
+      setCancelOrderLoading(false);
     }
   };
 
@@ -198,6 +283,11 @@ const OrderTrackingPage = () => {
               {showCompletePaymentCta && (
                 <Button size="sm" colorScheme="brand" onClick={() => navigate(`/order-payment/${catalogueId}/${orderId}`)}>
                   Complete Payment
+                </Button>
+              )}
+              {canCancelOrder && (
+                <Button size="sm" variant="outline" colorScheme="red" onClick={handleCancelOrder} isLoading={cancelOrderLoading}>
+                  Cancel Order
                 </Button>
               )}
             </Flex>
@@ -416,9 +506,6 @@ const OrderTrackingPage = () => {
                   <Button size="sm" variant="outline" colorScheme="orange" onClick={() => handlePaymentAction('correct')} isDisabled={!canCorrectUtr} isLoading={paymentActionLoading}>
                     Correct UTR
                   </Button>
-                  <Button size="sm" variant="outline" colorScheme="red" onClick={() => handlePaymentAction('cancel')} isDisabled={!canCancelPayment} isLoading={paymentActionLoading}>
-                    Cancel Payment
-                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => syncPaymentStatus(paymentOrderId, order.id, catalogueId)} isLoading={paymentActionLoading}>
                     Refresh Status
                   </Button>
@@ -440,6 +527,47 @@ const OrderTrackingPage = () => {
                 </Button>
               </Box>
             </Alert>
+          )}
+
+          {/* Contact Support — shown when payment has progressed beyond PENDING */}
+          {paymentInProgress && (
+            <Box p={5} borderWidth="1px" borderColor={borderColor} borderRadius="16px" bg={cardBg} boxShadow="card">
+              <HStack spacing={2} mb={3}>
+                <Icon as={FiAlertTriangle} color="orange.400" boxSize={4} />
+                <Text fontSize="xs" fontWeight="700" color={mutedColor} textTransform="uppercase" letterSpacing="0.06em">
+                  Need Help?
+                </Text>
+              </HStack>
+              <Text fontSize="sm" color={mutedColor} mb={4}>
+                Payment has been initiated. If you need to cancel or have any issues, please contact the store directly.
+              </Text>
+              <Flex gap={3} flexWrap="wrap">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  colorScheme="brand"
+                  onClick={() => navigate('/contact')}
+                  leftIcon={<Icon as={FiPhone} />}
+                >
+                  Contact Support
+                </Button>
+                {supportWhatsapp && (
+                  <Button
+                    size="sm"
+                    as="a"
+                    href={`https://wa.me/${supportWhatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi! I need help with my order ${order.id}. Payment status: ${effectivePaymentStatus}.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    bg="#25D366"
+                    color="white"
+                    _hover={{ bg: '#1DA851' }}
+                    leftIcon={<Icon as={FiMessageCircle} />}
+                  >
+                    WhatsApp Support
+                  </Button>
+                )}
+              </Flex>
+            </Box>
           )}
         </VStack>
       </Container>

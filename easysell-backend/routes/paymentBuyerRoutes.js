@@ -5,6 +5,7 @@ const { buildError, success } = require('../constants/paymentErrors');
 const { createOrder, getOrderStatus, getPaymentReadiness } = require('../services/orderPaymentService');
 const { submitUtr, correctUtrOnce } = require('../services/utrService');
 const { cancelPendingOrder } = require('../services/buyerCancelService');
+const { checkBucketHealth } = require('../services/bucketHealthService');
 
 const router = express.Router();
 
@@ -78,6 +79,11 @@ router.post('/orders/:orderId/correct-utr', auth, requireRole('buyer'), withHand
 router.post('/orders/:orderId/cancel', auth, requireRole('buyer'), withHandler(async (req, res) => {
   const data = await cancelPendingOrder(req.params.orderId, req.auth.uid);
   res.json(success({ data }, 'Order cancelled'));
+}));
+
+router.get('/orders/:orderId/bucket-health', auth, requireRole('buyer'), withHandler(async (req, res) => {
+  const data = await checkBucketHealth(req.params.orderId, req.auth.uid);
+  res.json(success({ data }, 'Bucket health checked'));
 }));
 
 module.exports = router;

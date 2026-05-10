@@ -10,10 +10,12 @@ import {
   Box,
   Button,
   Container,
+  Flex,
   FormControl,
   FormLabel,
   Heading,
   HStack,
+  Icon,
   Image,
   Input,
   Link,
@@ -22,12 +24,13 @@ import {
   useColorModeValue,
   useToast,
 } from '@chakra-ui/react';
+import { FiMessageCircle, FiPhone, FiAlertTriangle } from 'react-icons/fi';
 import { db } from '../firebase';
 import SpinnerComponent from '../components/Spinner';
 import { useAuth } from '../context/AuthContext';
 import {
   createPaymentOrder,
-  cancelPaymentOrder,
+  checkBucketHealth,
   correctPaymentUtr,
   getPaymentApiErrorDetails,
   getPaymentStatus,
@@ -53,7 +56,7 @@ const getSubdomain = () => {
 const OrderPaymentPage = () => {
   const { catalogueId, orderId } = useParams();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, storeConfig } = useAuth();
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -63,6 +66,8 @@ const OrderPaymentPage = () => {
   const [utrInput, setUtrInput] = useState('');
   const [paymentActionLoading, setPaymentActionLoading] = useState(false);
   const [paymentSetupLoading, setPaymentSetupLoading] = useState(false);
+  const [bucketHealthChecked, setBucketHealthChecked] = useState(false);
+  const [bucketHealthy, setBucketHealthy] = useState(true);
 
   const pageBg = useColorModeValue('#F8F9FC', '#09090B');
   const cardBg = useColorModeValue('white', '#111116');
@@ -78,7 +83,13 @@ const OrderPaymentPage = () => {
   const effectivePaymentStatus = paymentInfo?.paymentStatus || order?.paymentStatus || 'PENDING';
   const canSubmitUtr = ['PENDING', 'UTR_SUBMITTED'].includes(effectivePaymentStatus);
   const canCorrectUtr = ['UTR_SUBMITTED', 'PAYMENT_UNDER_REVIEW'].includes(effectivePaymentStatus);
-  const canCancelPayment = ['PENDING'].includes(effectivePaymentStatus);
+
+  // Payment has progressed beyond PENDING — show "Contact Support" instead of cancel
+  const paymentInProgress = ['UTR_SUBMITTED', 'PAYMENT_UNDER_REVIEW', 'RECONCILED', 'DISPUTED'].includes(effectivePaymentStatus);
+
+  // Build support contact info from storeConfig
+  const supportWhatsapp = storeConfig?.contactWhatsapp || storeConfig?.contactPhone || storeConfig?.phone || '';
+  const supportPhone = storeConfig?.contactPhone || storeConfig?.phone || '';
 
   const resolveStoreHandleForPayment = () => {
     const fromOrder = String(order?.paymentStoreHandle || order?.storeHandle || '').trim().toLowerCase();
@@ -109,6 +120,33 @@ const OrderPaymentPage = () => {
     } catch (statusError) {
       console.error('Payment status sync failed:', statusError?.response?.data || statusError.message || statusError);
       toast({ title: 'Could not refresh payment status.', status: 'warning', duration: 3000, isClosable: true });
+    }
+  }, [currentUser, toast]);
+
+  // --- Bucket health validation on load ---
+  const runBucketHealthCheck = useCallback(async (paymentOrderIdValue) => {
+    if (!paymentOrderIdValue || !currentUser) return;
+    try {
+      const health = await checkBucketHealth(currentUser, paymentOrderIdValue);
+      setBucketHealthChecked(true);
+      if (health && !health.healthy) {
+        setBucketHealthy(false);
+        toast({
+          title: 'Payment route has changed',
+          description: `Reason: ${health.reason || 'Bucket no longer available'}. Refreshing payment setup...`,
+          status: 'warning',
+          duration: 5000,
+          isClosable: true,
+        });
+        return false;
+      }
+      setBucketHealthy(true);
+      return true;
+    } catch (healthError) {
+      console.error('Bucket health check failed:', healthError?.response?.data || healthError.message);
+      setBucketHealthChecked(true);
+      // Don't block the flow on health check failure — let user continue
+      return true;
     }
   }, [currentUser, toast]);
 
@@ -147,6 +185,12 @@ const OrderPaymentPage = () => {
 
         if (orderData.paymentOrderId) {
           await syncPaymentStatus(orderData.paymentOrderId, orderSnap.id, catalogueId);
+
+          // Check bucket health — if unhealthy, auto-retry payment setup
+          const isHealthy = await runBucketHealthCheck(orderData.paymentOrderId);
+          if (!isHealthy) {
+            // Will trigger auto-retry after state is set
+          }
         }
       } catch (fetchError) {
         console.error('Fetch payment screen order failed:', fetchError);
@@ -157,7 +201,7 @@ const OrderPaymentPage = () => {
     };
 
     fetchOrder();
-  }, [catalogueId, currentUser, orderId, syncPaymentStatus]);
+  }, [catalogueId, currentUser, orderId, syncPaymentStatus, runBucketHealthCheck]);
 
   const handlePaymentAction = async (mode) => {
     if (!paymentOrderId || !currentUser) return;
@@ -176,9 +220,6 @@ const OrderPaymentPage = () => {
       } else if (mode === 'correct') {
         await correctPaymentUtr(currentUser, paymentOrderId, normalizedUtr);
         toast({ title: 'UTR corrected successfully.', status: 'success', duration: 3000, isClosable: true });
-      } else if (mode === 'cancel') {
-        await cancelPaymentOrder(currentUser, paymentOrderId);
-        toast({ title: 'Payment order cancelled.', status: 'success', duration: 3000, isClosable: true });
       }
 
       await syncPaymentStatus(paymentOrderId, order.id, catalogueId);
@@ -235,6 +276,8 @@ const OrderPaymentPage = () => {
       await setDoc(orderRef, nextOrderPatch, { merge: true });
       setOrder((prev) => prev ? { ...prev, ...nextOrderPatch } : prev);
       setPaymentInfo({ paymentStatus: 'PENDING' });
+      setBucketHealthy(true);
+      setBucketHealthChecked(true);
       toast({ title: 'Payment setup completed. You can pay now.', status: 'success', duration: 3500, isClosable: true });
     } catch (setupError) {
       const { code, message } = getPaymentApiErrorDetails(setupError);
@@ -300,6 +343,22 @@ const OrderPaymentPage = () => {
               <AlertIcon />
               <AlertTitle mr={2}>Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Bucket health warning — show if unhealthy and payment is still PENDING */}
+          {!error && paymentOrderId && bucketHealthChecked && !bucketHealthy && effectivePaymentStatus === 'PENDING' && (
+            <Alert status="warning" borderRadius="12px">
+              <AlertIcon />
+              <Box>
+                <AlertTitle>Payment route needs refresh</AlertTitle>
+                <AlertDescription>
+                  The collection account assigned to your order is no longer available. Click below to get a fresh payment route.
+                </AlertDescription>
+                <Button mt={3} size="sm" colorScheme="brand" onClick={handleRetryPaymentSetup} isLoading={paymentSetupLoading}>
+                  Refresh Payment Setup
+                </Button>
+              </Box>
             </Alert>
           )}
 
@@ -386,14 +445,52 @@ const OrderPaymentPage = () => {
                   <Button size="sm" variant="outline" colorScheme="orange" onClick={() => handlePaymentAction('correct')} isDisabled={!canCorrectUtr} isLoading={paymentActionLoading}>
                     Correct UTR
                   </Button>
-                  <Button size="sm" variant="outline" colorScheme="red" onClick={() => handlePaymentAction('cancel')} isDisabled={!canCancelPayment} isLoading={paymentActionLoading}>
-                    Cancel Payment
-                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => syncPaymentStatus(paymentOrderId, order.id, catalogueId)} isLoading={paymentActionLoading}>
                     Refresh Status
                   </Button>
                 </HStack>
               </VStack>
+            </Box>
+          )}
+
+          {/* Contact Support — shown when payment has progressed beyond PENDING */}
+          {paymentInProgress && (
+            <Box p={5} borderWidth="1px" borderColor={borderColor} borderRadius="16px" bg={cardBg} boxShadow="card">
+              <HStack spacing={2} mb={3}>
+                <Icon as={FiAlertTriangle} color="orange.400" boxSize={4} />
+                <Text fontSize="xs" fontWeight="700" color={mutedColor} textTransform="uppercase" letterSpacing="0.06em">
+                  Need Help?
+                </Text>
+              </HStack>
+              <Text fontSize="sm" color={mutedColor} mb={4}>
+                Payment has been initiated. If you need to cancel or have issues, please contact the store directly.
+              </Text>
+              <Flex gap={3} flexWrap="wrap">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  colorScheme="brand"
+                  onClick={() => navigate('/contact')}
+                  leftIcon={<Icon as={FiPhone} />}
+                >
+                  Contact Support
+                </Button>
+                {supportWhatsapp && (
+                  <Button
+                    size="sm"
+                    as="a"
+                    href={`https://wa.me/${supportWhatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi! I need help with my order ${orderId}. Payment status: ${effectivePaymentStatus}.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    bg="#25D366"
+                    color="white"
+                    _hover={{ bg: '#1DA851' }}
+                    leftIcon={<Icon as={FiMessageCircle} />}
+                  >
+                    WhatsApp Support
+                  </Button>
+                )}
+              </Flex>
             </Box>
           )}
         </VStack>

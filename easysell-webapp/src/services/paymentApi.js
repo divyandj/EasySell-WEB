@@ -59,6 +59,15 @@ export async function cancelPaymentOrder(currentUser, paymentOrderId) {
   return data?.data || null;
 }
 
+export async function checkBucketHealth(currentUser, paymentOrderId) {
+  const headers = await authHeaders(currentUser);
+  const { data } = await axios.get(
+    `${API_BASE_URL}/api/payment/orders/${paymentOrderId}/bucket-health`,
+    { headers }
+  );
+  return data?.data || null;
+}
+
 export function getPaymentApiErrorDetails(error) {
   const code = String(error?.response?.data?.code || '').trim();
   const message = String(
