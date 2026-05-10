@@ -8,6 +8,7 @@ const {
   listReviewOrders,
   listHistoryOrders,
   confirmOrder,
+  unresolveReconciledOrder,
 } = require('../services/adminConfirmationService');
 const { reopenDisputedOrder } = require('../services/reopenService');
 const {
@@ -38,6 +39,11 @@ router.post('/orders/:orderId/confirm', auth, requireRole('admin'), requireStore
 router.post('/orders/:orderId/reopen', auth, requireRole('admin'), requireStoreScope, withHandler(async (req, res) => {
   const data = await reopenDisputedOrder(req.params.orderId, req.auth.uid, req.storeHandleScope);
   res.json(success({ data }, 'Order moved to review'));
+}));
+
+router.post('/orders/:orderId/unresolve', auth, requireRole('admin'), requireStoreScope, withHandler(async (req, res) => {
+  const data = await unresolveReconciledOrder(req.params.orderId, req.auth.uid, req.storeHandleScope);
+  res.json(success({ data }, 'Order moved back to review'));
 }));
 
 router.get('/orders/pending', auth, requireRole('admin'), requireStoreScope, withHandler(async (req, res) => {

@@ -214,9 +214,96 @@ async function confirmOrder(orderId, action, adminUid, storeHandle) {
   return result;
 }
 
+async function unresolveReconciledOrder(orderId, adminUid, storeHandle) {
+  const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
+  if (!scopedStoreHandle) {
+    throw buildError('STORE_SCOPE_REQUIRED');
+  }
+
+  return runWithRetry(() => db.runTransaction(async (tx) => {
+    const orderRef = db.collection('orders').doc(orderId);
+    const orderSnap = await tx.get(orderRef);
+    if (!orderSnap.exists) throw buildError('ORDER_NOT_FOUND');
+
+    const order = orderSnap.data() || {};
+    if (String(order.storeHandle || '').trim().toLowerCase() !== scopedStoreHandle) {
+      throw buildError('STORE_SCOPE_MISMATCH');
+    }
+    if (order.paymentStatus !== ORDER_STATUS.RECONCILED) {
+      throw buildError('ORDER_NOT_RECONCILED');
+    }
+
+    const bucketRef = db.collection('buckets').doc(order.bucketId);
+    const bucketSnap = await tx.get(bucketRef);
+    if (!bucketSnap.exists) throw buildError('BUCKET_NOT_FOUND');
+
+    const bucket = bucketSnap.data() || {};
+    if (String(bucket.storeHandle || '').trim().toLowerCase() !== scopedStoreHandle) {
+      throw buildError('STORE_SCOPE_MISMATCH');
+    }
+
+    const orderAmount = Number(order.orderAmount || 0);
+    const currentReserved = Number(bucket.reservedAmount || 0);
+    const currentCollected = Number(bucket.collectedAmount || 0);
+    if (currentCollected < orderAmount) {
+      throw buildError('INSUFFICIENT_BUCKET_BALANCE');
+    }
+
+    const now = admin.firestore.Timestamp.now();
+    const nextCollected = Number((currentCollected - orderAmount).toFixed(2));
+    const nextReserved = Number((currentReserved + orderAmount).toFixed(2));
+    const limitAmount = Number(bucket.limitAmount || 0);
+    const nextBucketStatus = (bucket.status === BUCKET_STATUS.FULL && nextCollected < limitAmount)
+      ? BUCKET_STATUS.ACTIVE
+      : bucket.status;
+
+    tx.update(bucketRef, {
+      collectedAmount: nextCollected,
+      reservedAmount: nextReserved,
+      status: nextBucketStatus,
+      updatedAt: now,
+    });
+
+    const suffix = Number(order.paiseSuffix || 0);
+    if (order.bucketId && suffix >= 1) {
+      const suffixRef = db.collection('suffixIndex').doc(suffixToDocId(order.bucketId, suffix));
+      const suffixSnap = await tx.get(suffixRef);
+      if (suffixSnap.exists) {
+        const existing = suffixSnap.data() || {};
+        if (String(existing.orderId || '') !== String(orderId)) {
+          throw buildError('SUFFIX_RESERVATION_CONFLICT');
+        }
+      }
+      tx.set(suffixRef, {
+        bucketId: order.bucketId,
+        suffix,
+        orderId,
+        createdAt: now,
+      }, { merge: true });
+    }
+
+    tx.update(orderRef, {
+      paymentStatus: ORDER_STATUS.PAYMENT_UNDER_REVIEW,
+      unresolvedAt: now,
+      unresolvedBy: adminUid || '',
+      unresolveAction: 'RECONCILED_TO_REVIEW',
+      confirmedAt: null,
+      confirmedBy: null,
+      updatedAt: now,
+    });
+
+    return {
+      orderId,
+      paymentStatus: ORDER_STATUS.PAYMENT_UNDER_REVIEW,
+      bucketStatus: nextBucketStatus,
+    };
+  }));
+}
+
 module.exports = {
   listPendingUtrOrders,
   listReviewOrders,
   listHistoryOrders,
   confirmOrder,
+  unresolveReconciledOrder,
 };

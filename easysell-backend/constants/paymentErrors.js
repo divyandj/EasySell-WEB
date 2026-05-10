@@ -18,8 +18,11 @@ const ERROR_DEFS = {
   ORDER_EXPIRED_LATE_PAYMENT: { httpStatus: 409, code: 'ORDER_EXPIRED_LATE_PAYMENT', message: 'Order expired before UTR submission.' },
   ORDER_STATUS_INVALID_FOR_UTR: { httpStatus: 409, code: 'ORDER_STATUS_INVALID_FOR_UTR', message: 'Order status does not allow UTR submission.' },
   ORDER_NOT_CONFIRMABLE: { httpStatus: 409, code: 'ORDER_NOT_CONFIRMABLE', message: 'Order cannot be confirmed in current state.' },
+  ORDER_NOT_RECONCILED: { httpStatus: 409, code: 'ORDER_NOT_RECONCILED', message: 'Only reconciled orders can be moved back to review.' },
   REOPEN_REQUIRED: { httpStatus: 409, code: 'REOPEN_REQUIRED', message: 'Disputed order must be reopened before confirmation.' },
   UTR_CORRECTION_ALREADY_USED: { httpStatus: 409, code: 'UTR_CORRECTION_ALREADY_USED', message: 'UTR correction has already been used for this order.' },
+  INSUFFICIENT_BUCKET_BALANCE: { httpStatus: 409, code: 'INSUFFICIENT_BUCKET_BALANCE', message: 'Bucket collected amount is insufficient for rollback.' },
+  SUFFIX_RESERVATION_CONFLICT: { httpStatus: 409, code: 'SUFFIX_RESERVATION_CONFLICT', message: 'Unable to restore suffix reservation for this order.' },
 
   BUCKET_INVARIANT_VIOLATION: { httpStatus: 500, code: 'BUCKET_INVARIANT_VIOLATION', message: 'Bucket accounting invariant failed.' },
   ORDER_CREATE_ATOMICITY_FAILED: { httpStatus: 500, code: 'ORDER_CREATE_ATOMICITY_FAILED', message: 'Failed to create order atomically.' },
