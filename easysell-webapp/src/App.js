@@ -15,7 +15,6 @@ import HomePage from './pages/HomePage';
 import StorefrontPage from './pages/StorefrontPage';
 import RequestProductPage from './pages/RequestProductPage';
 import ContactPage from './pages/ContactPage';
-import AboutUsPage from './pages/AboutUsPage';
 import RewardsPage from './pages/RewardsPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -25,21 +24,24 @@ import { Box, Flex } from '@chakra-ui/react';
 
 import { resolveStoreContext } from './utils/storeResolver';
 
+const getSubdomain = () => {
+  const context = resolveStoreContext();
+  return (context.type === 'subdomain' || context.type === 'customDomain') ? context.handle || context.domain : null;
+};
+
 function App() {
-  const storeContext = resolveStoreContext();
-  const isStorefrontContext = storeContext.type === 'subdomain' || storeContext.type === 'customDomain';
-  const subdomain = isStorefrontContext ? (storeContext.handle || storeContext.domain) : null;
+  const subdomain = getSubdomain();
 
   return (
     <Flex direction="column" minH="100vh">
       <ScrollToTop />
-      <Navbar storeContext={storeContext} />
+      <Navbar />
       <Box flex="1">
         <Routes>
           {/* --- Public Routes (Accessible by Everyone) --- */}
 
-          {/* 1. Dynamic Root Route: Storefront if subdomain/custom domain exists, otherwise Main Home */}
-          <Route path="/" element={subdomain ? <StorefrontPage storeContext={storeContext} /> : <HomePage />} />
+          {/* 1. Dynamic Root Route: Storefront if subdomain exists, otherwise Main Home */}
+          <Route path="/" element={subdomain ? <StorefrontPage subdomain={subdomain} /> : <HomePage />} />
 
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<LoginPage />} />
@@ -47,7 +49,6 @@ function App() {
           <Route path="/product/:catalogueId/:productId" element={<ProductDetailPage />} />
           <Route path="/product/:productId" element={<ProductDetailPage />} />
           <Route path="/contact" element={<ContactPage />} />
-          <Route path="/about-us" element={<AboutUsPage />} />
           <Route path="/rewards" element={<RewardsPage />} />
           <Route path="/request-product" element={
             <ProtectedRoute>
@@ -113,7 +114,7 @@ function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Box>
-      <Footer storeContext={storeContext} />
+      <Footer />
     </Flex>
   );
 }
