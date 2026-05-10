@@ -249,6 +249,19 @@ async function unresolveReconciledOrder(orderId, adminUid, storeHandle) {
       throw buildError('INSUFFICIENT_BUCKET_BALANCE');
     }
 
+    const suffix = Number(order.paiseSuffix || 0);
+    let suffixRef = null;
+    if (order.bucketId && suffix >= 1) {
+      suffixRef = db.collection('suffixIndex').doc(suffixToDocId(order.bucketId, suffix));
+      const suffixSnap = await tx.get(suffixRef);
+      if (suffixSnap.exists) {
+        const existing = suffixSnap.data() || {};
+        if (String(existing.orderId || '') !== String(orderId)) {
+          throw buildError('SUFFIX_RESERVATION_CONFLICT');
+        }
+      }
+    }
+
     const now = admin.firestore.Timestamp.now();
     const nextCollected = Number((currentCollected - orderAmount).toFixed(2));
     const nextReserved = Number((currentReserved + orderAmount).toFixed(2));
@@ -264,16 +277,7 @@ async function unresolveReconciledOrder(orderId, adminUid, storeHandle) {
       updatedAt: now,
     });
 
-    const suffix = Number(order.paiseSuffix || 0);
-    if (order.bucketId && suffix >= 1) {
-      const suffixRef = db.collection('suffixIndex').doc(suffixToDocId(order.bucketId, suffix));
-      const suffixSnap = await tx.get(suffixRef);
-      if (suffixSnap.exists) {
-        const existing = suffixSnap.data() || {};
-        if (String(existing.orderId || '') !== String(orderId)) {
-          throw buildError('SUFFIX_RESERVATION_CONFLICT');
-        }
-      }
+    if (suffixRef) {
       tx.set(suffixRef, {
         bucketId: order.bucketId,
         suffix,
