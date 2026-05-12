@@ -26,64 +26,52 @@ function toMillis(ts) {
 }
 
 async function listByStatusesScan(statuses, reqQuery, storeHandle, includeStatus = false, fallbackStatus = null) {
+  // Optimized indexed query version: use Firestore WHEREs to reduce full collection scans.
   const scopedStoreHandle = String(storeHandle || '').trim().toLowerCase();
   if (!scopedStoreHandle) throw buildError('STORE_SCOPE_REQUIRED');
 
   const limit = parseLimit(reqQuery.limit);
-  let scanCursor = parseCursor(reqQuery.cursor);
+  const cursor = parseCursor(reqQuery.cursor);
 
-  const wanted = new Set(statuses);
-  const matched = [];
-  const batchSize = Math.max(50, limit * 3);
-  let loops = 0;
-  let exhausted = false;
+  // Build base query scoped to storeHandle
+  let q = db.collection('orders').where('storeHandle', '==', scopedStoreHandle);
 
-  while (matched.length < (limit + 1) && loops < 10) {
-    loops += 1;
-
-    let q = db.collection('orders').orderBy('createdAt', 'desc').limit(batchSize);
-    if (scanCursor) q = q.startAfter(scanCursor);
-
-    // eslint-disable-next-line no-await-in-loop
-    const snap = await q.get();
-    if (snap.empty) {
-      exhausted = true;
-      break;
-    }
-
-    for (const d of snap.docs) {
-      const o = d.data() || {};
-      if (!wanted.has(o.paymentStatus)) continue;
-      if (String(o.storeHandle || '').trim().toLowerCase() !== scopedStoreHandle) continue;
-      matched.push({ id: d.id, ...o });
-      if (matched.length >= (limit + 1)) break;
-    }
-
-    const lastDoc = snap.docs[snap.docs.length - 1];
-    scanCursor = lastDoc?.data()?.createdAt || null;
-
-    if (snap.docs.length < batchSize) {
-      exhausted = true;
-      break;
-    }
+  if (!Array.isArray(statuses) || statuses.length === 0) {
+    throw buildError('INVALID_INPUT', { message: 'statuses required' });
   }
 
-  const pageItems = matched.slice(0, limit);
-  const hasMore = matched.length > limit && !exhausted;
+  if (statuses.length === 1) {
+    q = q.where('paymentStatus', '==', statuses[0]);
+  } else {
+    // Firestore supports whereIn for up to 10 values — history statuses are small
+    q = q.where('paymentStatus', 'in', statuses);
+  }
 
-  const items = pageItems.map((o) => ({
-    orderId: o.id,
-    orderAmount: Number(o.orderAmount || 0),
-    uniquePayableAmount: Number(o.uniquePayableAmount || 0),
-    utrNumber: o.utrNumber || null,
-    paymentStatus: includeStatus ? o.paymentStatus : fallbackStatus,
-    createdAt: toMillis(o.createdAt),
-    cancelledAt: toMillis(o.cancelledAt),
-  }));
+  q = q.orderBy('createdAt', 'desc').limit(limit + 1);
+  if (cursor) q = q.startAfter(cursor);
 
-  const nextCursor = hasMore && pageItems.length
-    ? toMillis(pageItems[pageItems.length - 1].createdAt)
-    : null;
+  const snap = await q.get();
+
+  const docs = snap.empty ? [] : snap.docs;
+  const pageDocs = docs.slice(0, limit);
+  const hasMore = docs.length > limit;
+
+  const items = pageDocs.map((d) => {
+    const o = d.data() || {};
+    return {
+      orderId: d.id,
+      orderAmount: Number(o.orderAmount || 0),
+      uniquePayableAmount: Number(o.uniquePayableAmount || 0),
+      utrNumber: o.utrNumber || null,
+      paymentStatus: includeStatus ? o.paymentStatus : fallbackStatus,
+      createdAt: toMillis(o.createdAt),
+      cancelledAt: toMillis(o.cancelledAt),
+    };
+  });
+
+  const lastDoc = pageDocs.length ? pageDocs[pageDocs.length - 1] : null;
+  const lastCreatedAt = lastDoc ? lastDoc.get('createdAt') : null;
+  const nextCursor = hasMore && lastCreatedAt ? toMillis(lastCreatedAt) : null;
 
   return { items, nextCursor };
 }
@@ -211,6 +199,21 @@ async function confirmOrder(orderId, action, adminUid, storeHandle) {
     }
   }
 
+  // Propagate status to any nested catalogue orders that reference this payment order id.
+  // This is a best-effort batch outside the transaction to keep catalogue-order views in sync.
+  try {
+    const now = admin.firestore.Timestamp.now();
+    await propagateToNestedOrders(orderId, {
+      paymentStatus: result.paymentStatus,
+      confirmedAt: now,
+      confirmedBy: adminUid || '',
+      updatedAt: now,
+    });
+  } catch (e) {
+    // log but don't fail the response
+    console.warn('Failed to propagate to nested orders after confirmOrder:', e.message || e);
+  }
+
   return result;
 }
 
@@ -304,10 +307,48 @@ async function unresolveReconciledOrder(orderId, adminUid, storeHandle) {
   }));
 }
 
+// Ensure nested orders are updated when an order is moved back to review
+async function unresolveAndPropagate(orderId, adminUid, storeHandle) {
+  const result = await unresolveReconciledOrder(orderId, adminUid, storeHandle);
+  try {
+    const now = admin.firestore.Timestamp.now();
+    await propagateToNestedOrders(orderId, {
+      paymentStatus: result.paymentStatus,
+      unresolvedAt: now,
+      unresolvedBy: adminUid || '',
+      updatedAt: now,
+    });
+  } catch (e) {
+    console.warn('Failed to propagate unresolve to nested orders for', orderId, e.message || e);
+  }
+  return result;
+}
+
+// Helper to propagate payment status changes to nested catalogue orders (best-effort)
+async function propagateToNestedOrders(paymentOrderId, updates) {
+  try {
+    const snap = await db.collectionGroup('orders').where('paymentOrderId', '==', paymentOrderId).get();
+    if (snap.empty) return;
+    const batch = db.batch();
+    snap.docs.forEach((d) => {
+      try {
+        batch.update(d.ref, updates);
+      } catch (e) {
+        // ignore individual doc failures in preparation; commit may still fail later
+      }
+    });
+    await batch.commit();
+  } catch (e) {
+    // Non-fatal: log and continue
+    console.warn('Failed to propagate payment status to nested orders for', paymentOrderId, e.message || e);
+  }
+}
+
 module.exports = {
   listPendingUtrOrders,
   listReviewOrders,
   listHistoryOrders,
   confirmOrder,
-  unresolveReconciledOrder,
+  // Export wrapper that also propagates to nested orders
+  unresolveReconciledOrder: unresolveAndPropagate,
 };

@@ -1,0 +1,42 @@
+[debug] [2026-05-11T21:01:14.811Z] ----------------------------------------------------------------------
+[debug] [2026-05-11T21:01:14.814Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Divyan\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:indexes --project easysell-hashu --debug
+[debug] [2026-05-11T21:01:14.815Z] CLI Version:   15.17.0
+[debug] [2026-05-11T21:01:14.815Z] Platform:      win32
+[debug] [2026-05-11T21:01:14.815Z] Node Version:  v20.5.1
+[debug] [2026-05-11T21:01:14.815Z] Time:          Tue May 12 2026 02:31:14 GMT+0530 (India Standard Time)
+[debug] [2026-05-11T21:01:14.815Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-11T21:01:17.640Z] Object "" in "firebase.json" has unknown property: {"additionalProperty":"projects"}
+[debug] [2026-05-11T21:01:17.647Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-11T21:01:17.648Z] > authorizing via signed-in user (dj755095@gmail.com)
+[debug] [2026-05-11T21:01:17.648Z] [iam] checking project easysell-hashu for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-05-11T21:01:17.651Z] Checked if tokens are valid: true, expires at: 1778536335798
+[debug] [2026-05-11T21:01:17.652Z] Checked if tokens are valid: true, expires at: 1778536335798
+[debug] [2026-05-11T21:01:17.654Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/easysell-hashu:testIamPermissions [none]
+[debug] [2026-05-11T21:01:17.655Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/easysell-hashu:testIamPermissions  x-goog-user-project=easysell-hashu
+[debug] [2026-05-11T21:01:17.655Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/easysell-hashu:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-05-11T21:01:19.259Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/easysell-hashu:testIamPermissions 200
+[debug] [2026-05-11T21:01:19.262Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/easysell-hashu:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'easysell-hashu'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-05-11T21:01:19.284Z] Checked if tokens are valid: true, expires at: 1778536335798
+[debug] [2026-05-11T21:01:19.286Z] Checked if tokens are valid: true, expires at: 1778536335798
+[debug] [2026-05-11T21:01:19.291Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/easysell-hashu/databases/(default) [none]
+[debug] [2026-05-11T21:01:21.399Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/easysell-hashu/databases/(default) 200
+[debug] [2026-05-11T21:01:21.400Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/easysell-hashu/databases/(default) {"name":"projects/easysell-hashu/databases/(default)","uid":"cdec2d82-29c2-43cb-b2e6-5f065d8b451a","createTime":"2025-09-27T10:21:48.473470Z","updateTime":"2025-09-27T10:21:48.473470Z","locationId":"nam5","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-05-11T20:01:23.494986Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"s","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"IKfx1eSQspQDMIrKxZa75pID"}
+[info] i  firestore: reading indexes from firestore.indexes.json... 
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-05-11T21:01:21.405Z] Checked if tokens are valid: true, expires at: 1778536335798
+[debug] [2026-05-11T21:01:21.405Z] Checked if tokens are valid: true, expires at: 1778536335798
+[debug] [2026-05-11T21:01:21.406Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/easysell-hashu:test [none]
+[debug] [2026-05-11T21:01:21.406Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/easysell-hashu:test [omitted]
+[debug] [2026-05-11T21:01:22.941Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/easysell-hashu:test 200
+[debug] [2026-05-11T21:01:22.942Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/easysell-hashu:test {}
+[info] +  cloud.firestore: rules file firestore.rules compiled successfully 
+[info] i  firestore: deploying indexes... 
+[error] 
+[error] Error: Field "queryScope" must be one of COLLECTION, COLLECTION_GROUP: {"collectionGroup":"orders","queryScope":"Collection","fields":[{"fieldPath":"sellerId","order":"ASCENDING"},{"fieldPath":"orderDate","order":"DESCENDING"}]}
