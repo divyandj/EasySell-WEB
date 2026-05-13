@@ -24,7 +24,7 @@ import {
   useColorModeValue,
   useToast,
 } from '@chakra-ui/react';
-import { FiMessageCircle, FiPhone, FiAlertTriangle } from 'react-icons/fi';
+import { FiMessageCircle, FiPhone, FiAlertTriangle, FiUpload, FiX } from 'react-icons/fi';
 import { db } from '../firebase';
 import SpinnerComponent from '../components/Spinner';
 import { useAuth } from '../context/AuthContext';
@@ -37,6 +37,7 @@ import {
   submitPaymentUtr,
 } from '../services/paymentApi';
 import { resolveStoreContext } from '../utils/storeResolver';
+import { uploadImageToCloudinary } from '../utils/cloudinaryUpload';
 
 const formatCurrency = (amount) => `₹${(amount || 0).toFixed(2)}`;
 
@@ -66,6 +67,10 @@ const OrderPaymentPage = () => {
   const [utrInput, setUtrInput] = useState('');
   const [paymentActionLoading, setPaymentActionLoading] = useState(false);
   const [paymentSetupLoading, setPaymentSetupLoading] = useState(false);
+  const [paymentProofFile, setPaymentProofFile] = useState(null);
+  const [paymentProofPreview, setPaymentProofPreview] = useState('');
+  const [paymentProofUrl, setPaymentProofUrl] = useState('');
+  const [paymentProofUploading, setPaymentProofUploading] = useState(false);
   const [bucketHealthChecked, setBucketHealthChecked] = useState(false);
   const [bucketHealthy, setBucketHealthy] = useState(true);
 
@@ -106,6 +111,8 @@ const OrderPaymentPage = () => {
         doc(db, 'catalogues', orderCatalogueId, 'orders', orderDocId),
         {
           paymentStatus: statusData?.paymentStatus || null,
+          paymentUtrNumber: statusData?.utrNumber || null,
+          paymentProofUrl: statusData?.paymentProofUrl || null,
           paymentCancelledAtMs: statusData?.cancelledAt || null,
           paymentExpiresAtMs: statusData?.expiresAt || null,
         },
@@ -114,9 +121,12 @@ const OrderPaymentPage = () => {
       setOrder((prev) => prev ? {
         ...prev,
         paymentStatus: statusData?.paymentStatus || prev.paymentStatus || null,
+        paymentUtrNumber: statusData?.utrNumber || prev.paymentUtrNumber || null,
+        paymentProofUrl: statusData?.paymentProofUrl || prev.paymentProofUrl || null,
         paymentCancelledAtMs: statusData?.cancelledAt || prev.paymentCancelledAtMs || null,
         paymentExpiresAtMs: statusData?.expiresAt || prev.paymentExpiresAtMs || null,
       } : prev);
+      setPaymentProofUrl((prev) => String(statusData?.paymentProofUrl || prev || '').trim());
     } catch (statusError) {
       console.error('Payment status sync failed:', statusError?.response?.data || statusError.message || statusError);
       toast({ title: 'Could not refresh payment status.', status: 'warning', duration: 3000, isClosable: true });
@@ -182,6 +192,8 @@ const OrderPaymentPage = () => {
         }
 
         setOrder({ id: orderSnap.id, ...orderData });
+        setPaymentProofUrl(String(orderData?.paymentProofUrl || '').trim());
+        setPaymentProofPreview(String(orderData?.paymentProofUrl || '').trim());
 
         if (orderData.paymentOrderId) {
           await syncPaymentStatus(orderData.paymentOrderId, orderSnap.id, catalogueId);
@@ -203,20 +215,56 @@ const OrderPaymentPage = () => {
     fetchOrder();
   }, [catalogueId, currentUser, orderId, syncPaymentStatus, runBucketHealthCheck]);
 
+  const handlePaymentProofSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Screenshot must be under 5MB.', status: 'error', duration: 3000, isClosable: true });
+      return;
+    }
+    const preview = URL.createObjectURL(file);
+    setPaymentProofFile(file);
+    setPaymentProofPreview(preview);
+    setPaymentProofUrl('');
+  };
+
+  const handleRemovePaymentProof = () => {
+    if (paymentProofPreview && paymentProofPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(paymentProofPreview);
+    }
+    setPaymentProofFile(null);
+    setPaymentProofPreview('');
+    setPaymentProofUrl('');
+  };
+
   const handlePaymentAction = async (mode) => {
     if (!paymentOrderId || !currentUser) return;
 
     const normalizedUtr = utrInput.trim();
-    if ((mode === 'submit' || mode === 'correct') && !/^\d{12}$/.test(normalizedUtr)) {
+    if (mode === 'correct' && !/^\d{12}$/.test(normalizedUtr)) {
       toast({ title: 'UTR must be exactly 12 digits.', status: 'warning', duration: 3000, isClosable: true });
+      return;
+    }
+    if (mode === 'submit' && normalizedUtr && !/^\d{12}$/.test(normalizedUtr)) {
+      toast({ title: 'UTR must be exactly 12 digits when provided.', status: 'warning', duration: 3000, isClosable: true });
       return;
     }
 
     setPaymentActionLoading(true);
     try {
       if (mode === 'submit') {
-        await submitPaymentUtr(currentUser, paymentOrderId, normalizedUtr);
-        toast({ title: 'UTR submitted successfully.', status: 'success', duration: 3000, isClosable: true });
+        let proofUrlToSend = String(paymentProofUrl || '').trim();
+        if (!proofUrlToSend && paymentProofFile) {
+          setPaymentProofUploading(true);
+          proofUrlToSend = await uploadImageToCloudinary(paymentProofFile);
+          setPaymentProofUrl(proofUrlToSend);
+          setPaymentProofPreview(proofUrlToSend);
+        }
+        if (!proofUrlToSend) {
+          throw new Error('Payment screenshot is required.');
+        }
+        await submitPaymentUtr(currentUser, paymentOrderId, normalizedUtr || null, proofUrlToSend);
+        toast({ title: 'Payment proof submitted successfully.', status: 'success', duration: 3000, isClosable: true });
       } else if (mode === 'correct') {
         await correctPaymentUtr(currentUser, paymentOrderId, normalizedUtr);
         toast({ title: 'UTR corrected successfully.', status: 'success', duration: 3000, isClosable: true });
@@ -228,6 +276,7 @@ const OrderPaymentPage = () => {
       const message = actionError?.response?.data?.message || actionError.message || 'Payment action failed.';
       toast({ title: message, status: 'error', duration: 4000, isClosable: true });
     } finally {
+      setPaymentProofUploading(false);
       setPaymentActionLoading(false);
     }
   };
@@ -428,19 +477,58 @@ const OrderPaymentPage = () => {
                   </Link>
                 )}
 
+                <FormControl isRequired>
+                  <FormLabel fontSize="xs" color={mutedColor}>Payment Screenshot (Required)</FormLabel>
+                  {paymentProofPreview ? (
+                    <Box position="relative" borderRadius="12px" overflow="hidden" borderWidth="1px" borderColor={borderColor}>
+                      <Image src={paymentProofPreview} alt="Payment proof" maxW="280px" borderRadius="12px" />
+                      <Button
+                        size="xs"
+                        colorScheme="red"
+                        borderRadius="full"
+                        position="absolute"
+                        top={2}
+                        right={2}
+                        onClick={handleRemovePaymentProof}
+                      >
+                        <FiX />
+                      </Button>
+                    </Box>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      leftIcon={<FiUpload />}
+                      onClick={() => document.getElementById('payment-proof-upload').click()}
+                      isDisabled={paymentProofUploading}
+                    >
+                      Upload Screenshot
+                    </Button>
+                  )}
+                  <Input
+                    id="payment-proof-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePaymentProofSelect}
+                    display="none"
+                  />
+                  <Text fontSize="xs" color={mutedColor} mt={1}>
+                    Upload screenshot is mandatory. UTR is optional.
+                  </Text>
+                </FormControl>
+
                 <FormControl>
-                  <FormLabel fontSize="xs" color={mutedColor}>UTR Number (12 digits)</FormLabel>
+                  <FormLabel fontSize="xs" color={mutedColor}>UTR Number (Optional, 12 digits)</FormLabel>
                   <Input
                     value={utrInput}
                     onChange={(e) => setUtrInput(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                    placeholder="Enter UTR"
+                    placeholder="Enter UTR (optional)"
                     maxLength={12}
                   />
                 </FormControl>
 
                 <HStack spacing={2} flexWrap="wrap">
-                  <Button size="sm" colorScheme="blue" onClick={() => handlePaymentAction('submit')} isDisabled={!canSubmitUtr} isLoading={paymentActionLoading}>
-                    Submit UTR
+                  <Button size="sm" colorScheme="blue" onClick={() => handlePaymentAction('submit')} isDisabled={!canSubmitUtr || paymentProofUploading} isLoading={paymentActionLoading || paymentProofUploading}>
+                    Submit Payment Proof
                   </Button>
                   <Button size="sm" variant="outline" colorScheme="orange" onClick={() => handlePaymentAction('correct')} isDisabled={!canCorrectUtr} isLoading={paymentActionLoading}>
                     Correct UTR

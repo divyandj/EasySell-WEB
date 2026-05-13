@@ -9,6 +9,17 @@ const admin = getAdmin();
 
 const UTR_REGEX = /^\d{12}$/;
 
+function validatePaymentProofUrl(paymentProofUrl) {
+  const value = String(paymentProofUrl || '').trim();
+  if (!value) {
+    throw buildError('INVALID_INPUT', { message: 'payment screenshot is required.' });
+  }
+  if (!/^https?:\/\//i.test(value)) {
+    throw buildError('INVALID_INPUT', { message: 'paymentProofUrl must be a valid URL.' });
+  }
+  return value;
+}
+
 function validateUtr(utrNumber) {
   if (!UTR_REGEX.test(String(utrNumber || ''))) {
     throw buildError('INVALID_INPUT', { message: 'utrNumber must be exactly 12 numeric digits.' });
@@ -16,7 +27,11 @@ function validateUtr(utrNumber) {
 }
 
 async function submitUtr(orderId, buyerId, utrNumber, paymentProofUrl = null) {
-  validateUtr(utrNumber);
+  const normalizedUtr = String(utrNumber || '').trim();
+  const normalizedProofUrl = validatePaymentProofUrl(paymentProofUrl);
+  if (normalizedUtr) {
+    validateUtr(normalizedUtr);
+  }
 
   let idempotentReplay = false;
 
@@ -38,34 +53,36 @@ async function submitUtr(orderId, buyerId, utrNumber, paymentProofUrl = null) {
       throw buildError('ORDER_EXPIRED_LATE_PAYMENT');
     }
 
-    const utrRef = db.collection('utrIndex').doc(String(utrNumber));
-    const utrSnap = await tx.get(utrRef);
-    if (utrSnap.exists) {
-      const utrData = utrSnap.data() || {};
-      const indexedOrderId = String(utrData.orderId || '').trim();
-      const currentOrderUtr = String(order.utrNumber || '').trim();
+    if (normalizedUtr) {
+      const utrRef = db.collection('utrIndex').doc(normalizedUtr);
+      const utrSnap = await tx.get(utrRef);
+      if (utrSnap.exists) {
+        const utrData = utrSnap.data() || {};
+        const indexedOrderId = String(utrData.orderId || '').trim();
+        const currentOrderUtr = String(order.utrNumber || '').trim();
 
-      // Allow safe retries when the exact same order and UTR were already persisted.
-      if (
-        indexedOrderId === orderId
-        && currentOrderUtr === String(utrNumber)
-        && order.paymentStatus === ORDER_STATUS.UTR_SUBMITTED
-      ) {
-        idempotentReplay = true;
-        return;
+        // Allow safe retries when the exact same order and UTR were already persisted.
+        if (
+          indexedOrderId === orderId
+          && currentOrderUtr === normalizedUtr
+          && order.paymentStatus === ORDER_STATUS.UTR_SUBMITTED
+        ) {
+          idempotentReplay = true;
+          return;
+        }
+
+        throw buildError('DUPLICATE_UTR');
       }
 
-      throw buildError('DUPLICATE_UTR');
+      tx.set(utrRef, {
+        orderId,
+        createdAt: now,
+      });
     }
 
-    tx.set(utrRef, {
-      orderId,
-      createdAt: now,
-    });
-
     tx.update(orderRef, {
-      utrNumber: String(utrNumber),
-      paymentProofUrl: paymentProofUrl || null,
+      utrNumber: normalizedUtr || null,
+      paymentProofUrl: normalizedProofUrl,
       paymentStatus: ORDER_STATUS.UTR_SUBMITTED,
       utrSubmittedAt: now,
       updatedAt: now,
@@ -73,7 +90,7 @@ async function submitUtr(orderId, buyerId, utrNumber, paymentProofUrl = null) {
   }));
 
   if (idempotentReplay) {
-    return { orderId, utrNumber: String(utrNumber), paymentStatus: ORDER_STATUS.UTR_SUBMITTED };
+    return { orderId, utrNumber: normalizedUtr || null, paymentStatus: ORDER_STATUS.UTR_SUBMITTED };
   }
 
   try {
@@ -90,7 +107,7 @@ async function submitUtr(orderId, buyerId, utrNumber, paymentProofUrl = null) {
     // non-blocking
   }
 
-  return { orderId, utrNumber: String(utrNumber), paymentStatus: ORDER_STATUS.UTR_SUBMITTED };
+  return { orderId, utrNumber: normalizedUtr || null, paymentStatus: ORDER_STATUS.UTR_SUBMITTED, paymentProofUrl: normalizedProofUrl };
 }
 
 async function correctUtrOnce(orderId, buyerId, newUtrNumber) {
@@ -113,11 +130,7 @@ async function correctUtrOnce(orderId, buyerId, newUtrNumber) {
     }
 
     const oldUtr = String(order.utrNumber || '').trim();
-    if (!oldUtr) {
-      throw buildError('INVALID_INPUT', { message: 'No existing UTR to correct.' });
-    }
-
-    if (oldUtr === String(newUtrNumber)) {
+    if (oldUtr && oldUtr === String(newUtrNumber)) {
       throw buildError('INVALID_INPUT', { message: 'New UTR must be different from old UTR.' });
     }
 
@@ -125,8 +138,10 @@ async function correctUtrOnce(orderId, buyerId, newUtrNumber) {
     const newUtrSnap = await tx.get(newUtrRef);
     if (newUtrSnap.exists) throw buildError('DUPLICATE_UTR');
 
-    const oldUtrRef = db.collection('utrIndex').doc(oldUtr);
-    tx.delete(oldUtrRef);
+    if (oldUtr) {
+      const oldUtrRef = db.collection('utrIndex').doc(oldUtr);
+      tx.delete(oldUtrRef);
+    }
 
     const now = admin.firestore.Timestamp.now();
     tx.set(newUtrRef, {

@@ -10,6 +10,7 @@ import { db } from '../firebase';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { resolveStoreContext } from '../utils/storeResolver';
+import { uploadImageToCloudinary } from '../utils/cloudinaryUpload';
 import { FiPackage, FiUpload, FiX, FiArrowLeft } from 'react-icons/fi';
 
 const getSubdomain = () => {
@@ -56,16 +57,6 @@ const RequestProductPage = () => {
     setImagePreview(null);
   };
 
-  const uploadToCloudinary = async (file) => {
-    const data = new FormData();
-    data.append('file', file);
-    data.append('upload_preset', 'easysell_unsigned');
-    const res = await fetch('https://api.cloudinary.com/v1_1/dqplhh4y3/image/upload', { method: 'POST', body: data });
-    const json = await res.json();
-    if (json.secure_url) return json.secure_url;
-    throw new Error(json.error?.message || 'Upload failed');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!productName.trim()) {
@@ -77,7 +68,7 @@ const RequestProductPage = () => {
     try {
       let imageUrl = '';
       if (imageFile) {
-        imageUrl = await uploadToCloudinary(imageFile);
+        imageUrl = await uploadImageToCloudinary(imageFile);
       }
 
       const storeHandle = getSubdomain();

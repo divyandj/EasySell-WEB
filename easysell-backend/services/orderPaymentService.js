@@ -213,6 +213,8 @@ async function getOrderStatus(orderId, buyerId) {
 
   return {
     paymentStatus: order.paymentStatus,
+    utrNumber: order.utrNumber || null,
+    paymentProofUrl: order.paymentProofUrl || null,
     expiresAt: order.expiresAt?.toMillis ? order.expiresAt.toMillis() : null,
     cancelledAt: order.cancelledAt?.toMillis ? order.cancelledAt.toMillis() : null,
   };

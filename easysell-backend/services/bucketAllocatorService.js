@@ -225,6 +225,39 @@ async function selectBucketForOrderTx(tx, orderAmount, storeHandle) {
   return pick;
 }
 
+async function selectBucketForOrderTxPreferEmpty(tx, orderAmount, storeHandle) {
+  let q = db.collection('buckets').where('status', '==', BUCKET_STATUS.ACTIVE);
+  if (storeHandle) q = q.where('storeHandle', '==', storeHandle);
+
+  const snap = await tx.get(q);
+  if (snap.empty) {
+    throw buildError('NO_BUCKET_AVAILABLE');
+  }
+
+  const candidates = snap.docs
+    .map((d) => ({ bucketId: d.id, ref: d.ref, ...d.data() }))
+    .map((b) => ({
+      ...b,
+      availableAmount: computeAvailable(b),
+      totalUsed: Number(b.reservedAmount || 0) + Number(b.collectedAmount || 0),
+    }))
+    .filter((b) => Number(b.availableAmount || 0) >= Number(orderAmount || 0))
+    .sort((a, b) => {
+      const aEmpty = Number(a.totalUsed || 0) <= 0;
+      const bEmpty = Number(b.totalUsed || 0) <= 0;
+      if (aEmpty !== bEmpty) return aEmpty ? -1 : 1;
+      const p = Number(a.priority || 9999) - Number(b.priority || 9999);
+      if (p !== 0) return p;
+      return Number(b.availableAmount || 0) - Number(a.availableAmount || 0);
+    });
+
+  if (!candidates.length) {
+    throw buildError('ORDER_TOO_LARGE_FOR_BUCKETS');
+  }
+
+  return candidates[0];
+}
+
 function reserveBucketAmountTx(tx, bucket, orderAmount) {
   const currentReserved = Number(bucket.reservedAmount || 0);
   const currentCollected = Number(bucket.collectedAmount || 0);
@@ -253,5 +286,6 @@ module.exports = {
   updateBucket,
   updateBucketStatus,
   selectBucketForOrderTx,
+  selectBucketForOrderTxPreferEmpty,
   reserveBucketAmountTx,
 };
